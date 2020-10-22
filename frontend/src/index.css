@@ -1,0 +1,10 @@
+body {
+    font: 14px "Century Gothic", Futura, sans-serif;
+    margin: auto;
+   
+  }
+
+  .jumbotron {
+    max-width: 500px;
+    margin: auto;
+  }
