@@ -6,18 +6,9 @@ const app = express()
 
 app.use(express.static(path.join(__dirname, '../build')))
 
-app.get('/main', (req,res) => {
+app.get('*', (req,res) => {
     res.sendFile(path.join(__dirname, '../build', 'index.html'))
 })
-
-app.get('/about', (req, res) => {
-    res.send('About page')
-})
-
-app.get('/chat', (req, res) => {
-    res.send('chat page')
-})
-
 
 app.listen(port , (req,res) => {
     console.log('App is listen to port ' + port)
