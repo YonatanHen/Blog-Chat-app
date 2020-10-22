@@ -3,8 +3,7 @@ import ReactDOM from 'react-dom';
 import './index.css';
 import { BrowserRouter as Router, Route, Switch } from 'react-router-dom';
 import Main from './components/main'
-import Main from './components/about'
-import About from './components/main'
+import About from './components/about'
 import Navbar from './components/navbar'
 
 class App extends React.Component {
