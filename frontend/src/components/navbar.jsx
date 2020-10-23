@@ -1,25 +1,21 @@
 import React from 'react';
-import { BrowserRouter as Router, Route, Switch } from 'react-router-dom';
-import { render } from 'react-dom';
+import { Navbar, Nav} from 'react-bootstrap';
 
-
-//TODO: Change class to active depends on which page directed
 //send to app.js which component is active. 
 class NavBar extends React.Component {
-  render() {
+  render () {
     return ( 
-      <nav class="navbar navbar-inverse">
-        <div class="container-fluid">
-          <div class="navbar-header">
-            <a class="navbar-brand" href="#">Blog - App</a>
-          </div>
-          <ul class="nav navbar-nav">
-            <li class="active"><a href="#">Home</a></li>
-            <li><a href="/chat">Chat</a></li>
-            <li><a href="/about">About</a></li>
-          </ul>
-        </div>
-      </nav>
+      <>
+        <Navbar bg="dark" variant="dark">
+          <Navbar.Brand href="/main">Blog-App</Navbar.Brand>
+          <Nav className="mr-auto">
+            <Nav.Link href="/main">Main</Nav.Link>
+            <Nav.Link href="/chat">Chat</Nav.Link>
+            <Nav.Link href="/about">About</Nav.Link>
+          </Nav>
+        </Navbar>
+        <br />
+      </>
     );
   };
 };
