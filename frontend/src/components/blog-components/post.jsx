@@ -3,6 +3,9 @@ import { Card, Accordion, Button } from 'react-bootstrap';
 
 
 class Post extends React.Component {
+    constructor(props) {
+        super(props)
+    }
     render() {
         return (
             <>
