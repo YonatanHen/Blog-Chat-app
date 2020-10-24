@@ -4,6 +4,7 @@ import Main from './components/main'
 import About from './components/about'
 import Navbar from './components/navbar'
 import Chat from './components/chat'
+import Login from './components/login'
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './css/app.css'
 
@@ -15,6 +16,7 @@ class App extends React.Component {
             <div>
             <Navbar />
               <Switch>
+                <Route exact path="/" component={Login} />
                 <Route exact path="/main" component={Main} />
                 <Route path="/about" component={About} />
                 <Route path="/chat" component={Chat} />

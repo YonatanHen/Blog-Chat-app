@@ -2,6 +2,13 @@
     max-width: 500px;
     margin: auto;
   }
+  
+  .container {
+    /* remember to set a width */
+    margin-right: auto;
+    margin-left: auto;
+    max-width: 500px;
+}
 
   .main-btns {
     margin-bottom: 10px;
