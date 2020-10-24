@@ -5,7 +5,7 @@ import About from './components/about'
 import Navbar from './components/navbar'
 import Chat from './components/chat'
 import 'bootstrap/dist/css/bootstrap.min.css';
-
+import './css/app.css'
 
 class App extends React.Component {
     render() {
