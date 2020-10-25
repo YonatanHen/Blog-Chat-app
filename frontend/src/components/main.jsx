@@ -1,5 +1,5 @@
 import React from 'react';
-import { Jumbotron, Container, Table, Accordion, Button } from 'react-bootstrap';
+import { Jumbotron, Container, Accordion, Button } from 'react-bootstrap';
 import Post from './blog-components/post'
 
 class Main extends React.Component {
