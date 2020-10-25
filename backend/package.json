@@ -15,7 +15,9 @@
     "cors": "^2.8.5",
     "express": "^4.17.1",
     "mongod": "^2.0.0",
-    "mongoose": "^5.10.10"
+    "mongoose": "^5.10.10",
+    "react": "^17.0.1",
+    "react-dom": "^17.0.1"
   },
   "devDependencies": {
     "nodemon": "^2.0.6"
