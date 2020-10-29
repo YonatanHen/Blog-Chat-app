@@ -19,10 +19,12 @@
     "react-scripts": "^3.4.4"
   },
   "scripts": {
-    "start": "react-scripts start",
+    "client": "react-scripts start",
+    "server": "node server/app.js",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "dev": "concurrently \"npm run server\" \"npm run client\""
   },
   "eslintConfig": {
     "extends": "react-app"
@@ -39,5 +41,7 @@
       "last 1 safari version"
     ]
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "concurrently": "^5.3.0"
+  }
 }
