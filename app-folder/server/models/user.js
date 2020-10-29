@@ -24,7 +24,7 @@ userSchema.statics.findUser = async (username) => {
     const user = await User.findOne({ username })
 
     if (!user) {
-        throw new Error('Unable to find user:' + username)
+        return new Error('Unable to find user:' + username)
     }
 
     return user

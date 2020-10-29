@@ -30,6 +30,20 @@ class Login extends React.Component {
     }
     
     handleSubmit(event) {
+        fetch(`http://localhost:3005/login/${this.state.username}`)
+        .then(res => { res.json()
+        console.log(res)})
+        .then(
+            (result) => {
+                this.setState({
+                  password: result.password
+                });
+            }, (error) => {
+                this.setState({
+                  error
+                });
+            }
+        )
     alert(`name: ${this.state.username}, password: ${this.state.password}, email: ${this.state.email}`);
     event.preventDefault();
     }
