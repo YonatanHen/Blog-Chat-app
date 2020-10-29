@@ -31,7 +31,7 @@ class Login extends React.Component {
     
     handleSubmit(event) {
         fetch(`http://localhost:3005/login/${this.state.username}`)
-        .then(res => { res.json()
+        .then(res => {
         console.log(res)})
         .then(
             (result) => {
