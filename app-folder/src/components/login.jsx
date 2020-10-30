@@ -30,23 +30,20 @@ class Login extends React.Component {
     }
     
     handleSubmit(event) {
-        fetch(`http://localhost:3005/login/${this.state.username}`)
-        .then(res => {
-        console.log(res)})
-        .then(
-            (result) => {
+        fetch(`/login/${this.state.username}`)
+        .then(res => res.json())
+        .then(result => {
                 this.setState({
-                  password: result.password
+                  password: result.password,
+                  email: result.email
                 });
-            }, (error) => {
-                this.setState({
-                  error
-                });
+                console.log(this.state)
             }
         )
-    alert(`name: ${this.state.username}, password: ${this.state.password}, email: ${this.state.email}`);
-    event.preventDefault();
+        alert(`name: ${this.state.username}, password: ${this.state.password}, email: ${this.state.email}`);
+        event.preventDefault();
     }
+    
 
     render () {
         return (
@@ -58,14 +55,14 @@ class Login extends React.Component {
                     </Form.Group>
                     <Form.Group controlId="user-email">
                         <Form.Label>Email address</Form.Label>
-                        <Form.Control type="email" placeholder="Enter email" value={this.state.email} onChange={this.handleEmail}/>
+                        <Form.Control type="email" placeholder="Enter email" />
                         <Form.Text className="text-muted">
                         We'll never share your email with anyone else.
                         </Form.Text>
                     </Form.Group>
                     <Form.Group controlId="user-password">
                         <Form.Label>Password</Form.Label>
-                        <Form.Control type="password" placeholder="Password" value={this.state.password} onChange={this.handlePassword}/>
+                        <Form.Control type="password" placeholder="Password" />
                     </Form.Group>
                     <Button variant="primary" type="submit">
                         Submit
@@ -77,3 +74,6 @@ class Login extends React.Component {
 };
 
 export default Login
+
+/*value={this.state.email} onChange={this.handleEmail}
+value={this.state.password} onChange={this.handlePassword}*/
