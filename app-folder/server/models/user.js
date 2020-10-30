@@ -17,17 +17,15 @@ const userSchema = new mongoose.Schema({
     password: {
         type: String,
         // required: true
-    },
-},
-{ typeKey: '$type' }
+    }
+}
 )
 
 userSchema.statics.findUser = async (username) => {
     const user = await User.findOne({ username })
 
     if (!user) {
-        console.log(username)
-        return new Error('Unable to find user:' + username)
+        throw new Error('Unable to find user:' + username)
     }
     console.log(user)
     return user
