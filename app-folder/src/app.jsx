@@ -2,7 +2,6 @@ import React from 'react';
 import { BrowserRouter as Router, Route, Switch } from 'react-router-dom';
 import Main from './components/main'
 import About from './components/about'
-import Navbar from './components/navbar'
 import Chat from './components/chat'
 import Login from './components/login'
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -14,7 +13,6 @@ class App extends React.Component {
         <div className="App">
           <Router>
             <div>
-            <Navbar />
               <Switch>
                 <Route exact path="/" component={Login} />
                 <Route exact path="/main" component={Main} />
