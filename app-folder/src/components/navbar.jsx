@@ -13,6 +13,11 @@ class NavBar extends React.Component {
             <Nav.Link href="/chat">Chat</Nav.Link>
             <Nav.Link href="/about">About</Nav.Link>
           </Nav>
+          <Navbar.Collapse className="justify-content-end">
+          <Navbar.Text>
+          Signed in as: <a href="/login">Mark Otto</a>
+          </Navbar.Text>
+          </Navbar.Collapse>
         </Navbar>
         <br />
       </>

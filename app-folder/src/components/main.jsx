@@ -1,6 +1,8 @@
 import React from 'react';
 import { Jumbotron, Container, Accordion, Button } from 'react-bootstrap';
 import Post from './blog-components/post'
+import Navbar from './navbar'
+
 
 class Main extends React.Component {
    constructor(props) {
@@ -23,6 +25,7 @@ class Main extends React.Component {
     render() {
         return (
             <>
+            <Navbar />
             <Jumbotron fluid>
                 <Container>
                     <h1>Fluid jumbotron</h1>
