@@ -1,5 +1,6 @@
 import React from 'react';
 import { Form, Button, Container } from 'react-bootstrap';
+import { Redirect } from 'react-router-dom';
 
 
 class SignIn extends React.Component {
@@ -30,17 +31,22 @@ class SignIn extends React.Component {
     }
     
     handleSubmit = (event) => {
-        fetch(`/login/${this.state.username}`)
-        .then(res => res.json())
-        .then(result => {
-                this.setState({
-                  password: result.password,
-                  email: result.email
-                });
-                console.log(this.state)
-            }
-        )
-        alert(`name: ${this.state.username}, password: ${this.state.password}, email: ${this.state.email}`);
+        fetch(`http://localhost:3005/signin/`, {
+            method: 'POST',
+            user: JSON.stringify({
+                username: this.state.username,
+                email: this.state.email,
+                password: this.state.password
+            }),
+            headers: {"Content-Type": "application/json"}
+        })
+        .then(() => {
+            console.log('Success')
+            // <Redirect to = "/blog" />
+        })
+        .catch((error) => {
+            alert(error)
+        })
         event.preventDefault();
     }
     
@@ -55,14 +61,15 @@ class SignIn extends React.Component {
                     </Form.Group>
                     <Form.Group controlId="user-email">
                         <Form.Label>Email address</Form.Label>
-                        <Form.Control type="email" placeholder="Enter email" />
+                        <Form.Control type="email" placeholder="Enter email" onChange={this.handleEmail}/>
                         <Form.Text className="text-muted">
                         We'll never share your email with anyone else.
                         </Form.Text>
                     </Form.Group>
                     <Form.Group controlId="user-password">
                         <Form.Label>Password</Form.Label>
-                        <Form.Control type="password" placeholder="Password" />
+                        <Form.Control type="password" placeholder="Password" onChange={this.handlePassword}/>
+
                     </Form.Group>
                     <Button variant="primary" type="submit">
                         Submit
@@ -77,3 +84,16 @@ export default SignIn
 
 /*value={this.state.email} onChange={this.handleEmail}
 value={this.state.password} onChange={this.handlePassword}*/
+
+
+// handleSubmit = (event) => {
+//     fetch(`/signin/${this.state.username}`)
+//     .then(res => res.json())
+//     .then(result => {
+//             this.setState({
+//               password: result.password,
+//               email: result.email
+//             });
+//             console.log(this.state)
+//         }
+//     )
