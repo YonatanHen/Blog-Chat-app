@@ -2,13 +2,12 @@ import React from 'react';
 import { Form, Button, Container } from 'react-bootstrap';
 
 
-class SignIn extends React.Component {
+class LogIn extends React.Component {
     constructor(props) {
         super(props)
         this.state = {
             username: '',
             password: '',
-            email: ''
         }
 
         this.handleUsername = this.handleUsername.bind(this);
@@ -53,13 +52,6 @@ class SignIn extends React.Component {
                         <Form.Label>Username</Form.Label>
                         <Form.Control type="text" placeholder="Enter username" value={this.state.username} onChange={this.handleUsername}/>
                     </Form.Group>
-                    <Form.Group controlId="user-email">
-                        <Form.Label>Email address</Form.Label>
-                        <Form.Control type="email" placeholder="Enter email" />
-                        <Form.Text className="text-muted">
-                        We'll never share your email with anyone else.
-                        </Form.Text>
-                    </Form.Group>
                     <Form.Group controlId="user-password">
                         <Form.Label>Password</Form.Label>
                         <Form.Control type="password" placeholder="Password" />
@@ -73,7 +65,7 @@ class SignIn extends React.Component {
     };
 };
 
-export default SignIn
+export default LogIn
 
 /*value={this.state.email} onChange={this.handleEmail}
 value={this.state.password} onChange={this.handlePassword}*/

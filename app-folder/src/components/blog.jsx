@@ -4,7 +4,7 @@ import Post from './blog-components/post'
 import Navbar from './navbar'
 
 
-class Main extends React.Component {
+class Blog extends React.Component {
    constructor(props) {
        super(props)
        this.state = {
@@ -14,7 +14,7 @@ class Main extends React.Component {
        this.add = this.add.bind(this)
    }
 
-   add = (e) => {
+   add = () => {
         let posts = this.state.posts 
         posts.push(<Post/>)
         this.setState({
@@ -25,24 +25,24 @@ class Main extends React.Component {
     render() {
         return (
             <>
-            <Navbar />
-            <Jumbotron fluid>
-                <Container>
-                    <h1>Fluid jumbotron</h1>
-                    <p>
-                    This is a modified jumbotron that occupies the entire horizontal space of
-                    its parent.
-                    </p>
-                </Container>
-            </Jumbotron>
-            <div className='blog-btns'>
-            <Button variant="primary" onClick={this.add}>Add new post</Button>
-            <Button variant="danger">Secondary</Button>
-            </div>
-            <Accordion>{this.state.posts.map(post => (post))}</Accordion>
+                <Navbar />
+                <Jumbotron fluid>
+                    <Container>
+                        <h1>Fluid jumbotron</h1>
+                        <p>
+                        This is a modified jumbotron that occupies the entire horizontal space of
+                        its parent.
+                        </p>
+                    </Container>
+                </Jumbotron>
+                <div className='blog-btns'>
+                <Button variant="primary" onClick={this.add}>Add new post</Button>
+                <Button variant="danger">Secondary</Button>
+                </div>
+                <Accordion>{this.state.posts.map(post => (post))}</Accordion>
             </>
         );
     };
 };
 
-export default Main 
+export default Blog
