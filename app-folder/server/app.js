@@ -7,13 +7,14 @@ const userRouter = require('./routers/user')
 const port = process.env.port || 3005
 const app = express()
 
-app.use(express.static(path.join(__dirname, '../public')));
+app.use(express.json()) // Parses request body if type is json. Saves to req.body.
+app.use(express.static(path.join(__dirname, '../build')));
 app.use(userRouter)
 app.use(cors())
 
-// app.get('*', (req, res) => {
-//     res.sendFile(path.join(__dirname, '../public', 'index.html'));
-// })
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../build', 'index.html'));
+})
 
 app.listen(port , (req, res) => {
     console.log('App is listen to port ' + port)

@@ -7,9 +7,9 @@ class SignIn extends React.Component {
     constructor(props) {
         super(props)
         this.state = {
-            username: '',
-            password: '',
-            email: ''
+            username: "yona",
+            password: "123",
+            email: "dsds@ddfd.com"
         }
 
         this.handleUsername = this.handleUsername.bind(this);
@@ -31,17 +31,18 @@ class SignIn extends React.Component {
     }
     
     handleSubmit = (event) => {
-        fetch(`http://localhost:3005/signin/`, {
+        fetch(`/signin`, {
             method: 'POST',
-            user: JSON.stringify({
+            body: JSON.stringify({
                 username: this.state.username,
                 email: this.state.email,
                 password: this.state.password
             }),
-            headers: {"Content-Type": "application/json"}
+            headers: {"Content-Type": "text/plain"}
         })
+        .then(res => res.json())
         .then(() => {
-            console.log('Success')
+            console.log('success')
             // <Redirect to = "/blog" />
         })
         .catch((error) => {
@@ -61,14 +62,14 @@ class SignIn extends React.Component {
                     </Form.Group>
                     <Form.Group controlId="user-email">
                         <Form.Label>Email address</Form.Label>
-                        <Form.Control type="email" placeholder="Enter email" onChange={this.handleEmail}/>
+                        <Form.Control type="email" placeholder="Enter email" value={this.state.email} onChange={this.handleEmail}/>
                         <Form.Text className="text-muted">
                         We'll never share your email with anyone else.
                         </Form.Text>
                     </Form.Group>
                     <Form.Group controlId="user-password">
                         <Form.Label>Password</Form.Label>
-                        <Form.Control type="password" placeholder="Password" onChange={this.handlePassword}/>
+                        <Form.Control type="password" placeholder="Password" value={this.state.password} onChange={this.handlePassword}/>
 
                     </Form.Group>
                     <Button variant="primary" type="submit">
