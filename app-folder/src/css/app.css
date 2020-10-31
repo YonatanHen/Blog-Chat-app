@@ -10,14 +10,24 @@
     max-width: 500px;
 }
 
-  .main-btns {
+  .blog-btns {
     margin-bottom: 10px;
     margin-top: 10px;
     margin-left: 40%;
+    margin-right: 30%;
   }
 
-  .main-btns button:first-child {
+  .blog-btns button:first-child {
     margin-right: 20px;
   }
+
+
+  .main-btns {
+    width: 20%;
+    margin: 5% 30% 2% 40%; /*top right bottom left*/
+
+  }
+
+
 
   
