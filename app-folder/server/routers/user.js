@@ -9,13 +9,12 @@ router.get('/login/:username', async (req, res) => {
 })
 
 router.post('/signin', async (req,res) => {
-    try {
-        console.log(req.body.params)
-        
-        await req.body.save()
-        res.send()
+        const user = new User(req.body)
+        try {
+        await user.save()
+        res.status(200).send()
     } catch (e) {
-        res.status(500).send()
+        res.status(400).send()
     }
 })
 

@@ -31,6 +31,11 @@ userSchema.statics.findUser = async (username,password) => {
     return user
 }
 
+userSchema.pre('save', async function (next) {
+    const user = this
+    next()
+})
+
 const User = mongoose.model('User', userSchema)
 
 module.exports = User

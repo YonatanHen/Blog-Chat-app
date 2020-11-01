@@ -7,9 +7,9 @@ class SignIn extends React.Component {
     constructor(props) {
         super(props)
         this.state = {
-            username: "yona",
-            password: "123",
-            email: "dsds@ddfd.com"
+            username: 'yona',
+            password: '123',
+            email: 'dsds@ddfd.com'
         }
 
         this.handleUsername = this.handleUsername.bind(this);
@@ -31,24 +31,22 @@ class SignIn extends React.Component {
     }
     
     handleSubmit = (event) => {
-        fetch(`/signin`, {
+        event.preventDefault()
+        fetch('/signin', {
             method: 'POST',
+            headers: {'Content-Type':'application/json'},
             body: JSON.stringify({
-                username: this.state.username,
-                email: this.state.email,
-                password: this.state.password
-            }),
-            headers: {"Content-Type": "text/plain"}
+                "username": this.state.username,
+                "email": this.state.email,
+                "password": this.state.password
+            })
         })
-        .then(res => res.json())
         .then(() => {
-            console.log('success')
-            // <Redirect to = "/blog" />
+            return <Redirect to="/blog" />
         })
         .catch((error) => {
             alert(error)
         })
-        event.preventDefault();
     }
     
 
