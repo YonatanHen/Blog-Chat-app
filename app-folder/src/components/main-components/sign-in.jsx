@@ -1,15 +1,14 @@
 import React from 'react';
 import { Form, Button, Container } from 'react-bootstrap';
-import { Redirect } from 'react-router-dom';
 
 
 class SignIn extends React.Component {
     constructor(props) {
         super(props)
         this.state = {
-            username: 'yona',
-            password: '123',
-            email: 'dsds@ddfd.com'
+            username: '',
+            password: '',
+            email: ''
         }
 
         this.handleUsername = this.handleUsername.bind(this);
@@ -41,8 +40,9 @@ class SignIn extends React.Component {
                 "password": this.state.password
             })
         })
-        .then(() => {
-            return <Redirect to="/blog" />
+        .then(data => {
+            if(data.statusText !== "Bad Request") console.log(data)
+            else alert('Error occured!')
         })
         .catch((error) => {
             alert(error)
@@ -80,19 +80,3 @@ class SignIn extends React.Component {
 };
 
 export default SignIn
-
-/*value={this.state.email} onChange={this.handleEmail}
-value={this.state.password} onChange={this.handlePassword}*/
-
-
-// handleSubmit = (event) => {
-//     fetch(`/signin/${this.state.username}`)
-//     .then(res => res.json())
-//     .then(result => {
-//             this.setState({
-//               password: result.password,
-//               email: result.email
-//             });
-//             console.log(this.state)
-//         }
-//     )
