@@ -1,6 +1,5 @@
 const Mongod = require('mongod')
 const mongoose = require('mongoose')
-const User = require('../models/user')
 
 mongodbURL = 'mongodb://127.0.0.1:27017/blog-app-api'
 

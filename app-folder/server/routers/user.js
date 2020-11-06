@@ -4,10 +4,8 @@ const router = new express.Router()
 
 
 router.post('/login', async (req, res) => {
-    console.log(req.body)
     try {
-        const user = await User.findUser( req.body.username, req.user.password)
-        console.log(user)
+        const user = await User.findUser( req.body.username, req.body.password )
         res.status(200).send(user)
     } catch (e) {
         res.status(404).send()
