@@ -23,11 +23,9 @@ const userSchema = new mongoose.Schema({
 
 userSchema.statics.findUser = async (username,password) => {
     const user = await User.findOne({ username, password })
-
     if (!user) {
         throw new Error('Unable to find user:' + username)
     }
-    console.log(user)
     return user
 }
 
