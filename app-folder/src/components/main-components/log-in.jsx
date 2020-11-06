@@ -1,11 +1,13 @@
 import React from 'react';
 import { Form, Button, Container } from 'react-bootstrap';
+import { Redirect } from 'react-router-dom';
 
 
 class LogIn extends React.Component {
     constructor(props) {
         super(props)
         this.state = {
+            redirect: false,
             username: 'Yonatan',
             password: '1234',
         }
@@ -34,8 +36,8 @@ class LogIn extends React.Component {
             })
         })
         .then(data => {
-            if (data.status === 404) alert('User ' + this.state.username + ' not found')
-            else alert('OK')
+           if (data.status === 404) alert('User not found')
+            else this.setState({ redirect: true })
         })
         .catch((error) => {
             alert(error)
@@ -44,7 +46,14 @@ class LogIn extends React.Component {
     
 
     render () {
-        return (
+        if (this.state.redirect)
+            return (
+            <Redirect to={{
+                pathname: '/blog',
+                props: { username: this.state.username}
+            }}/>
+            )
+        else return (
             <Container>
                 <Form onSubmit={this.handleSubmit}>
                     <Form.Group controlId="user-username">

@@ -2,13 +2,15 @@ import React from 'react';
 import { Jumbotron, Container, Accordion, Button } from 'react-bootstrap';
 import Post from './blog-components/post'
 import Navbar from './navbar'
+import { Redirect } from 'react-router-dom'
 
 
 class Blog extends React.Component {
    constructor(props) {
        super(props)
        this.state = {
-       posts : []
+        connectedUser: this.props.location.props.username,
+        posts : [],
        }
        // This binding is necessary to make `this` work in the callback
        this.add = this.add.bind(this)
@@ -25,13 +27,12 @@ class Blog extends React.Component {
     render() {
         return (
             <>
-                <Navbar />
+                <Navbar username={this.state.connectedUser}/>
                 <Jumbotron fluid>
                     <Container>
-                        <h1>Fluid jumbotron</h1>
+                        <h1>Welcome!</h1>
                         <p>
-                        This is a modified jumbotron that occupies the entire horizontal space of
-                        its parent.
+                        In this blog you can share with the media everything you want!
                         </p>
                     </Container>
                 </Jumbotron>
