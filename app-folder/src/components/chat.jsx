@@ -6,7 +6,7 @@ class Chat extends React.Component {
     render(){
         return (
             <div>
-                <Navbar />
+                <Navbar/>
                 <h2>Chat</h2>
             </div>
         );

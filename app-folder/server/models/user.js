@@ -1,6 +1,7 @@
 require('../db/mongoose')
 const mongoose = require('mongoose')
 const bcrypt = require('bcrypt')
+const jwt = require('jsonwebtoken')
 
 
 const userSchema = new mongoose.Schema({
@@ -18,11 +19,16 @@ const userSchema = new mongoose.Schema({
         required: true,
         lowercase: true,
         trim: true
-    }
-}
-)
+    },
+    tokens: [{
+        token: {
+            type: String,
+            required: true
+        }
+    }]
+})
 
-userSchema.statics.findUser = async (username,password) => {
+userSchema.statics.findByUsernameAndPassword = async (username,password) => {
     const user = await User.findOne({ username })
     if (!user) {
         throw new Error('Unable to find user:' + username)
@@ -35,6 +41,17 @@ userSchema.statics.findUser = async (username,password) => {
 
     return user
 }
+
+userSchema.methods.generateAuthToken = async function() {
+    const user = this
+    const token = jwt.sign({ _id: user._id.toString() }, 'secret' , { expiresIn: '1d' })
+
+    user.tokens = user.tokens.concat({ token })
+    await user.save()
+
+    return token
+}
+
 
 userSchema.pre('save', async function (next) {
     const user = this
