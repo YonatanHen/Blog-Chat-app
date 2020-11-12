@@ -9,8 +9,7 @@ class Blog extends React.Component {
    constructor(props) {
        super(props)
        this.state = {
-        connectedUser: this.props.location.props.username,
-        posts : [],
+        posts : []
        }
        // This binding is necessary to make `this` work in the callback
        this.add = this.add.bind(this)
@@ -27,7 +26,7 @@ class Blog extends React.Component {
     render() {
         return (
             <>
-                <Navbar username={this.state.connectedUser}/>
+            <Navbar/>
                 <Jumbotron fluid>
                     <Container>
                         <h1>Welcome!</h1>

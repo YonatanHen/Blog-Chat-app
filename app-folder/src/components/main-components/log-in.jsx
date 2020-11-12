@@ -2,7 +2,6 @@ import React from 'react';
 import { Form, Button, Container } from 'react-bootstrap';
 import { Redirect } from 'react-router-dom';
 
-
 class LogIn extends React.Component {
     constructor(props) {
         super(props)
@@ -36,8 +35,11 @@ class LogIn extends React.Component {
             })
         })
         .then(data => {
-           if (data.status === 404) alert('User not found')
-            else this.setState({ redirect: true })
+            if (data.status === 404) alert('User not found')
+            else {
+                localStorage.setItem("username", this.state.username)               
+                this.setState({ redirect: true })
+            }
         })
         .catch((error) => {
             alert(error)
@@ -50,7 +52,7 @@ class LogIn extends React.Component {
             return (
             <Redirect to={{
                 pathname: '/blog',
-                props: { username: this.state.username}
+                props: { username: this.state.username }
             }}/>
             )
         else return (
@@ -74,6 +76,3 @@ class LogIn extends React.Component {
 };
 
 export default LogIn
-
-/*value={this.state.email} onChange={this.handleEmail}
-value={this.state.password} onChange={this.handlePassword}*/

@@ -1,11 +1,13 @@
 import React from 'react';
 import { Form, Button, Container } from 'react-bootstrap';
+import { Redirect } from 'react-router-dom';
 
 
 class SignIn extends React.Component {
     constructor(props) {
         super(props)
         this.state = {
+            redirect: false,
             username: '',
             password: '',
             email: ''
@@ -41,8 +43,11 @@ class SignIn extends React.Component {
             })
         })
         .then(data => {
-            if(data.statusText !== "Bad Request") console.log(data)
-            else alert('Error occured!')
+            if(data.statusText === "Bad Request") alert('Error occured!')
+            else {
+                localStorage.setItem("username", this.state.username)               
+                this.setState({ redirect: true })
+            }
         })
         .catch((error) => {
             alert(error)
@@ -51,7 +56,14 @@ class SignIn extends React.Component {
     
 
     render () {
-        return (
+        if (this.state.redirect)
+            return (
+            <Redirect to={{
+                pathname: '/blog',
+                props: { username: this.state.username }
+            }}/>
+            )
+        else return (
             <Container>
                 <Form onSubmit={this.handleSubmit}>
                     <Form.Group controlId="user-username">
