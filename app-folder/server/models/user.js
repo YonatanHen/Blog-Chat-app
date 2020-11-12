@@ -1,5 +1,6 @@
 require('../db/mongoose')
 const mongoose = require('mongoose')
+const bcrypt = require('bcrypt')
 
 
 const userSchema = new mongoose.Schema({
@@ -22,15 +23,26 @@ const userSchema = new mongoose.Schema({
 )
 
 userSchema.statics.findUser = async (username,password) => {
-    const user = await User.findOne({ username, password })
+    const user = await User.findOne({ username })
     if (!user) {
         throw new Error('Unable to find user:' + username)
     }
+
+    const isMatch = await bcrypt.compare(password, user.password)
+    if (!isMatch) {
+        throw new Error('Unable to login')
+    }
+
     return user
 }
 
 userSchema.pre('save', async function (next) {
     const user = this
+
+    if(user.isModified('password')) {
+        user.password = await bcrypt.hash(user.password, 8)
+    }
+
     next()
 })
 
