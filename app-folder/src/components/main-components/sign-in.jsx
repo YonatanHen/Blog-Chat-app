@@ -45,7 +45,7 @@ class SignIn extends React.Component {
         .then(data => {
             if(data.statusText === "Bad Request") alert('Error occured!')
             else {
-                localStorage.setItem("username", this.state.username)               
+                sessionStorage.setItem("username", this.state.username)               
                 this.setState({ redirect: true })
             }
         })

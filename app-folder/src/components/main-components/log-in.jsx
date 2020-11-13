@@ -37,7 +37,7 @@ class LogIn extends React.Component {
         .then(data => {
             if (data.status === 404) alert('User not found')
             else {
-                localStorage.setItem("username", this.state.username)               
+                sessionStorage.setItem("username", this.state.username)               
                 this.setState({ redirect: true })
             }
         })

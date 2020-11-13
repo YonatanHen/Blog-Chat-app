@@ -7,6 +7,7 @@ import Chat from './components/chat'
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './css/app.css'
 import Navbar from './components/navbar'
+import authError from './components/main-components/authError';
 
 let history = null
 
@@ -25,6 +26,7 @@ class App extends React.Component {
                 <Route path="/blog" component={Blog} />
                 <Route path="/about" component={About} />
                 <Route path="/chat" component={Chat} />
+                <Route path='/authError' component={authError} />
               </Switch>
             </div>
           </Router>
