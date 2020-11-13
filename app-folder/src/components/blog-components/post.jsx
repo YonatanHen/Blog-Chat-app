@@ -12,7 +12,7 @@ class Post extends React.Component {
     render() {
         return (
             <>
-            <Card>
+            <Card className="post-card">
             <Card.Header>
                 <Accordion.Toggle as={Button} variant="link" eventKey={(++key).toString()}>
                     Click me!

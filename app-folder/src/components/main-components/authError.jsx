@@ -3,7 +3,7 @@ import React from 'react';
 export default function authError(){
     return (
         <> 
-            <h1>You have to authenticate!</h1>
+            <h1>You are not authenticated!</h1>
             <a href='/'>Log-in/Sign-in</a>
         </>
     )
