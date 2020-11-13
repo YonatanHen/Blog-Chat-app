@@ -28,6 +28,16 @@
 
   }
 
+  .justify-content-end {
+    margin-right: 3%;
+  }
 
+  #nav-dropdown {
+    color: white;
+  }
+
+  .post-card {
+    margin: 1.5%;
+  }
 
   

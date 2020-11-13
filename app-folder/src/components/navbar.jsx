@@ -1,5 +1,5 @@
 import React from 'react';
-import { Navbar, Nav} from 'react-bootstrap';
+import { Navbar, Nav, NavDropdown} from 'react-bootstrap';
 import { Redirect } from 'react-router-dom';
 
 //send to app.js which component is active. 
@@ -28,8 +28,13 @@ class NavBar extends React.Component {
           </Nav>
           <Navbar.Collapse className="justify-content-end">
           <Navbar.Text>
-            Signed in as: <a href="/#">{this.state.LoggedUser}</a>
+            Signed in as:
           </Navbar.Text>
+          <NavDropdown title={this.state.LoggedUser} id="nav-dropdown">
+        <NavDropdown.Item eventKey="4.1">Update user</NavDropdown.Item>
+        <NavDropdown.Item eventKey="4.2">Delete user</NavDropdown.Item>
+        <NavDropdown.Item eventKey="4.3">Log-out</NavDropdown.Item>
+        </NavDropdown>
           </Navbar.Collapse>
         </Navbar>
         <br />
