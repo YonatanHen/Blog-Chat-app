@@ -48,7 +48,7 @@ class NavBar extends React.Component {
       )}
     return ( 
       <>
-        <Navbar bg="dark" variant="dark">
+        <Navbar variant="dark">
           <Navbar.Brand href="/blog">Blog-App</Navbar.Brand>
           <Nav className="mr-auto">
             <Nav.Link href="/blog">Blog</Nav.Link>
