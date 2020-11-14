@@ -17,12 +17,28 @@ router.post('/signin', async (req,res) => {
     const user = new User(req.body)
     try {
         const username = user.username
-        if (!await User.findOne({ username })) {
-            await user.save()
-            const token = await user.generateAuthToken()
-            res.status(201).send({ user , token })
-            }
-        else res.status(404).send()
+        if (await User.findOne({ username })) { //If username doensn't exist.
+            throw new Error('username already exsit.')
+        }
+        await user.save()
+        const token = await user.generateAuthToken()
+        res.status(201).send({ user , token })
+    } catch (e) {
+        res.status(400).send(e)
+    }
+})
+
+router.delete('/delete/myuser', async (req,res) => {
+    console.log(req.body.username)
+    try {
+        const username = req.body.username
+        const user = await User.findOne({ username }) 
+        console.log(user)
+        if (!user) {
+            throw new Error('user does not exist.')
+        }
+        await user.remove()
+        res.status(200).send()
     } catch (e) {
         res.status(400).send(e)
     }
