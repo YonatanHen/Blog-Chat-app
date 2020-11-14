@@ -1,4 +1,22 @@
-  .jumbotron {
+body {
+	background: linear-gradient(-45deg, #132b58, #069c45, #23a6d5, #23d5ab);
+	background-size: 400% 400%;
+	animation: gradient 15s ease infinite;
+}
+
+@keyframes gradient {
+	0% {
+		background-position: 0% 50%;
+	}
+	50% {
+		background-position: 100% 50%;
+	}
+	100% {
+		background-position: 0% 50%;
+	}
+}
+ 
+ .jumbotron {
     max-width: 500px;
     margin: auto;
   }
@@ -25,7 +43,6 @@
   .main-btns {
     width: 20%;
     margin: 5% 30% 2% 40%; /*top right bottom left*/
-
   }
 
   .justify-content-end {
