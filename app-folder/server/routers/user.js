@@ -29,11 +29,9 @@ router.post('/signin', async (req,res) => {
 })
 
 router.delete('/delete/myuser', async (req,res) => {
-    console.log(req.body.username)
     try {
         const username = req.body.username
         const user = await User.findOne({ username }) 
-        console.log(user)
         if (!user) {
             throw new Error('user does not exist.')
         }
