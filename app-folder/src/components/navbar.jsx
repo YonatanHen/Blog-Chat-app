@@ -7,14 +7,43 @@ class NavBar extends React.Component {
   constructor(props) { 
     super(props)
     this.state = {
+      redirectHome: false,
       LoggedUser: sessionStorage.getItem("username")
     }
+
+    this.handleDeleteUser = this.handleDeleteUser.bind(this)
+    this.RedirectToHomePage = this.RedirectToHomePage.bind(this)
   }
+
+  RedirectToHomePage = () => {
+    this.setState({ redirectHome: true })
+  }
+
+  handleDeleteUser = () => {
+    fetch('/delete/myuser', {
+      method: 'DELETE',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ "username": this.state.LoggedUser })
+    })
+    .then(
+      this.RedirectToHomePage()
+    )
+    .catch((error) => {
+      alert(error)
+    })
+  }
+
   render () {
     if (!this.state.LoggedUser) {
       return (
           <Redirect to={{
             pathname: '/authError',
+        }}/>
+      )}
+    if (this.state.redirectHome) {
+      return (
+          <Redirect to={{
+            pathname: '/',
         }}/>
       )}
     return ( 
@@ -32,8 +61,8 @@ class NavBar extends React.Component {
           </Navbar.Text>
           <NavDropdown title={this.state.LoggedUser} id="nav-dropdown">
         <NavDropdown.Item eventKey="4.1">Update user</NavDropdown.Item>
-        <NavDropdown.Item eventKey="4.2">Delete user</NavDropdown.Item>
-        <NavDropdown.Item eventKey="4.3">Log-out</NavDropdown.Item>
+        <NavDropdown.Item onClick={this.handleDeleteUser}>Delete user</NavDropdown.Item>
+        <NavDropdown.Item onClick={this.RedirectToHomePage}>Log-out</NavDropdown.Item>
         </NavDropdown>
           </Navbar.Collapse>
         </Navbar>
