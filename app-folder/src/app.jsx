@@ -12,15 +12,10 @@ import authError from './components/main-components/authError';
 let history = null
 
 class App extends React.Component {
-  constructor(props) {
-    super(props)
-    history = props.history
-  }
     render() {
       return (
         <div className="App">
           <Router>
-            <div>
               <Switch>
                 <Route exact path="/" component={Main}/>
                 <Route path="/blog" component={Blog} />
@@ -28,7 +23,6 @@ class App extends React.Component {
                 <Route path="/chat" component={Chat} />
                 <Route path='/authError' component={authError} />
               </Switch>
-            </div>
           </Router>
         </div>
       );
