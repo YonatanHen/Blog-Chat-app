@@ -28,6 +28,12 @@ const userSchema = new mongoose.Schema({
     }]
 })
 
+userSchema.virtual('tasks', {
+    ref: 'Task',
+    localField: '_id', //the field that save the local connection stored data
+    foreignField: 'owner' //the field in the other side of the association that connects between them.
+})
+
 userSchema.statics.findByUsernameAndPassword = async (username,password) => {
     const user = await User.findOne({ username })
     if (!user) {
