@@ -20,7 +20,10 @@ class NavBar extends React.Component {
       method: 'GET'
     }) //logout user - delete tokens
     .then( 
-      this.setState({ redirectHome: true })
+      sessionStorage.removeItem("username"),
+      this.setState({
+        redirectHome: true,
+      })
     )
   }
 
