@@ -16,7 +16,12 @@ class NavBar extends React.Component {
   }
 
   RedirectToHomePage = () => {
-    this.setState({ redirectHome: true })
+    fetch('/logout/' + this.state.LoggedUser , {
+      method: 'GET'
+    }) //logout user - delete tokens
+    .then( 
+      this.setState({ redirectHome: true })
+    )
   }
 
   handleDeleteUser = () => {

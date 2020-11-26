@@ -28,6 +28,18 @@ router.post('/signin', async (req,res) => {
     }
 })
 
+router.get('/logout/:username', async (req,res) => {
+    const username = req.params.username
+    const user = await User.findOne({ username })
+    try {
+        user.tokens = []
+        await user.save()
+        res.status(200).send()
+    } catch (e) {
+        res.status(500).send()
+    }
+})
+
 router.delete('/delete/myuser', async (req,res) => {
     try {
         const username = req.body.username

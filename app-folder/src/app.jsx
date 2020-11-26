@@ -6,10 +6,7 @@ import About from './components/about'
 import Chat from './components/chat'
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './css/app.css'
-import Navbar from './components/navbar'
 import authError from './components/main-components/authError';
-
-let history = null
 
 class App extends React.Component {
     render() {
