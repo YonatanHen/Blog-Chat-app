@@ -42,6 +42,7 @@ class SignIn extends React.Component {
                 "password": this.state.password
             })
         })
+        .then(response => response.json())
         .then(response => {
             if(response.statusText === "Bad Request") alert('Error occured!')
             else {
