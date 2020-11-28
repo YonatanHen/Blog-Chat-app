@@ -42,10 +42,11 @@ class SignIn extends React.Component {
                 "password": this.state.password
             })
         })
-        .then(data => {
-            if(data.statusText === "Bad Request") alert('Error occured!')
+        .then(response => {
+            if(response.statusText === "Bad Request") alert('Error occured!')
             else {
-                sessionStorage.setItem("username", this.state.username)               
+                sessionStorage.setItem("username", response.user.username)
+                sessionStorage.setItem("_id", response.user._id)              
                 this.setState({ redirect: true })
             }
         })
