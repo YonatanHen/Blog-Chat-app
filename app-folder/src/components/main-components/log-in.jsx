@@ -34,10 +34,12 @@ class LogIn extends React.Component {
                 "password": this.state.password
             })
         })
-        .then(data => {
-            if (data.status === 404) alert('User not found')
+        .then(response => response.json())
+        .then(response => {
+            if (!response.user) alert('User not found')
             else {
-                sessionStorage.setItem("username", this.state.username)               
+                sessionStorage.setItem("username", response.user.username)
+                sessionStorage.setItem("_id", response.user._id)
                 this.setState({ redirect: true })
             }
         })
