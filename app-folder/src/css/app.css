@@ -30,9 +30,7 @@ body {
 
   .blog-btns {
     margin-bottom: 10px;
-    margin-top: 10px;
-    margin-left: 40%;
-    margin-right: 30%;
+    margin-left: 41%;
   }
 
   .blog-btns button:first-child {
@@ -42,7 +40,7 @@ body {
 
   .main-btns {
     width: 20%;
-    margin: 5% 30% 2% 40%; /*top right bottom left*/
+    margin: 0% 40% 0% 40%; /*top right bottom left*/
   }
 
   .justify-content-end {
@@ -55,6 +53,10 @@ body {
 
   .post-card {
     margin: 1.5%;
+  }
+
+  .search {
+    padding: 0% 40% 0% 38%;
   }
 
   

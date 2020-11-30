@@ -1,8 +1,7 @@
 import React from 'react';
-import { Jumbotron, Container, Accordion, Button } from 'react-bootstrap';
+import { Jumbotron, Container, Accordion, Button, InputGroup, FormControl } from 'react-bootstrap';
 import Post from './blog-components/post'
 import Navbar from './navbar'
-import { Redirect } from 'react-router-dom'
 
 
 class Blog extends React.Component {
@@ -35,6 +34,14 @@ class Blog extends React.Component {
                         </p>
                     </Container>
                 </Jumbotron>
+                <br/>
+                <InputGroup size="sm search">
+                    <InputGroup.Prepend>
+                    <InputGroup.Text>Search</InputGroup.Text>
+                    </InputGroup.Prepend>
+                    <FormControl aria-label="Small"/>
+                </InputGroup>
+                <br />
                 <div className='blog-btns'>
                 <Button variant="primary" onClick={this.add}>Add new post</Button>
                 <Button variant="danger">Secondary</Button>
