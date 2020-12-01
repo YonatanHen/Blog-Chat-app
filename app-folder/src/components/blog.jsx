@@ -8,9 +8,9 @@ class Blog extends React.Component {
    constructor(props) {
        super(props)
        this.state = {
-        posts : []
+        posts : [] //take from db
        }
-       // This binding is necessary to make `this` work in the callback
+
        this.add = this.add.bind(this)
    }
 
@@ -44,7 +44,6 @@ class Blog extends React.Component {
                 <br />
                 <div className='blog-btns'>
                 <Button variant="primary" onClick={this.add}>Add new post</Button>
-                <Button variant="danger">Secondary</Button>
                 </div>
                 <Accordion>{this.state.posts.map(post => (post))}</Accordion>
             </>
