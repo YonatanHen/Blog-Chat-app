@@ -6,7 +6,7 @@ import About from './components/about'
 import Chat from './components/chat'
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './css/app.css'
-import authError from './components/main-components/authError';
+import authError from './components/authError';
 
 class App extends React.Component {
     render() {

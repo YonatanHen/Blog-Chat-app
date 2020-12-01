@@ -22,7 +22,6 @@ body {
   }
   
   .container {
-    /* remember to set a width */
     margin-right: auto;
     margin-left: auto;
     max-width: 500px;
@@ -30,17 +29,12 @@ body {
 
   .blog-btns {
     margin-bottom: 10px;
-    margin-left: 41%;
+    margin-left: 45%;
   }
-
-  .blog-btns button:first-child {
-    margin-right: 20px;
-  }
-
 
   .main-btns {
     width: 20%;
-    margin: 0% 40% 0% 40%; /*top right bottom left*/
+    margin: 5% 40% 1% 40%; /*top right bottom left*/
   }
 
   .justify-content-end {
@@ -53,6 +47,10 @@ body {
 
   .post-card {
     margin: 1.5%;
+    border-color: rgb(153, 150, 150);
+    border-width: 4px;
+    border-radius: 2%;  
+    /*solve problem with bottom border*/  
   }
 
   .search {
