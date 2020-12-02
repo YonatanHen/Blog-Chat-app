@@ -19,6 +19,9 @@ body {
  .jumbotron {
     max-width: 500px;
     margin: auto;
+    background-color: rgba(12, 112, 194, 0.6);
+    border-radius: 2%;
+    color: white;
   }
   
   .container {
@@ -26,11 +29,6 @@ body {
     margin-left: auto;
     max-width: 500px;
 }
-
-  .blog-btns {
-    margin-bottom: 10px;
-    margin-left: 45%;
-  }
 
   .main-btns {
     width: 20%;
@@ -54,7 +52,9 @@ body {
   }
 
   .search {
-    padding: 0% 40% 0% 38%;
+    padding: 0% 2% 0% 2%;
   }
 
-  
+  h1 {
+    color: white;
+  }
