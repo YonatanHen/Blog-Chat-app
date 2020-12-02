@@ -26,26 +26,26 @@ class Blog extends React.Component {
         return (
             <>
             <Navbar/>
-                <Jumbotron fluid>
-                    <Container>
-                        <h1>Welcome!</h1>
-                        <p>
-                        In this blog you can share with the media everything you want!
-                        </p>
-                    </Container>
-                </Jumbotron>
-                <br/>
-                <InputGroup size="sm search">
-                    <InputGroup.Prepend>
-                    <InputGroup.Text>Search</InputGroup.Text>
-                    </InputGroup.Prepend>
-                    <FormControl aria-label="Small"/>
-                </InputGroup>
-                <br />
-                <div className='blog-btns'>
-                <Button variant="primary" onClick={this.add}>Add new post</Button>
-                </div>
-                <Accordion>{this.state.posts.map(post => (post))}</Accordion>
+                <Container className="text-center">
+                    <Jumbotron fluid>
+                            <h1>Welcome!</h1>
+                            <p>
+                            In this blog you can share with the network everything you want!
+                            </p>
+                    </Jumbotron>
+                    <br/>
+                    <InputGroup size="sm search">
+                        <InputGroup.Prepend className='d-flex justify-content-center'>
+                        <InputGroup.Text>Search</InputGroup.Text>
+                        </InputGroup.Prepend>
+                        <FormControl aria-label="Small"/>
+                    </InputGroup>
+                    <br/>
+                    <div className='d-flex justify-content-center'>
+                    <Button variant="primary" onClick={this.add}>Add new post</Button>
+                    </div>
+                    <Accordion>{this.state.posts.map(post => (post))}</Accordion>
+                </Container>
             </>
         );
     };
