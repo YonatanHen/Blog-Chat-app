@@ -2,7 +2,7 @@ require('../db/mongoose')
 const mongoose = require('mongoose')
 
 const postSchema = new mongoose.Schema({
-    head: {
+    title: {
         type: String,
         required: true,
         trim: true
@@ -10,25 +10,24 @@ const postSchema = new mongoose.Schema({
     body: {
         type: String,
     },
-    author: {
-        type: mongoose.Schema.Types.ObjectId,
-        required: true,
-        ref: 'User'
-    },
     comments: [{
         comment: {
-            type: String,
-            required: true
+            type: String
         }
     }],
     likes: {
         type: Number,
         default: 0
+    },
+    author: {
+        type: mongoose.Schema.Types.ObjectId,
+        required: true,
+        ref: 'User'
     }
 } , {
     timestamps: true
 })
 
-const Post = mongoose.model('Post', userSchema)
+const Post = mongoose.model('Post', postSchema)
 
 module.exports = Post
