@@ -3,5 +3,13 @@ const Post = require('../models/post')
 const router = new express.Router()
 
 router.post('/add-post', async (req,res) => {
-    //Add new post to db
+    const post = new Post(req.body)
+    try {
+        await post.save()
+        res.status(201).send(post)
+    } catch (e) {
+        res.status(400).send(e)
+    }
 })
+
+module.exports = router

@@ -11,15 +11,11 @@ class Blog extends React.Component {
         posts : [] //take from db
        }
 
-       this.add = this.add.bind(this)
+       this.redirectToAddPost = this.redirectToAddPost.bind(this)
    }
 
-   add = () => {
-        let posts = this.state.posts 
-        posts.push(<Post/>)
-        this.setState({
-            posts 
-        })
+   redirectToAddPost = () => {
+    this.props.history.push(`/addPost`);
    }
 
     render() {
@@ -42,7 +38,7 @@ class Blog extends React.Component {
                     </InputGroup>
                     <br/>
                     <div className='d-flex justify-content-center'>
-                    <Button variant="primary" onClick={this.add}>Add new post</Button>
+                    <Button variant="primary" onClick={this.redirectToAddPost}>Add new post</Button>
                     </div>
                     <Accordion>{this.state.posts.map(post => (post))}</Accordion>
                 </Container>
