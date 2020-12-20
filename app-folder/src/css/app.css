@@ -58,3 +58,26 @@ body {
   h1 {
     color: white;
   }
+
+  .Like {
+    position: absolute;
+    bottom: 1%;
+    right: 3%;
+    padding: 1%;
+  }
+
+  .Like span {
+    font-size: 13px;
+    font-weight: 500;
+    color: rgb(56, 56, 56);
+  }
+
+  .like-btn {
+    color: grey;
+    bottom: 2px;
+  }
+
+  
+  .like-btn:hover {
+    color: #003feb
+  }
