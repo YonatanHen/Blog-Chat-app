@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card, Accordion, Button } from 'react-bootstrap';
-
+import Like from './post-components/like'
 var key = 0
 
 class Post extends React.Component {
@@ -19,7 +19,12 @@ class Post extends React.Component {
                 </Accordion.Toggle>
             </Card.Header>
                 <Accordion.Collapse eventKey={(key).toString()}>
-                    <Card.Body>Hello! I'm the body</Card.Body>
+                    <Card.Body>
+                        <p>
+                            body
+                        </p>
+                        <Like />
+                    </Card.Body>
                 </Accordion.Collapse>
             </Card>
             </>

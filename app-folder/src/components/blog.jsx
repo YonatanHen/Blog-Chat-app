@@ -40,8 +40,11 @@ class Blog extends React.Component {
                     <div className='d-flex justify-content-center'>
                     <Button variant="primary" onClick={this.redirectToAddPost}>Add new post</Button>
                     </div>
-                    <Accordion>{this.state.posts.map(post => (post))}</Accordion>
                 </Container>
+                <Accordion>
+                    <Post />
+                    {this.state.posts.map(post => (post))}
+                </Accordion>
             </>
         );
     };
