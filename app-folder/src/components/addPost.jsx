@@ -1,5 +1,5 @@
 import React from 'react'
-import { Container, Form, Button, ResponsiveEmbed } from 'react-bootstrap'
+import { Container, Form, Button } from 'react-bootstrap'
 import Navbar from './navbar'
 
 class addPost extends React.Component {
