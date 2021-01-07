@@ -1,6 +1,4 @@
-//https://stackoverflow.com/questions/32888728/correct-way-to-share-functions-between-components-in-react
-//https://stackoverflow.com/questions/30929679/react-fetch-data-in-server-before-render
-//https://stackoverflow.com/questions/56861580/how-can-i-redirect-before-render
+// Function check if user can access to the blog (in other words - check if the user logged in).
 const checkIfLogin = () => {
     fetch('')
         .then((response) => response.json())

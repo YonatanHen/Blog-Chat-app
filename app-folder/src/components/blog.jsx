@@ -3,16 +3,30 @@ import { Jumbotron, Container, Accordion, Button, InputGroup, FormControl } from
 import Post from './blog-components/post'
 import Navbar from './navbar'
 
-
 class Blog extends React.Component {
    constructor(props) {
        super(props)
        this.state = {
-        posts : [] //take from db
+        posts: null
        }
-
        this.redirectToAddPost = this.redirectToAddPost.bind(this)
    }
+
+    componentDidMount() {
+        fetch('/posts/', {
+            method: 'GET'
+        })
+        .then(response => response.json())
+        .then((data) => {
+            console.log(data)
+            this.setState({
+                posts: data
+            })
+            console.log(this.state.posts[0])
+        }).catch(error => {
+            console.log(error)
+        })
+    }
 
    redirectToAddPost = () => {
     this.props.history.push(`/addPost`);
@@ -43,7 +57,7 @@ class Blog extends React.Component {
                 </Container>
                 <Accordion>
                     <Post />
-                    {this.state.posts.map(post => (post))}
+                    {/* {this.state.posts.map(post => (post))} */}
                 </Accordion>
             </>
         );

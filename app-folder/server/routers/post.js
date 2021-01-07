@@ -12,4 +12,15 @@ router.post('/add-post', async (req,res) => {
     }
 })
 
+router.get('/posts', async(req,res) => {
+    try {
+        const posts = await Post.find()
+        if (posts == []) return res.status(204).send() //204 = data is empty
+        res.status(200).send(posts)
+    } catch (e) {
+        res.status(404).send(e)
+    }
+
+})
+
 module.exports = router
