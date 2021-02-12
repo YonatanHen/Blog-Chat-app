@@ -9,6 +9,7 @@ class Blog extends React.Component {
        this.state = {
         posts: null
        }
+
        this.redirectToAddPost = this.redirectToAddPost.bind(this)
    }
 
@@ -22,7 +23,7 @@ class Blog extends React.Component {
             this.setState({
                 posts: data
             })
-            console.log(this.state.posts[0])
+            console.log(this.state.posts)
         }).catch(error => {
             console.log(error)
         })
@@ -33,7 +34,7 @@ class Blog extends React.Component {
    }
 
     render() {
-        return (
+       if (this.state.posts) return (
             <>
             <Navbar/>
                 <Container className="text-center">
@@ -56,11 +57,18 @@ class Blog extends React.Component {
                     </div>
                 </Container>
                 <Accordion>
-                    <Post />
+                    <Post 
+                        body={this.state.posts[0].body} 
+                        author = {this.state.posts[0].author} 
+                        title = {this.state.posts[0].title}
+                        likes = {this.state.posts[0].likes}
+                        />
+                        
                     {/* {this.state.posts.map(post => (post))} */}
                 </Accordion>
             </>
-        );
+        )
+        else return (<div>Loading...</div>);
     };
 };
 

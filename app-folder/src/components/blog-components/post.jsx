@@ -21,7 +21,7 @@ class Post extends React.Component {
                 <Accordion.Collapse eventKey={(key).toString()}>
                     <Card.Body>
                         <p>
-                            body
+                            {this.props.body}
                         </p>
                         <Like />
                     </Card.Body>
