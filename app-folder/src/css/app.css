@@ -78,6 +78,6 @@ body {
   }
 
   
-  .like-btn:hover {
+  .like-btn:focus{
     color: #003feb
   }
