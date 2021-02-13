@@ -26,8 +26,8 @@ class Main extends React.Component {
         return (
             <>
                 <ButtonGroup size="lg" className="main-btns" aria-label="Basic example">
-                    <Button style={{backgroundColor:"white", color:"#0284D0"}} onClick={this.onLogInClick}>Log-In</Button>
-                    <Button onClick={this.onSignInClick}>Sign-In</Button>
+                    <Button className={this.state.showLogIn ? "active-btn": ""} onClick={this.onLogInClick}>Log-In</Button>
+                    <Button className={!this.state.showLogIn ? "active-btn": ""} onClick={this.onSignInClick}>Sign-In</Button>
                 </ButtonGroup>
                 {this.state.showLogIn ? <LogIn /> : <SignIn />}
             </>
