@@ -44,7 +44,6 @@ userSchema.statics.findByUsernameAndPassword = async (username,password) => {
     if (!isMatch) {
         throw new Error('Unable to login')
     }
-
     return user
 }
 
