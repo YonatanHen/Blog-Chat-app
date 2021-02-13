@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, Accordion, Button } from 'react-bootstrap';
+import { Card, Accordion } from 'react-bootstrap';
 import Like from './post-components/like'
 var key = 0
 
@@ -14,8 +14,8 @@ class Post extends React.Component {
             <>
             <Card className="post-card">
             <Card.Header>
-                <Accordion.Toggle as={Button} variant="link" eventKey={(++key).toString()}>
-                    Click me!
+                <Accordion.Toggle className="post-btn" eventKey={(++key).toString()}>
+                    {this.props.title}
                 </Accordion.Toggle>
             </Card.Header>
                 <Accordion.Collapse eventKey={(key).toString()}>
@@ -23,7 +23,7 @@ class Post extends React.Component {
                         <p>
                             {this.props.body}
                         </p>
-                        <Like />
+                        <Like totalLikes ={this.props.likes}/>
                     </Card.Body>
                 </Accordion.Collapse>
             </Card>

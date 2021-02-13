@@ -53,19 +53,23 @@ class Blog extends React.Component {
                     </InputGroup>
                     <br/>
                     <div className='d-flex justify-content-center'>
-                    <Button variant="primary" onClick={this.redirectToAddPost}>Add new post</Button>
+                    <Button onClick={this.redirectToAddPost}>Add new post</Button>
                     </div>
                 </Container>
-                <Accordion>
-                    <Post 
-                        body={this.state.posts[0].body} 
-                        author = {this.state.posts[0].author} 
-                        title = {this.state.posts[0].title}
-                        likes = {this.state.posts[0].likes}
-                        />
-                        
-                    {/* {this.state.posts.map(post => (post))} */}
-                </Accordion>
+                    {
+                        this.state.posts.map(function (post) {
+                            return (
+                                <Accordion>
+                                    <Post 
+                                        body= {post.body} 
+                                        author = {post.author} 
+                                        title = {post.title}
+                                        likes = {post.likes}
+                                    />
+                                </Accordion>
+                            )
+                        })
+                    }
             </>
         )
         else return (<div>Loading...</div>);

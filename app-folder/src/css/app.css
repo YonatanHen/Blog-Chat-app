@@ -1,83 +1,95 @@
 body {
-	background: linear-gradient(-45deg, #132b58, #069c45, #23a6d5, #23d5ab) no-repeat center center fixed;
-  background-size: 400% 400%;
-	animation: gradient 15s ease infinite;
+	background: #7a942e;
 }
 
-@keyframes gradient {
-	0% {
-		background-position: 0% 50%;
-	}
-	50% {
-		background-position: 100% 50%;
-	}
-	100% {
-		background-position: 0% 50%;
-	}
-}
- 
- .jumbotron {
-    max-width: 500px;
-    margin: auto;
-    background-color: rgba(12, 112, 194, 0.6);
-    border-radius: 2%;
-    color: white;
-  }
-  
-  .container {
-    margin-right: auto;
-    margin-left: auto;
-    max-width: 500px;
+ .navbar {
+    background-color: #4a5d23;
 }
 
-  .main-btns {
-    width: 20%;
-    margin: 5% 40% 1% 40%; /*top right bottom left*/
+.navbar-text {
+    color:#003feb;
+    
   }
 
-  .justify-content-end {
-    margin-right: 3%;
-  }
+.jumbotron {
+  max-width: 500px;
+  margin: auto;
+  background-color: #4a5d23;
+  border-radius: 2%;
+  color: white;
+}
 
-  #nav-dropdown {
-    color: white;
-  }
+.container {
+  margin-right: auto;
+  margin-left: auto;
+  max-width: 500px;
+}
 
-  .post-card {
-    margin: 1.5%;
-    border-color: rgb(153, 150, 150);
-    border-width: 4px;
-    border-radius: 2%;  
-    /*solve problem with bottom border*/  
-  }
+.main-btns {
+  width: 20%;
+  margin: 5% 40% 1% 40%; /*top right bottom left*/
+}
 
-  .search {
-    padding: 0% 2% 0% 2%;
-  }
+.like-btn:hover, .clicked-like , .post-btn, .btn-primary:hover {
+  color: #4a5d23
+}
 
-  h1 {
-    color: white;
-  }
+.btn-primary {
+  background: #4a5d23;
+  border: 2px solid transparent;
+}
 
-  .Like {
-    position: absolute;
-    bottom: 1%;
-    right: 3%;
-    padding: 1%;
-  }
+.post-btn {
+  background: none;
+  border: none;
+}
 
-  .Like span {
-    font-size: 13px;
-    font-weight: 500;
-    color: rgb(56, 56, 56);
-  }
+.post-btn:hover {
+  font-weight: 700;
+  border-bottom: none;
+}
 
-  .like-btn {
-    color: grey;
-    bottom: 2px;
-  }
+.btn-primary:hover {
+  background:white;
+  border: 2px solid;
+  border-color: #4a5d23;
+}
 
-  
-  .like-btn:focus{
-    color: #003feb
-  }
+.justify-content-end {
+  margin-right: 3%;
+}
+
+#nav-dropdown {
+  color: white;
+}
+
+.post-card {
+  margin: 1.5%;   
+}
+
+.search {
+  padding: 0% 2% 0% 2%;
+}
+
+h1 {
+  color: white;
+}
+
+.Like {
+  position: absolute;
+  bottom: 1%;
+  right: 3%;
+  padding: 1%;
+}
+
+.Like span {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgb(56, 56, 56);
+}
+
+.like-btn {
+  color: grey;
+  bottom: 2px;
+}
+

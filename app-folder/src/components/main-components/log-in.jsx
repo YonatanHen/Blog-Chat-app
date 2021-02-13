@@ -36,10 +36,11 @@ class LogIn extends React.Component {
         })
         .then(response => response.json())
         .then(response => {
-            if (!response.user) alert('User not found')
+            console.log(response)
+            if (!response.username) alert('User not found')
             else {
-                sessionStorage.setItem("username", response.user.username)
-                sessionStorage.setItem("_id", response.user._id)
+                sessionStorage.setItem("username", response.username)
+                sessionStorage.setItem("_id", response.id)
                 this.setState({ redirect: true })
             }
         })

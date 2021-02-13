@@ -5,7 +5,7 @@ class Like extends React.Component {
     constructor(props) {
         super(props)
         this.state = {
-            totalLikes: 0, //pull this data from DB later
+            totalLikes: this.props.totalLikes,
             clicked: false
         }
         
@@ -14,17 +14,18 @@ class Like extends React.Component {
     
     UpdateLikes = () => {
         this.setState({
-            count: !this.state.count,
-            totalLikes: (!this.state.count) ? this.state.totalLikes + 1 :  
-            (this.state.totalLikes && this.state.count) ? this.state.totalLikes - 1 : 
+            clicked: !this.state.clicked,
+            totalLikes: (!this.state.clicked) ? this.state.totalLikes + 1 :  
+            (this.state.totalLikes && this.state.clicked) ? this.state.totalLikes - 1 : 
             this.state.totalLikes  
-        })    
+        })  
+
     }
 
     render() {
         return (
             <div className="Like">
-                <AiFillLike className="like-btn" onClick={this.UpdateLikes}/>
+                <AiFillLike className={!this.state.clicked ? "like-btn" : "clicked-like"} onClick={this.UpdateLikes}/>
                 <span> {this.state.totalLikes}</span>
             </div>
         )
