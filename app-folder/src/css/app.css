@@ -6,11 +6,6 @@ body {
     background-color: #4a5d23;
 }
 
-.navbar-text {
-    color:#003feb;
-    
-  }
-
 .jumbotron {
   max-width: 500px;
   margin: auto;
@@ -30,8 +25,11 @@ body {
   margin: 5% 40% 1% 40%; /*top right bottom left*/
 }
 
-.like-btn:hover, .clicked-like , .post-btn, .btn-primary:hover {
-  color: #4a5d23
+.btn-primary:focus, .btn-primary:active, .btn-primary:hover, .active-btn {
+  background: white !important;
+  border: 2px solid #4a5d23 !important;
+  color: #4a5d23 !important;
+  box-shadow: none !important;
 }
 
 .btn-primary {
@@ -39,21 +37,20 @@ body {
   border: 2px solid transparent;
 }
 
+.like-btn:hover, .clicked-like , .post-btn, .btn-primary:hover {
+  color: #4a5d23
+}
+
 .post-btn {
-  background: none;
-  border: none;
+  background: none !important;
+  border: none !important;
+  outline: none !important;
 }
 
 .post-btn:hover {
   font-weight: 700;
-  border-bottom: none;
 }
 
-.btn-primary:hover {
-  background:white;
-  border: 2px solid;
-  border-color: #4a5d23;
-}
 
 .justify-content-end {
   margin-right: 3%;
@@ -92,4 +89,5 @@ h1 {
   color: grey;
   bottom: 2px;
 }
+
 
