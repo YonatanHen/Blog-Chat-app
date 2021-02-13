@@ -22,7 +22,7 @@ router.post('/signin', async (req,res) => {
         }
         await user.save()
         const token = await user.generateAuthToken()
-        res.status(201).send({ user , token })
+        res.status(201).send({id: user._id, username: user.username , token })
     } catch (e) {
         res.status(400).send(e)
     }

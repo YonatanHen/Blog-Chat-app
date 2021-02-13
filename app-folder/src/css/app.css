@@ -2,6 +2,10 @@ body {
 	background: #7a942e;
 }
 
+*:focus {
+  box-shadow: none !important;
+}
+
  .navbar {
     background-color: #4a5d23;
 }
@@ -29,7 +33,6 @@ body {
   background: white !important;
   border: 2px solid #4a5d23 !important;
   color: #4a5d23 !important;
-  box-shadow: none !important;
 }
 
 .btn-primary {

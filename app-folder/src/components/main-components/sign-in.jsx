@@ -46,8 +46,8 @@ class SignIn extends React.Component {
         .then(response => {
             if(response.statusText === "Bad Request") alert('Error occured!')
             else {
-                sessionStorage.setItem("username", response.user.username)
-                sessionStorage.setItem("_id", response.user._id)              
+                sessionStorage.setItem("username", response.username)
+                sessionStorage.setItem("_id", response._id)              
                 this.setState({ redirect: true })
             }
         })
@@ -75,7 +75,7 @@ class SignIn extends React.Component {
                     <Form.Group controlId="user-email">
                         <Form.Label>Email address</Form.Label>
                         <Form.Control type="email" placeholder="Enter email" value={this.state.email} onChange={this.handleEmail}/>
-                        <Form.Text className="text-muted">
+                        <Form.Text style={{color:'#55633e'}}>
                         We'll never share your email with anyone else.
                         </Form.Text>
                     </Form.Group>
