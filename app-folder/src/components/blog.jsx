@@ -61,7 +61,8 @@ class Blog extends React.Component {
                             return (
                                 <Accordion>
                                     <Post 
-                                        body= {post.body} 
+                                        _id = {post._id} 
+                                        body = {post.body} 
                                         author = {post.author} 
                                         title = {post.title}
                                         likes = {post.likes}
