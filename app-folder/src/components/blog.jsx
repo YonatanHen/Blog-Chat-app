@@ -49,7 +49,8 @@ class Blog extends React.Component {
                         <InputGroup.Prepend className='d-flex justify-content-center'>
                         <InputGroup.Text>Search</InputGroup.Text>
                         </InputGroup.Prepend>
-                        <FormControl aria-label="Small"/>
+                        <FormControl aria-label="Small" /> 
+                        {/* onKeyUp={this.filteredPosts(Event)} */}
                     </InputGroup>
                     <br/>
                     <div className='d-flex justify-content-center'>
