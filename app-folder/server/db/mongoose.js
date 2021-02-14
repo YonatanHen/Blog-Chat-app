@@ -10,4 +10,4 @@ mongoose.connect(mongodbURL, {
     useUnifiedTopology: true
 })
 
-//C:\Users\yonat\MongoDB\Server\4.4\bin\mongod.exe --dbpath="C:\Users\yonat\mongodb-data"
+
