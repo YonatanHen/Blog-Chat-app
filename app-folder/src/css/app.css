@@ -54,7 +54,19 @@ body {
   font-weight: 700;
 }
 
+.post-sub-btns {
+  bottom: 5%;
+  right: 1%;
+  padding: 1%;
+  display: inline-flex;
+  position: absolute;
+  flex-wrap: wrap;
+  gap: 2px;
+}
 
+.post-sub-btns > div {
+  margin: 6px;
+}
 .justify-content-end {
   margin-right: 3%;
 }
@@ -73,13 +85,6 @@ body {
 
 h1 {
   color: white;
-}
-
-.Like {
-  position: absolute;
-  bottom: 1%;
-  right: 3%;
-  padding: 1%;
 }
 
 .Like span {

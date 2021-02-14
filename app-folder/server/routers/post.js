@@ -23,4 +23,20 @@ router.get('/posts', async(req,res) => {
 
 })
 
+router.delete('/posts/:id', async (req,res) => {
+    const postId = req.params.id
+    try {
+        const post = await Post.findOneAndDelete({ _id: postId })    
+
+        if (!post) {
+            return res.status(404).send("post not found")
+
+        }
+
+        res.send(post)
+    } catch (e) {
+        res.status(500).send(e)
+    }
+})
+
 module.exports = router
