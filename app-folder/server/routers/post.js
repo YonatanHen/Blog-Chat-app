@@ -48,8 +48,17 @@ router.delete('/posts/:id', async (req,res) => {
 
 router.patch('/like/:postid/:userid', async(req,res) => {
     const userID = req.params.userid
-    const postID = req.params.postid
-    
+    const postID = req.params.posti
+    try {
+        await Post.findOne({_id: postID}, function(err,doc) {
+            if(!doc.find({likedBy: {$elemMatch: {id: userID}}})) {
+                doc.likes.$inc() //incerment likes number
+                doc.likedBy.$push(userID)
+            }
+        })
+    } catch (e) {
+        res.status(400).send(e)
+    }
 
 })
 
