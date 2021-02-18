@@ -37,7 +37,7 @@ class LogIn extends React.Component {
         .then(response => response.json())
         .then(response => {
             console.log(response)
-            if (!response.username) alert('User not found')
+            if (!response.username) alert('Username/Password are not correct.')
             else {
                 sessionStorage.setItem("username", response.username)
                 sessionStorage.setItem("_id", response.id)
