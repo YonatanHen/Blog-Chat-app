@@ -46,4 +46,11 @@ router.delete('/posts/:id', async (req,res) => {
     }
 })
 
+router.patch('/like/:postid/:userid', async(req,res) => {
+    const userID = req.params.userid
+    const postID = req.params.postid
+    
+
+})
+
 module.exports = router
