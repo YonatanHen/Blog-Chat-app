@@ -37,7 +37,6 @@ router.delete('/posts/:id', async (req,res) => {
 
         if (!post) {
             return res.status(404).send({message:"post not found"})
-
         }
 
         res.send(post)
@@ -46,20 +45,21 @@ router.delete('/posts/:id', async (req,res) => {
     }
 })
 
-router.patch('/like/:postid/:userid', async(req,res) => {
-    const userID = req.params.userid
-    const postID = req.params.posti
-    try {
-        await Post.findOne({_id: postID}, function(err,doc) {
-            if(!doc.find({likedBy: {$elemMatch: {id: userID}}})) {
-                doc.likes.$inc() //incerment likes number
-                doc.likedBy.$push(userID)
-            }
-        })
-    } catch (e) {
-        res.status(400).send(e)
-    }
-
+router.patch('/posts/:postid/:userid', async(req,res) => {
+    // const userID = req.params.userid
+    // const postID = req.params.posti
+    // try {
+    //         const post = await Post.findOne({_id: postID})
+    //         if(!post.find({likedBy: {$elemMatch: {id: userID}}})) {
+    //             post.likes.$inc() //incerment likes number
+    //             post.likedBy.$push(userID)
+    //         }  
+    //         await post.save()
+    //         res.send(post)
+    //     } catch (e) {
+    //     res.status(400).send(e)
+    // }
+    console.log(req.params.userid)
 })
 
 module.exports = router

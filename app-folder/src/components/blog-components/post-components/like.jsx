@@ -13,6 +13,12 @@ class Like extends React.Component {
     }
     
     UpdateLikes = () => {
+        console.log("dsdsd")
+        fetch(`/posts/${this.props._id}/${this.props.author}`, {
+            method: 'PATCH',
+            headers: {'Content-Type':'application/json'}
+        })
+    
         this.setState({
             clicked: !this.state.clicked,
             totalLikes: (!this.state.clicked) ? this.state.totalLikes + 1 :  

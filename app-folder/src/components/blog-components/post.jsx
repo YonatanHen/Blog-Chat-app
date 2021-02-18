@@ -13,7 +13,6 @@ class Post extends React.Component {
     }
 
     deletePost = () => {
-        console.log(`/posts/${this.props._id}`)
         fetch(`/posts/${this.props._id}`, {
             method: 'DELETE',
             headers: {'Content-Type':'application/json'}
@@ -60,7 +59,11 @@ class Post extends React.Component {
                         </p>
                         <div className="post-sub-btns">
                             {this.userButtons()}
-                            <Like totalLikes ={this.props.likes}/>
+                            <Like 
+                                _id = {this.props._id}  
+                                author = {this.props.author}
+                                totalLikes = {this.props.likes}
+                                />
                         </div>
                     </Card.Body>
                 </Accordion.Collapse>
