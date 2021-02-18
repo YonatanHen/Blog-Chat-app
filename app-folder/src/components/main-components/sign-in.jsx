@@ -44,7 +44,11 @@ class SignIn extends React.Component {
         })
         .then(response => response.json())
         .then(response => {
-            if(response.statusText === "Bad Request") alert('Error occured!')
+            console.log(response)
+            if(response.status === 400) {
+                console.log(response)
+                alert(response.status)
+            }
             else {
                 sessionStorage.setItem("username", response.username)
                 sessionStorage.setItem("_id", response._id)              
@@ -52,7 +56,8 @@ class SignIn extends React.Component {
             }
         })
         .catch((error) => {
-            alert(error)
+            console.log(error)
+            alert("An error occured!")
         })
     }
     
@@ -70,18 +75,18 @@ class SignIn extends React.Component {
                 <Form onSubmit={this.handleSubmit}>
                     <Form.Group controlId="user-username">
                         <Form.Label>Username</Form.Label>
-                        <Form.Control type="text" placeholder="Enter username" value={this.state.username} onChange={this.handleUsername}/>
+                        <Form.Control type="text" placeholder="Enter username" value={this.state.username} onChange={this.handleUsername} required/>
                     </Form.Group>
                     <Form.Group controlId="user-email">
                         <Form.Label>Email address</Form.Label>
-                        <Form.Control type="email" placeholder="Enter email" value={this.state.email} onChange={this.handleEmail}/>
+                        <Form.Control type="email" placeholder="Enter email" value={this.state.email} onChange={this.handleEmail} required/>
                         <Form.Text style={{color:'#55633e'}}>
                         We'll never share your email with anyone else.
                         </Form.Text>
                     </Form.Group>
                     <Form.Group controlId="user-password">
                         <Form.Label>Password</Form.Label>
-                        <Form.Control type="password" placeholder="Password" value={this.state.password} onChange={this.handlePassword}/>
+                        <Form.Control type="password" placeholder="Password" value={this.state.password} onChange={this.handlePassword} required/>
 
                     </Form.Group>
                     <Button variant="primary" type="submit">

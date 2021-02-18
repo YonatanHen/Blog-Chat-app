@@ -9,16 +9,15 @@ router.post('/login', async (req, res) => {
         const token = await user.generateAuthToken()
         res.status(200).send({id: user._id, username: user.username , token })
     } catch (e) {
-        res.status(404).send(e)
+        res.status(404).send({messgae : e})
     }
 })
 
 router.post('/signin', async (req,res) => {
     const user = new User(req.body)
     try {
-        const username = user.username
-        if (await User.findOne({ username })) { //If username doensn't exist.
-            throw new Error('username already exsit.')
+        if (await User.findOne({ username: user.username })) { //If username doensn't exist.
+            return res.send({message:"username already exists.", status: 400})
         }
         await user.save()
         const token = await user.generateAuthToken()

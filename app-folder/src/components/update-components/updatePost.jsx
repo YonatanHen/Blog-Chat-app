@@ -25,8 +25,8 @@ class addPost extends React.Component {
 
     handleSubmit = (event) => {
         event.preventDefault()
-        fetch('/add-post', {
-            method: 'POST',
+        fetch('/update-post', {
+            method: 'PATCH',
             headers: {'Content-Type':'application/json'},
             body: JSON.stringify({
                 "title": this.state.title,
@@ -36,11 +36,7 @@ class addPost extends React.Component {
         }) 
         .then(response => response.json())
         .then(response => {
-            console.log(response)
-            if(response.status === 400) {
-                alert(response.message)
-            }
-            else if(!response._id) alert(response.message)
+            if(!response._id) alert(response.message)
             else {
                 this.props.history.push({
                     pathname: '/blog',
@@ -48,8 +44,7 @@ class addPost extends React.Component {
             }
         })
         .catch((error) => {
-            console.log(error)
-            alert("An error occured!")
+            alert(error) 
         })
     }
 
@@ -58,7 +53,7 @@ class addPost extends React.Component {
             <>
                 <Navbar/>
                 <Container>
-                    <h1 className="text-center">Add new post</h1>
+                    <h1 className="text-center">Update post</h1>
                     <Form onSubmit={this.handleSubmit}>
                         <Form.Group controlId="exampleForm.ControlTextarea1">
                             <Form.Label>Title:</Form.Label>
@@ -69,7 +64,7 @@ class addPost extends React.Component {
                         </Form.Group>
                         <br/>
                     <div className="d-flex justify-content-center">
-                    <Button variant="primary"type="submit">Add</Button>
+                    <Button variant="primary"type="submit">Update</Button>
                     </div>
                     </Form>
                 </Container>

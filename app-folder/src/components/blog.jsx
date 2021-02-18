@@ -26,6 +26,7 @@ class Blog extends React.Component {
             console.log(this.state.posts)
         }).catch(error => {
             console.log(error)
+            alert("An error occured!")
         })
     }
 
