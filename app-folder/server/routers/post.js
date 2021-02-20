@@ -48,10 +48,9 @@ router.delete('/posts/:id', async (req,res) => {
 
 router.post('/posts/check-like', async(req,res) => {
     const post = await Post.findById(req.body.postID)
-    console.log(req.body.userID)
-    console.log(post.likedBy)
+   
     try {
-        if(post.likedBy.some(id => id._id.equals(req.body.userID))) { //https://stackoverflow.com/questions/19737408/mongoose-check-if-objectid-exists-in-an-array
+        if(post.likedBy.some(id => id._id.equals(req.body.userID))) {
             return res.send({value: true})
         }
 
@@ -64,7 +63,6 @@ router.post('/posts/check-like', async(req,res) => {
 router.patch('/posts/update-likes', async(req,res) => {
     const userID = req.body.userID
     const postID = req.body.postID
-    const totalLikes = req.body.totalLikes
     
     try {
             const post = await Post.findById(postID)
@@ -75,8 +73,7 @@ router.patch('/posts/update-likes', async(req,res) => {
                post.likedBy = await post.likedBy.filter(id => !id._id.equals(userID))
                 
             }
-            console.log(userID)
-            console.log(post.likedBy)
+            
             post.likes = post.likedBy.length
 
             await post.save()
