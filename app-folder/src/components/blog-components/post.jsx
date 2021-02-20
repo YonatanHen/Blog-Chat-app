@@ -54,6 +54,7 @@ class Post extends React.Component {
             </Card.Header>
                 <Accordion.Collapse eventKey={(key).toString()}>
                     <Card.Body>
+                        <br/>
                         <p>
                             {this.props.body}
                         </p>

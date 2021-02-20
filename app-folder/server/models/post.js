@@ -22,13 +22,11 @@ const postSchema = new mongoose.Schema({
     likedBy : [{
         id: {
             type: mongoose.Schema.Types.ObjectId,
-            ref: 'User'
         }
     }],
     author: {
         type: mongoose.Schema.Types.ObjectId,
         required: true,
-        ref: 'User'
     }
 } , {
     timestamps: true

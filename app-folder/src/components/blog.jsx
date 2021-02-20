@@ -10,25 +10,27 @@ class Blog extends React.Component {
         posts: null
        }
 
+       fetch('/posts/', {
+        method: 'GET'
+    })
+    .then(response => response.json())
+    .then((data) => {
+        console.log(data)
+        this.setState({
+            posts: data
+        })
+        console.log(this.state.posts)
+    }).catch(error => {
+        console.log(error)
+        alert("An error occured!")
+    })
+
        this.redirectToAddPost = this.redirectToAddPost.bind(this)
    }
 
-    componentDidMount() {
-        fetch('/posts/', {
-            method: 'GET'
-        })
-        .then(response => response.json())
-        .then((data) => {
-            console.log(data)
-            this.setState({
-                posts: data
-            })
-            console.log(this.state.posts)
-        }).catch(error => {
-            console.log(error)
-            alert("An error occured!")
-        })
-    }
+    // componentDidMount() {
+       
+    // }
 
    redirectToAddPost = () => {
     this.props.history.push(`/addPost`);
