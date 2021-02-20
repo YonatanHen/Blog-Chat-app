@@ -1,6 +1,7 @@
 const express = require('express')
 const Post = require('../models/post')
 const router = new express.Router()
+const mongoose = require('mongoose')
 
 router.post('/add-post', async (req,res) => {
     const post = new Post(req.body)
@@ -45,21 +46,44 @@ router.delete('/posts/:id', async (req,res) => {
     }
 })
 
-router.patch('/posts/:postid/:userid', async(req,res) => {
-    // const userID = req.params.userid
-    // const postID = req.params.posti
-    // try {
-    //         const post = await Post.findOne({_id: postID})
-    //         if(!post.find({likedBy: {$elemMatch: {id: userID}}})) {
-    //             post.likes.$inc() //incerment likes number
-    //             post.likedBy.$push(userID)
-    //         }  
-    //         await post.save()
-    //         res.send(post)
-    //     } catch (e) {
-    //     res.status(400).send(e)
-    // }
-    console.log(req.params.userid)
+router.post('/posts/check-like', async(req,res) => {
+    const post = await Post.findById(req.body.postID)
+    console.log(req.body.userID)
+    console.log(post.likedBy)
+    try {
+        if(post.likedBy.some(id => id._id.equals(req.body.userID))) { //https://stackoverflow.com/questions/19737408/mongoose-check-if-objectid-exists-in-an-array
+            return res.send({value: true})
+        }
+
+        res.send({value: false})
+    } catch (e) {
+        res.status(400).send(e)
+    }
+})
+
+router.patch('/posts/update-likes', async(req,res) => {
+    const userID = req.body.userID
+    const postID = req.body.postID
+    const totalLikes = req.body.totalLikes
+    
+    try {
+            const post = await Post.findById(postID)
+            
+            if(!post.likedBy.some(id => id._id.equals(userID))) {
+                await post.likedBy.push(userID)
+            } else {
+               post.likedBy = await post.likedBy.filter(id => !id._id.equals(userID))
+                
+            }
+            console.log(userID)
+            console.log(post.likedBy)
+            post.likes = post.likedBy.length
+
+            await post.save()
+            res.send(post)
+        } catch (e) {
+        res.status(400).send(e)
+    }
 })
 
 module.exports = router

@@ -8,24 +8,45 @@ class Like extends React.Component {
             totalLikes: this.props.totalLikes,
             clicked: false
         }
-        
+        console.log(sessionStorage.getItem("_id"))
+        fetch('/posts/check-like', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+                "userID": sessionStorage.getItem("_id"),
+                "postID": this.props._id,
+            })
+        })
+        .then(response => response.json())
+        .then(response => {
+            this.setState({
+                clicked: response.value
+            })
+            console.log(this.state.clicked)
+        })
+        .catch(error => alert("An error occured!"))
+
         this.UpdateLikes = this.UpdateLikes.bind(this)
     }
-    
+
     UpdateLikes = () => {
-        console.log("dsdsd")
-        fetch(`/posts/${this.props._id}/${this.props.author}`, {
-            method: 'PATCH',
-            headers: {'Content-Type':'application/json'}
-        })
-    
         this.setState({
             clicked: !this.state.clicked,
             totalLikes: (!this.state.clicked) ? this.state.totalLikes + 1 :  
             (this.state.totalLikes && this.state.clicked) ? this.state.totalLikes - 1 : 
             this.state.totalLikes  
-        })  
-
+        })
+        
+        fetch('/posts/update-likes', {
+            method: 'PATCH',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+                "postID": this.props._id,
+                "userID": sessionStorage.getItem("_id"),
+                "totalLikes": this.state.totalLikes
+            })
+        })
+        .catch(error => alert("An error occured!"))
     }
 
     render() {
