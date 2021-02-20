@@ -4,6 +4,7 @@ import Main from './components/main'
 import Blog from './components/blog'
 import About from './components/about'
 import Chat from './components/chat'
+import Footer from './components/footer'
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './css/app.css'
 import authError from './components/authError';
@@ -23,6 +24,7 @@ class App extends React.Component {
                 <Route path='/authError' component={authError} />
               </Switch>
           </Router>
+          <Footer/>
         </div>
       );
     }

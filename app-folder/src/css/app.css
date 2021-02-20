@@ -6,6 +6,21 @@ body {
   box-shadow: none !important;
 }
 
+footer {
+  width: 100%;
+  bottom: 0;
+  position: fixed; 
+}
+
+.footer-elements{
+  padding-bottom: 4px;
+}
+
+.footer-elements svg {
+  color: black;
+  margin-right: 0.5%;
+}
+
  .navbar {
     background-color: #4a5d23;
 }
