@@ -3,6 +3,7 @@ import { Jumbotron, Container, Accordion, Button, InputGroup, FormControl } from
 import Post from './blog-components/post'
 import Navbar from './navbar'
 
+
 class Blog extends React.Component {
    constructor(props) {
        super(props)
@@ -27,10 +28,6 @@ class Blog extends React.Component {
 
        this.redirectToAddPost = this.redirectToAddPost.bind(this)
    }
-
-    // componentDidMount() {
-       
-    // }
 
    redirectToAddPost = () => {
     this.props.history.push(`/addPost`);

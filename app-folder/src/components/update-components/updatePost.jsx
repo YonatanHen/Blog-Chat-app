@@ -1,13 +1,13 @@
 import React from 'react'
 import { Container, Form, Button } from 'react-bootstrap'
-import Navbar from './navbar'
+import Navbar from '../navbar'
 
-class addPost extends React.Component {
+class updatePost extends React.Component {
     constructor(props) {
         super(props)
         this.state = {
-            title: '',
-            body: ''
+            title: this.props.location.state.title,
+            body: this.props.location.state.body
         }
 
         this.handleSubmit = this.handleSubmit.bind(this)
@@ -25,13 +25,13 @@ class addPost extends React.Component {
 
     handleSubmit = (event) => {
         event.preventDefault()
-        fetch('/update-post', {
+        fetch('/posts/update-post', {
             method: 'PATCH',
             headers: {'Content-Type':'application/json'},
             body: JSON.stringify({
                 "title": this.state.title,
                 "body": this.state.body,
-                "author": sessionStorage.getItem("_id") //_id value saved in storage when user login/signin
+                "postID": this.props.location.state._id
             })
         }) 
         .then(response => response.json())
@@ -73,4 +73,4 @@ class addPost extends React.Component {
    }; 
 }
 
-export default addPost
+export default updatePost

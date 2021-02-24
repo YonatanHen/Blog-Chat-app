@@ -27,9 +27,9 @@ router.get('/posts', async(req,res) => {
 
 })
 
-// router.patch('/posts/update-post', {
-//     const post = Post.findOne()
-// })
+router.patch('/posts/update-post', async (req,res) => {
+    console.log(req.body)
+})
 
 router.delete('/posts/:id', async (req,res) => {
     const postId = req.params.id

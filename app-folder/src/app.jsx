@@ -9,6 +9,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import './css/app.css'
 import authError from './components/authError';
 import addPost from './components/addPost';
+import updatePost from './components/update-components/updatePost';
 
 class App extends React.Component {
     render() {
@@ -21,6 +22,7 @@ class App extends React.Component {
                 <Route path="/about" component={About} />
                 <Route path="/chat" component={Chat} />
                 <Route path='/addPost' component={addPost} />
+                <Route path='/updatePost' component={updatePost}/>
                 <Route path='/authError' component={authError} />
               </Switch>
           </Router>
