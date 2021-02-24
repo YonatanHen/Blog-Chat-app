@@ -76,10 +76,10 @@ class Post extends React.Component {
             </Card.Header>
                 <Accordion.Collapse eventKey={(key).toString()}>
                     <Card.Body>
-                        <br/>
                         <p>
                             {this.props.body}
                         </p>
+                        <br/>
                         <div className="post-sub-btns">
                             {this.userButtons()}
                             <Like 
