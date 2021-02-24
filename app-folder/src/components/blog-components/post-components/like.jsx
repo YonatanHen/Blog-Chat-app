@@ -46,7 +46,7 @@ class Like extends React.Component {
                 "totalLikes": this.state.totalLikes
             })
         })
-        .catch(error => alert("An error occured!"))
+        .catch(alert("An error occured!"))
     }
 
     render() {

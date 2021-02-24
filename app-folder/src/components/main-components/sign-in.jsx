@@ -67,7 +67,6 @@ class SignIn extends React.Component {
             return (
             <Redirect to={{
                 pathname: '/blog',
-                props: { username: this.state.username }
             }}/>
             )
         else return (
