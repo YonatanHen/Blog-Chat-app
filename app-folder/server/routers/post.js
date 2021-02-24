@@ -28,7 +28,13 @@ router.get('/posts', async(req,res) => {
 })
 
 router.patch('/posts/update-post', async (req,res) => {
-    console.log(req.body)
+    try {
+        const post = await Post.findOneAndUpdate({_id: req.body.postID}, {title: req.body.title, body: req.body.body}, {returnOriginal: false})
+        await post.save()
+        res.send(post)
+    } catch (e) {
+        res.status(400).send(e)
+    }
 })
 
 router.delete('/posts/:id', async (req,res) => {
