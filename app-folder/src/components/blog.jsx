@@ -45,13 +45,13 @@ class Blog extends React.Component {
                             </p>
                     </Jumbotron>
                     <br/>
-                    <InputGroup size="sm search">
+                    {/* <InputGroup size="sm search">
                         <InputGroup.Prepend className='d-flex justify-content-center'>
                         <InputGroup.Text>Search</InputGroup.Text>
                         </InputGroup.Prepend>
                         <FormControl aria-label="Small" /> 
-                        {/* onKeyUp={this.filteredPosts(Event)} */}
-                    </InputGroup>
+                        onKeyUp={this.filteredPosts(Event)} 
+                    </InputGroup> */}
                     <br/>
                     <div className='d-flex justify-content-center'>
                     <Button onClick={this.redirectToAddPost}>Add new post</Button>
