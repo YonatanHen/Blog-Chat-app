@@ -3,6 +3,10 @@ body {
   font-family: 'RocknRoll One', sans-serif;
 }
 
+input, textarea {
+font-family:'Montserrat', sans-serif;
+}
+
 body, 
 html,
 .app {
