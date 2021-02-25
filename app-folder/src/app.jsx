@@ -10,6 +10,7 @@ import './css/app.css'
 import authError from './components/authError';
 import addPost from './components/addPost';
 import updatePost from './components/update-components/updatePost';
+import UpdateUser from './components/update-components/updateUser';
 
 class App extends React.Component {
     render() {
@@ -23,6 +24,7 @@ class App extends React.Component {
                 <Route path="/chat" component={Chat} />
                 <Route path='/addPost' component={addPost} />
                 <Route path='/updatePost' component={updatePost}/>
+                <Route path='/updateUser' component={UpdateUser}/>
                 <Route path='/authError' component={authError} />
               </Switch>
           </Router>
