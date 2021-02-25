@@ -8,11 +8,13 @@ class NavBar extends React.Component {
     super(props)
     this.state = {
       redirectHome: false,
+      redirectToUpdate: false,
       LoggedUser: sessionStorage.getItem("username")
     }
 
     this.handleDeleteUser = this.handleDeleteUser.bind(this)
     this.RedirectToHomePage = this.RedirectToHomePage.bind(this)
+    this.handleRedirectToUpdateUser = this.handleRedirectToUpdateUser.bind(this)
   }
 
   RedirectToHomePage = () => {
@@ -25,6 +27,12 @@ class NavBar extends React.Component {
         redirectHome: true,
       })
     )
+  }
+
+  handleRedirectToUpdateUser = () => {
+      this.setState({
+        redirectToUpdate: true
+      })
   }
 
   handleDeleteUser = () => {
@@ -54,6 +62,12 @@ class NavBar extends React.Component {
             pathname: '/',
         }}/>
       )}
+      if (this.state.redirectToUpdate) {
+        return (
+            <Redirect to={{
+              pathname: '/updateUser',
+          }}/>
+        )}
     return ( 
       <>
         <Navbar variant="dark">
@@ -68,7 +82,7 @@ class NavBar extends React.Component {
             Signed in as:
           </Navbar.Text>
           <NavDropdown title={this.state.LoggedUser} id="nav-dropdown">
-        <NavDropdown.Item eventKey="4.1">Update user</NavDropdown.Item>
+        <NavDropdown.Item onClick={this.handleRedirectToUpdateUser}>Update user</NavDropdown.Item>
         <NavDropdown.Item onClick={this.handleDeleteUser}>Delete user</NavDropdown.Item>
         <NavDropdown.Item onClick={this.RedirectToHomePage}>Log-out</NavDropdown.Item>
         </NavDropdown>

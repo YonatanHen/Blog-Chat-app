@@ -44,7 +44,7 @@ class updatePost extends React.Component {
             }
         })
         .catch((error) => {
-            alert(error) 
+            alert("An error occured!" + error) 
         })
     }
 

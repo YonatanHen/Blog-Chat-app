@@ -42,7 +42,7 @@ router.get('/logout/:username', async (req,res) => {
 router.delete('/delete/myuser', async (req,res) => {
     try {
         const username = req.body.username
-        const user = await User.findOne({ username }) 
+        const user = await User.findOne({ username }) //username is unique
         if (!user) {
             throw new Error('user does not exist.')
         }
@@ -50,6 +50,25 @@ router.delete('/delete/myuser', async (req,res) => {
         res.status(200).send()
     } catch (e) {
         res.status(400).send(e)
+    }
+})
+
+router.patch('/update-user' , async (req,res) => {
+    try {
+    const user = await User.findById(req.body.userID) //username is unique
+    if (!user) {
+        throw new Error('user does not exist.')
+    }
+    
+    if(req.body.username !== '') user.username = req.body.username
+    if(req.body.password !== user.password) user.password = req.body.password
+    if(req.body.email !== '') user.email = req.body.email
+
+    user.save()
+
+    res.status(200).send(user)
+    } catch (e) {
+    res.status(400).send(e)
     }
 })
 
