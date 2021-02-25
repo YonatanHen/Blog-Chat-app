@@ -1,9 +1,21 @@
 body {
 	background: #7a942e;
+  font-family: 'RocknRoll One', sans-serif;
+}
+
+body, 
+html,
+.app {
+  position: relative;
+  min-height: 100vh;   
 }
 
 *:focus {
   box-shadow: none !important;
+}
+
+.gap {
+  padding-top: 65px;
 }
 
 hr {
@@ -14,13 +26,16 @@ hr {
 }
 
 footer {
-  width: 100%;
-  bottom: 0;
-  position: fixed; 
+  position: absolute;
+	bottom: 0;
+	width: 100%;
+	overflow: auto;
+	padding: 5px 0 5px 0; 
 }
 
 .footer-elements{
   padding-bottom: 4px;
+  font-family: 'RocknRoll One', sans-serif;
 }
 
 .footer-elements svg {

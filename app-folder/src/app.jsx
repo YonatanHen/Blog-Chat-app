@@ -15,7 +15,7 @@ import UpdateUser from './components/update-components/updateUser';
 class App extends React.Component {
     render() {
       return (
-        <div className="App">
+        <div class="app">
           <Router>
               <Switch>
                 <Route exact path="/" component={Main}/>
@@ -28,7 +28,9 @@ class App extends React.Component {
                 <Route path='/authError' component={authError} />
               </Switch>
           </Router>
-          <Footer/>
+          <div className="gap">
+            <Footer/>
+          </div>
         </div>
       );
     }
