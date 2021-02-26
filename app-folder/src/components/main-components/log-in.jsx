@@ -7,8 +7,8 @@ class LogIn extends React.Component {
         super(props)
         this.state = {
             redirect: false,
-            username: 'Yonatan',
-            password: '1234',
+            username: '',
+            password: '',
         }
 
         this.handleUsername = this.handleUsername.bind(this);
