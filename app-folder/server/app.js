@@ -13,6 +13,13 @@ app.use(userRouter)
 app.use(postRouter)
 app.use(cors())
 
+
+app.use(express.static(path.join(__dirname, 'build')));
+app.get('/*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'build', 'index.html'));
+});
+
+
 app.listen(port , (req, res) => {
     console.log('App is listen to port ' + port)
 })

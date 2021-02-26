@@ -25,12 +25,13 @@
   },
   "scripts": {
     "client": "react-scripts start",
-    "server": "node server/app.js",
-    "dev": "nodemon server/app.js",
+    "start": "node server/app.js ",
+    "dev": " concurrently \"npm run server\" \"npm run client\" nodemon server/app.js",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "start": "concurrently \"npm run dev\" \"npm run client\""
+    "server": "nodemon server/app.js",
+    "heroku-postbuild": "NPM_CONFIG_PRODUCTION=false npm install npm && run build"
   },
   "proxy": "http://localhost:3005",
   "eslintConfig": {
@@ -51,5 +52,8 @@
   "devDependencies": {
     "concurrently": "^5.3.0",
     "nodemon": "^2.0.6"
+  },
+  "engines": {
+    "node": "10.16.0"
   }
 }
