@@ -1,11 +1,12 @@
 const express = require('express')
 const Post = require('../models/post')
+const User = require('../models/user.js')
 const router = new express.Router()
-const mongoose = require('mongoose')
 
 router.post('/add-post', async (req,res) => {
-    const post = new Post(req.body)
     try {
+        const authorName = await User.findById(req.body.author)
+        const post = new Post({ ...req.body, authorName: authorName.username })
         if (await Post.findOne({title: post.title})) {
             return res.status(400).send({message: "There is a post with the same title, please choose another one.", status: 400})
         }

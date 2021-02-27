@@ -71,7 +71,7 @@ class Post extends React.Component {
             <Card className="post-card">
             <Card.Header>
                 <Accordion.Toggle className="post-btn" eventKey={(++key).toString()}>
-                    {this.props.title}
+                    <b>{this.props.authorName}</b> { "|" } {this.props.title}
                 </Accordion.Toggle>
             </Card.Header>
                 <Accordion.Collapse eventKey={(key).toString()}>
