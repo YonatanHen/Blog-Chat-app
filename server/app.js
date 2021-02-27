@@ -5,7 +5,7 @@ const cors = require('cors')
 const userRouter = require('./routers/user')
 const postRouter = require('./routers/post')
 
-const port = process.env.port || 3005
+const port = process.env.PORT || 3005 ///
 const app = express()
 
 app.use(express.json()) // Parses request body if type is json. Saves to req.body.
