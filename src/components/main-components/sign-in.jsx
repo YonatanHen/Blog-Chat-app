@@ -51,7 +51,8 @@ class SignIn extends React.Component {
             }
             else {
                 sessionStorage.setItem("username", response.username)
-                sessionStorage.setItem("_id", response._id)              
+                sessionStorage.setItem("_id", response.id)    
+                console.log(response)          
                 this.setState({ redirect: true })
             }
         })
@@ -67,6 +68,7 @@ class SignIn extends React.Component {
             return (
             <Redirect to={{
                 pathname: '/blog',
+                props: { username: this.state.username }
             }}/>
             )
         else return (

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Jumbotron, Container, Accordion, Button, InputGroup, FormControl } from 'react-bootstrap';
+import { Jumbotron, Container, Accordion, Button } from 'react-bootstrap';
 import Post from './blog-components/post'
 import Navbar from './navbar'
 
@@ -65,6 +65,7 @@ class Blog extends React.Component {
                                         _id = {post._id} 
                                         body = {post.body} 
                                         author = {post.author} 
+                                        authorName = {post.authorName}
                                         title = {post.title}
                                         likes = {post.likes}
                                     />

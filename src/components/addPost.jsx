@@ -31,7 +31,7 @@ class addPost extends React.Component {
             body: JSON.stringify({
                 "title": this.state.title,
                 "body": this.state.body,
-                "author": sessionStorage.getItem("_id") //_id value saved in storage when user login/signin
+                "author": sessionStorage.getItem("_id"), //_id value saved in storage when user login/signin
             })
         }) 
         .then(response => response.json())
