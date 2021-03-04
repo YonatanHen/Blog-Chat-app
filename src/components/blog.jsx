@@ -2,6 +2,7 @@ import React from 'react';
 import { Jumbotron, Container, Accordion, Button } from 'react-bootstrap';
 import Post from './blog-components/post'
 import Navbar from './navbar'
+import Dots from './blog-components/Loading-components/dots'
 
 
 class Blog extends React.Component {
@@ -75,7 +76,7 @@ class Blog extends React.Component {
                     }
             </>
         )
-        else return (<div>Loading...</div>);
+        else return (<div id="loading">Loading<Dots/></div>);
     };
 };
 
