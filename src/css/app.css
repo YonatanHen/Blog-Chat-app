@@ -139,4 +139,11 @@ h1 {
   bottom: 2px;
 }
 
+#loading {
+  position: fixed;
+  font-size: 25px;
+  left: 50%;
+  top: 30%;
+  transform: translate(-50%, -30%);
+}
 
