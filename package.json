@@ -33,7 +33,7 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "server": "nodemon server/app.js",
+    "server": "nodemon server/app.js"
     
   },
   "proxy": "http://localhost:3005",
