@@ -29,7 +29,7 @@ class Main extends React.Component {
                     <Button className={this.state.showLogIn ? "active-btn": ""} onClick={this.onLogInClick}>Log-In</Button>
                     <Button className={!this.state.showLogIn ? "active-btn": ""} onClick={this.onSignInClick}>Sign-In</Button>
                 </ButtonGroup>
-                {this.state.showLogIn ? <LogIn /> : <SignIn />}
+                {this.state.showLogIn ? <LogIn/> : <SignIn/>}
             </>
         );
     };
