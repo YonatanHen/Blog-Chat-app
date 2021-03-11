@@ -5,7 +5,6 @@ import Navbar from './navbar'
 import Dots from './blog-components/Loading-components/dots'
 import '../css/blog.css'
 
-
 class Blog extends React.Component {
    constructor(props) {
        super(props)

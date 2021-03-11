@@ -6,11 +6,11 @@ import About from './components/about'
 import Chat from './components/chat'
 import Footer from './components/footer'
 import 'bootstrap/dist/css/bootstrap.min.css';
-import './css/app.css'
 import authError from './components/authError';
 import addPost from './components/addPost';
 import updatePost from './components/update-components/updatePost';
 import UpdateUser from './components/update-components/updateUser';
+import './css/app.css'
 
 class App extends React.Component {
     render() {
