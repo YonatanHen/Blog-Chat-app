@@ -67,7 +67,7 @@ class LogIn extends React.Component {
                     </Form.Group>
                     <Form.Group controlId="user-password">
                         <Form.Label>Password</Form.Label>
-                        <Form.Control type="password" placeholder="Enter password" value={this.state.password} onChange={this.handlePassword} required/>
+                        <Form.Control type="password" placeholder="Enter password" value={this.state.password} onChange={this.handlePassword}/>
                     </Form.Group>
                     <Button variant="primary" type="submit">
                         Submit

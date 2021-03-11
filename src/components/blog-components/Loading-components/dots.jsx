@@ -12,7 +12,7 @@ class Dots extends React.Component {
             this.interval = setInterval(() => {
               const { dots } = this.state;
               this.setState({ dots: dots === 3 ? 0 : dots + 1 });
-            }, 70);
+            }, 150);
           }
           
           componentWillUnmount() {
