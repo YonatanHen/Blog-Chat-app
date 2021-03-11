@@ -1,5 +1,6 @@
 import React from 'react';
 import { AiFillLike } from 'react-icons/ai';
+import '../../../css/like.css'
 
 class Like extends React.Component {
     constructor(props) {

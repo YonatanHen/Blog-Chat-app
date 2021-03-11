@@ -16,6 +16,7 @@
     "jsonwebtoken": "^8.5.1",
     "mongod": "^2.0.0",
     "mongoose": "^5.10.11",
+    "nodemailer": "^6.5.0",
     "react": "^16.14.0",
     "react-bootstrap": "^1.4.0",
     "react-cookie": "^4.0.3",

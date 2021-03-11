@@ -3,6 +3,7 @@ import { Jumbotron, Container, Accordion, Button } from 'react-bootstrap';
 import Post from './blog-components/post'
 import Navbar from './navbar'
 import Dots from './blog-components/Loading-components/dots'
+import '../css/blog.css'
 
 
 class Blog extends React.Component {

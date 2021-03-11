@@ -2,6 +2,8 @@ import React from 'react';
 import { Card, Accordion, Button } from 'react-bootstrap';
 import { Redirect } from 'react-router-dom';
 import Like from './post-components/like'
+import '../../css/post.css' 
+
 var key = 0
 
 class Post extends React.Component {

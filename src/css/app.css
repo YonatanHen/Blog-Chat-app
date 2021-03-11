@@ -22,42 +22,10 @@ html,
   padding-top: 65px;
 }
 
-hr {
-  width: 80%;
-  background-color: #1a2209;
-  height: 2px;
-  border-radius: 25% 60%; 
-}
-
-footer {
-  position: absolute;
-	bottom: 0;
-	width: 100%;
-	overflow: auto;
-	padding: 5px 0 5px 0; 
-}
-
-.footer-elements{
-  padding-bottom: 4px;
-  font-family: 'RocknRoll One', sans-serif;
-}
-
-.footer-elements svg {
-  color: black;
-  margin-right: 0.5%;
-}
-
  .navbar {
     background-color: #4a5d23;
 }
 
-.jumbotron {
-  max-width: 500px;
-  margin: auto;
-  background-color: #4a5d23;
-  border-radius: 2%;
-  color: white;
-}
 
 .container {
   margin-right: auto;
@@ -81,62 +49,12 @@ footer {
   border: 2px solid transparent;
 }
 
-.like-btn:hover, .clicked-like , .post-btn, .btn-primary:hover {
-  color: #4a5d23
-}
-
-.post-btn {
-  background: none !important;
-  border: none !important;
-  outline: none !important;
-}
-
-.post-btn:hover {
-  font-weight: 700;
-}
-
-.post-sub-btns {
-  bottom: 5%;
-  right: 1%;
-  padding: 1%;
-  display: inline-flex;
-  position: absolute;
-  flex-wrap: wrap;
-  gap: 2px;
-}
-
-.post-sub-btns > div {
-  margin: 6px;
-}
-.justify-content-end {
-  margin-right: 3%;
-}
-
-#nav-dropdown {
-  color: white;
-}
-
-.post-card {
-  margin: 1.5%;   
-}
-
 .search {
   padding: 0% 2% 0% 2%;
 }
 
 h1 {
   color: white;
-}
-
-.Like span {
-  font-size: 13px;
-  font-weight: 500;
-  color: rgb(56, 56, 56);
-}
-
-.like-btn {
-  color: grey;
-  bottom: 2px;
 }
 
 #loading {

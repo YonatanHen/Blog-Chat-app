@@ -1,0 +1,7 @@
+.jumbotron {
+    max-width: 500px;
+    margin: auto;
+    background-color: #4a5d23;
+    border-radius: 2%;
+    color: white;
+  }

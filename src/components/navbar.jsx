@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navbar, Nav, NavDropdown} from 'react-bootstrap';
 import { Redirect } from 'react-router-dom';
+import '../css/navbar.css'
 
 //send to app.js which component is active. 
 class NavBar extends React.Component {
