@@ -6,19 +6,13 @@ footer {
       padding: 5px 0 5px 0; 
   }
   
-  .footer-elements{
+.footer-elements{
     padding-bottom: 4px;
     font-family: 'RocknRoll One', sans-serif;
   }
   
-  .footer-elements svg {
+.footer-elements svg {
     color: black;
     margin-right: 0.5%;
   }
   
-  hr {
-    width: 80%;
-    background-color: #1a2209;
-    height: 2px;
-    border-radius: 25% 60%; 
-  }

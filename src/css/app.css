@@ -65,3 +65,17 @@ h1 {
   transform: translate(-50%, -30%);
 }
 
+.jumbotron {
+  max-width: 500px;
+  margin: auto;
+  background-color: #4a5d23;
+  border-radius: 2%;
+  color: white;
+}
+
+hr {
+  width: 80%;
+  background-color: #1a2209;
+  height: 2px;
+  border-radius: 25% 60%; 
+}

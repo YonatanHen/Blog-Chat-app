@@ -1,6 +1,6 @@
 import React from 'react';
 import { AiFillGithub, AiFillLinkedin} from 'react-icons/ai';
-import '../css/footer.css'
+import '../css/footer.css';
 
 class Footer extends React.Component {
     render() {
