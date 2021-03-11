@@ -4,6 +4,7 @@ import Post from './blog-components/post'
 import Navbar from './navbar'
 import Dots from './blog-components/Loading-components/dots'
 import '../css/blog.css'
+import '../css/loading.css'
 
 class Blog extends React.Component {
    constructor(props) {
@@ -76,7 +77,7 @@ class Blog extends React.Component {
                     }
             </>
         )
-        else return (<div id="loading">Loading<Dots/></div>);
+        else return (<div id="loading">Loading<br/><span className="dot"/></div>);
     };
 };
 
