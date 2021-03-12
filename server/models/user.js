@@ -2,6 +2,7 @@ require('../db/mongoose')
 const mongoose = require('mongoose')
 const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
+const Post = require('./post')
 
 
 const userSchema = new mongoose.Schema({
@@ -64,6 +65,13 @@ userSchema.pre('save', async function (next) {
     if(user.isModified('password')) {
         user.password = await bcrypt.hash(user.password, 8)
     }
+
+    next()
+})
+
+userSchema.pre('remove', async function(next) {
+    const user = this
+    await Post.deleteMany({author: user._id})
 
     next()
 })
