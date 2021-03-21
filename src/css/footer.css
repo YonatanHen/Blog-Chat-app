@@ -1,0 +1,18 @@
+footer {
+    position: absolute;
+      bottom: 0;
+      width: 100%;
+      overflow: auto;
+      padding: 5px 0 5px 0; 
+  }
+  
+.footer-elements{
+    padding-bottom: 4px;
+    font-family: 'RocknRoll One', sans-serif;
+  }
+  
+.footer-elements svg {
+    color: black;
+    margin-right: 0.5%;
+  }
+  
