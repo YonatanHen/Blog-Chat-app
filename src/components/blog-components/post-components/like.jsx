@@ -9,7 +9,6 @@ class Like extends React.Component {
             totalLikes: this.props.totalLikes,
             clicked: false
         }
-        console.log(sessionStorage.getItem("_id"))
         fetch('/posts/check-like', {
             method: 'POST',
             headers: {'Content-Type':'application/json'},
@@ -23,7 +22,6 @@ class Like extends React.Component {
             this.setState({
                 clicked: response.value
             })
-            console.log(this.state.clicked)
         })
         .catch(error => alert("An error occured!"))
 
