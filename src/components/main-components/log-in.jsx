@@ -39,7 +39,7 @@ class LogIn extends React.Component {
             console.log(response)
             if (!response.username) alert('Username/Password are not correct.')
             else {
-                sessionStorage.setItem("username", response.username)
+                sessionStorage.setItem("username", this.state.username)
                 sessionStorage.setItem("_id", response.id)
                 this.setState({ redirect: true })
             }
