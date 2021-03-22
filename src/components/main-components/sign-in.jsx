@@ -44,15 +44,12 @@ class SignIn extends React.Component {
         })
         .then(response => response.json())
         .then(response => {
-            console.log(response)
             if(response.status === 400) {
-                console.log(response)
-                alert(response.status)
+                alert(response.message)
             }
             else {
                 sessionStorage.setItem("username", response.username)
-                sessionStorage.setItem("_id", response.id)    
-                console.log(response)          
+                sessionStorage.setItem("_id", response.id)              
                 this.setState({ redirect: true })
             }
         })
@@ -88,6 +85,9 @@ class SignIn extends React.Component {
                     <Form.Group controlId="user-password">
                         <Form.Label>Password</Form.Label>
                         <Form.Control type="password" placeholder="Enter password" value={this.state.password} onChange={this.handlePassword} required/>
+                        <Form.Text style={{color:'#55633e'}}>
+                        Must include 6 characters
+                        </Form.Text>
                     </Form.Group>
                     <Button variant="primary" type="submit">
                         Submit

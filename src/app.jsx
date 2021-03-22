@@ -15,7 +15,7 @@ import './css/app.css'
 class App extends React.Component {
     render() {
       return (
-        <div class="app">
+        <div className="app">
           <Router>
               <Switch>
                 <Route exact path="/" component={Main}/>

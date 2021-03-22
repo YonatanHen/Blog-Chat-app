@@ -1,7 +1,6 @@
 require('../db/mongoose')
 const mongoose = require('mongoose')
 const bcrypt = require('bcrypt')
-const jwt = require('jsonwebtoken')
 const Post = require('./post')
 
 
@@ -20,13 +19,7 @@ const userSchema = new mongoose.Schema({
         required: true,
         lowercase: true,
         trim: true
-    },
-    tokens: [{
-        token: {
-            type: String,
-            required: true
-        }
-    }]
+    }
 })
 
 userSchema.virtual('tasks', {
@@ -47,17 +40,6 @@ userSchema.statics.findByUsernameAndPassword = async (username,password) => {
     }
     return user
 }
-
-userSchema.methods.generateAuthToken = async function() {
-    const user = this
-    const token = jwt.sign({ _id: user._id.toString() }, process.env.JWT_SECRET , { expiresIn: '1d' })
-
-    user.tokens = user.tokens.concat({ token })
-    await user.save()
-
-    return token
-}
-
 
 userSchema.pre('save', async function (next) {
     const user = this

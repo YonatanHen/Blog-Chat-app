@@ -36,7 +36,6 @@ class LogIn extends React.Component {
         })
         .then(response => response.json())
         .then(response => {
-            console.log(response)
             if (!response.username) alert('Username/Password are not correct.')
             else {
                 sessionStorage.setItem("username", this.state.username)
