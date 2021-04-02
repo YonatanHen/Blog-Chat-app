@@ -1,6 +1,5 @@
 import React from 'react';
-import { Jumbotron, Container, Accordion, Button, InputGroup, FormControl } from 'react-bootstrap';
-import Post from './blog-components/post'
+import { Jumbotron, Container ,Button, InputGroup, FormControl } from 'react-bootstrap';
 import Navbar from './navbar'
 import '../css/blog.css'
 import '../css/loading.css'
@@ -36,7 +35,6 @@ class Blog extends React.Component {
    }
 
    handleSearch = (event) => {
-       console.log(event.target.value)
        this.setState({
            text: event.target.value
        })
