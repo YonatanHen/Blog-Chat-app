@@ -1,15 +1,17 @@
 import React from 'react';
-import { Jumbotron, Container, Accordion, Button } from 'react-bootstrap';
+import { Jumbotron, Container, Accordion, Button, InputGroup, FormControl } from 'react-bootstrap';
 import Post from './blog-components/post'
 import Navbar from './navbar'
 import '../css/blog.css'
 import '../css/loading.css'
+import Posts from './blog-components/general-components/postsList'
 
 class Blog extends React.Component {
    constructor(props) {
        super(props)
        this.state = {
-        posts: null
+        posts: null,
+        text: ''
        }
 
        fetch('/posts/', {
@@ -26,10 +28,18 @@ class Blog extends React.Component {
     })
 
        this.redirectToAddPost = this.redirectToAddPost.bind(this)
+       this.handleSearch = this.handleSearch.bind(this)
    }
 
    redirectToAddPost = () => {
     this.props.history.push(`/addPost`);
+   }
+
+   handleSearch = (event) => {
+       console.log(event.target.value)
+       this.setState({
+           text: event.target.value
+       })
    }
 
     render() {
@@ -44,34 +54,19 @@ class Blog extends React.Component {
                             </p>
                     </Jumbotron>
                     <br/>
-                    {/* <InputGroup size="sm search">
+                    <InputGroup size="sm search">
                         <InputGroup.Prepend className='d-flex justify-content-center'>
                         <InputGroup.Text>Search</InputGroup.Text>
                         </InputGroup.Prepend>
-                        <FormControl aria-label="Small" /> 
-                        onKeyUp={this.filteredPosts(Event)} 
-                    </InputGroup> */}
+                        <FormControl aria-label="Small" placeholder="Enter text here!" onChange={this.handleSearch}/> 
+                    </InputGroup>
                     <br/>
                     <div className='d-flex justify-content-center'>
                     <Button onClick={this.redirectToAddPost}>Add new post</Button>
                     </div>
                 </Container>
-                    {
-                        this.state.posts.map(function (post) {
-                            return (
-                                <Accordion>
-                                    <Post 
-                                        _id = {post._id} 
-                                        body = {post.body} 
-                                        author = {post.author} 
-                                        authorName = {post.authorName}
-                                        title = {post.title}
-                                        likes = {post.likes}
-                                    />
-                                </Accordion>
-                            )
-                        })
-                    }
+                <Posts postslist={this.state.posts} text={this.state.text}/>
+                 
             </>
         )
         else return (<div id="loading">Loading<br/></div>);
