@@ -67,7 +67,7 @@ class Blog extends React.Component {
                  
             </>
         )
-        else return (<div id="loading">Loading<br/></div>);
+        else return (<div id="loading">Loading<br/><div className="dot"/></div>);
     };
 };
 
