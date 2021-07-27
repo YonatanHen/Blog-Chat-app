@@ -1,8 +1,7 @@
 import React from 'react'
 import { Container, Form, Button } from 'react-bootstrap'
-import Navbar from './navbar'
 
-class addPost extends React.Component {
+class AddPost extends React.Component {
     constructor(props) {
         super(props)
         this.state = {
@@ -56,7 +55,6 @@ class addPost extends React.Component {
     render() {
         return (
             <>
-                <Navbar/>
                 <Container>
                     <h1 className="text-center">Add new post</h1>
                     <Form onSubmit={this.handleSubmit}>
@@ -78,4 +76,4 @@ class addPost extends React.Component {
    }; 
 }
 
-export default addPost
+export default AddPost

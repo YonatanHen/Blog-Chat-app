@@ -1,8 +1,8 @@
-import { FETCH_USER_DATA, LOGIN_USER, LOGOUT_USER } from '../actions/users'
+import { LOGIN_USER, LOGOUT_USER } from '../actions/users'
 
 const initialState = {
     username: undefined,
-    _id: undefined,
+    id: undefined,
     tokens: []
 }
 
@@ -12,10 +12,13 @@ export default (state = initialState, action) => {
             return {
                 ...state,
                 username: action.userData.username,
-                username: action.userData._id,
-                username: action.userData.tokens,
+                id: action.userData.id,
+                tokens: state.tokens.concat(action.userData.tokens),
+            }
+        case LOGOUT_USER:
+            return {
+                ...initialState
             }
     }
-
     return state
 }
