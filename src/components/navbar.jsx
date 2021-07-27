@@ -1,9 +1,8 @@
 import React from 'react';
 import { Navbar, Nav, NavDropdown} from 'react-bootstrap';
-import { Redirect } from 'react-router-dom';
+import { Redirect, Link } from 'react-router-dom';
 import '../css/navbar.css'
-
-//send to app.js which component is active. 
+ 
 class NavBar extends React.Component {
   constructor(props) { 
     super(props)
@@ -12,7 +11,7 @@ class NavBar extends React.Component {
       redirectToUpdate: false,
       LoggedUser: sessionStorage.getItem("username")
     }
-
+    console.log(this.props)
     this.handleDeleteUser = this.handleDeleteUser.bind(this)
     this.RedirectToHomePage = this.RedirectToHomePage.bind(this)
     this.handleRedirectToUpdateUser = this.handleRedirectToUpdateUser.bind(this)
@@ -63,12 +62,6 @@ class NavBar extends React.Component {
             pathname: '/',
         }}/>
       )}
-      if (this.state.redirectToUpdate) {
-        return (
-            <Redirect to={{
-              pathname: '/updateUser',
-          }}/>
-        )}
     return ( 
       <>
         <Navbar variant="dark">
@@ -83,7 +76,7 @@ class NavBar extends React.Component {
             Signed in as:
           </Navbar.Text>
           <NavDropdown title={this.state.LoggedUser} id="nav-dropdown">
-        <NavDropdown.Item onClick={this.handleRedirectToUpdateUser}>Update user</NavDropdown.Item>
+        <NavDropdown.Item><Link to='./updateUser' className='link'>Update user</Link></NavDropdown.Item>
         <NavDropdown.Item onClick={this.handleDeleteUser}>Delete user</NavDropdown.Item>
         <NavDropdown.Item onClick={this.RedirectToHomePage}>Log-out</NavDropdown.Item>
         </NavDropdown>

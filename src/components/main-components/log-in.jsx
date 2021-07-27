@@ -1,7 +1,7 @@
 import React, { useReducer, useState } from 'react'
 import { Form, Button, Container } from 'react-bootstrap'
 import { Redirect } from 'react-router-dom'
-import { useSelector, useDispatch } from 'react-redux'
+import { useSelector, useDispatch, useStore } from 'react-redux'
 
 import * as usersActions from '../../store/actions/users'
 
@@ -15,11 +15,13 @@ const LogIn = (props) => {
 	const handleOnChange = (event) => {
 		const { name, value } = event.target
 		setInputValues({ ...inputValues, [name]: value })
-		// console.log(inputValues)
+
 	}
 
+	const dispatch = useDispatch()
+	const store = useStore()
+
 	const handleSubmit = (event) => {
-		console.log(JSON.stringify({...inputValues}))
 		event.preventDefault()
 		fetch('/login', {
 			method: 'POST',
@@ -40,8 +42,10 @@ const LogIn = (props) => {
 								localStorage.getItem('tokens').concat(response.token)
 						  )
 						: localStorage.setItem('tokens', [response.token])
+					console.log(response)
+					dispatch(usersActions.loginUser(inputValues.username, response.id, response.token))
 
-					// useDispatch
+					console.log(store.getState())
 					redirectHandler(true)
 				}
 			})

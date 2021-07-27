@@ -51,7 +51,6 @@ class updatePost extends React.Component {
     render() {
         return (
             <>
-                <Navbar/>
                 <Container>
                     <h1 className="text-center">Update post</h1>
                     <Form onSubmit={this.handleSubmit}>
