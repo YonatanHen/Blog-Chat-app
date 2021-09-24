@@ -5,3 +5,11 @@
 #nav-dropdown {
     color: white;
   }
+
+.link {
+  color: #212529 !important;
+}
+
+.link:hover {
+    text-decoration: none;
+  }

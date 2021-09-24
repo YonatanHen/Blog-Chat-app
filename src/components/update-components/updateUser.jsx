@@ -43,6 +43,7 @@ class UpdateUser extends React.Component {
             method: 'PATCH',
             headers: {'Content-Type':'application/json'},
             body: JSON.stringify({
+                "token": localStorage.getItem("token"),
                 "userID": sessionStorage.getItem("_id"), 
                 "username": this.state.username,
                 "email": this.state.email,

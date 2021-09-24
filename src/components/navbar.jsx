@@ -1,98 +1,96 @@
-import React from 'react';
-import { Navbar, Nav, NavDropdown} from 'react-bootstrap';
-import { Redirect } from 'react-router-dom';
+import React, { useState } from 'react'
+import { Navbar, Nav, NavDropdown } from 'react-bootstrap'
+import { useSelector, useStore } from 'react-redux'
+import { Redirect, Link } from 'react-router-dom'
 import '../css/navbar.css'
 
-//send to app.js which component is active. 
-class NavBar extends React.Component {
-  constructor(props) { 
-    super(props)
-    this.state = {
-      redirectHome: false,
-      redirectToUpdate: false,
-      LoggedUser: sessionStorage.getItem("username")
-    }
+const NavBar = (props) => {
+	const store = useStore()
 
-    this.handleDeleteUser = this.handleDeleteUser.bind(this)
-    this.RedirectToHomePage = this.RedirectToHomePage.bind(this)
-    this.handleRedirectToUpdateUser = this.handleRedirectToUpdateUser.bind(this)
-  }
+	const [redirectHome, redirectHomeHandler] = useState(false)
+	const LoggedUser = store.getState().username
 
-  RedirectToHomePage = () => {
-    fetch('/logout/' + this.state.LoggedUser , {
-      method: 'GET'
-    }) //logout user - delete tokens
-    .then( 
-      sessionStorage.removeItem("username"),
-      this.setState({
-        redirectHome: true,
-      })
-    )
-  }
+	const RedirectToHomePage = () => {
+		fetch('/logout/' + LoggedUser, {
+			method: 'GET',
+		}) //logout user - delete tokens
+			.then(
+				sessionStorage.removeItem('username'),
+				localStorage.removeItem('token'),
+				redirectHomeHandler(true)
+			)
+	}
 
-  handleRedirectToUpdateUser = () => {
-      this.setState({
-        redirectToUpdate: true
-      })
-  }
+	// const handleRedirectToUpdateUser = () => {
+	// 	redirectToUpdateHandler(true)
+	// }
 
-  handleDeleteUser = () => {
-    fetch('/delete/myuser', {
-      method: 'DELETE',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ "username": this.state.LoggedUser })
-    })
-    .then(
-      this.RedirectToHomePage()
-    )
-    .catch((error) => {
-      alert(error)
-    })
-  }
+	const handleDeleteUser = () => {
+		fetch('/delete/myuser', {
+			method: 'DELETE',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ 
+				"token": localStorage.getItem("token"),
+				username: LoggedUser
+			 }),
+		})
+			.then(RedirectToHomePage())
+			.catch((error) => {
+				alert(error)
+			})
+	}
 
-  render () {
-    if (!this.state.LoggedUser) {
-      return (
-          <Redirect to={{
-            pathname: '/authError',
-        }}/>
-      )}
-    if (this.state.redirectHome) {
-      return (
-          <Redirect to={{
-            pathname: '/',
-        }}/>
-      )}
-      if (this.state.redirectToUpdate) {
-        return (
-            <Redirect to={{
-              pathname: '/updateUser',
-          }}/>
-        )}
-    return ( 
-      <>
-        <Navbar variant="dark">
-          <Navbar.Brand href="/blog">Blog-App</Navbar.Brand>
-          <Nav className="mr-auto">
-            {/* <Nav.Link href="/blog">Blog</Nav.Link>
+	if (redirectHome) {
+		console.log(store.getState())
+		return (
+			<Redirect
+				to={{
+					pathname: '/',
+				}}
+			/>
+		)
+	}
+	// if (redirectHome) {
+	// 	return (
+	// 		<Redirect
+	// 			to={{
+	// 				pathname: '/',
+	// 			}}
+	// 		/>
+	// 	)
+	// }
+	return (
+		<>
+			{console.log(store.getState())}
+			<Navbar variant='dark'>
+				<Navbar.Brand>
+					Blog-App
+				</Navbar.Brand>
+				<Nav className='mr-auto'>
+					{/* <Nav.Link href="/blog">Blog</Nav.Link>
             <Nav.Link href="/chat">Chat</Nav.Link>
             <Nav.Link href="/about">About</Nav.Link> */}
-          </Nav>
-          <Navbar.Collapse className="justify-content-end">
-          <Navbar.Text>
-            Signed in as:
-          </Navbar.Text>
-          <NavDropdown title={this.state.LoggedUser} id="nav-dropdown">
-        <NavDropdown.Item onClick={this.handleRedirectToUpdateUser}>Update user</NavDropdown.Item>
-        <NavDropdown.Item onClick={this.handleDeleteUser}>Delete user</NavDropdown.Item>
-        <NavDropdown.Item onClick={this.RedirectToHomePage}>Log-out</NavDropdown.Item>
-        </NavDropdown>
-          </Navbar.Collapse>
-        </Navbar>
-        <br />
-      </>
-    );
-  };
-};
+				</Nav>
+				<Navbar.Collapse className='justify-content-end'>
+					<Navbar.Text>Signed in as:</Navbar.Text>
+					<NavDropdown title={LoggedUser} id='nav-dropdown'>
+						<NavDropdown.Item>
+							<Link to='./updateUser' className='link'>
+								Update user
+							</Link>
+						</NavDropdown.Item>
+						<NavDropdown.Item onClick={handleDeleteUser}>
+							Delete user
+						</NavDropdown.Item>
+						<NavDropdown.Item onClick={RedirectToHomePage}>
+							Log-out
+						</NavDropdown.Item>
+					</NavDropdown>
+				</Navbar.Collapse>
+			</Navbar>
+			<br />
+		</>
+	)
+}
 
 export default NavBar
