@@ -29,6 +29,7 @@ class updatePost extends React.Component {
             method: 'PATCH',
             headers: {'Content-Type':'application/json'},
             body: JSON.stringify({
+                "token": localStorage.getItem("token"),
                 "title": this.state.title,
                 "body": this.state.body,
                 "postID": this.props.location.state._id
@@ -51,7 +52,6 @@ class updatePost extends React.Component {
     render() {
         return (
             <>
-                <Navbar/>
                 <Container>
                     <h1 className="text-center">Update post</h1>
                     <Form onSubmit={this.handleSubmit}>

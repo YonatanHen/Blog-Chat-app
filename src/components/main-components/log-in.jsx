@@ -1,81 +1,98 @@
-import React from 'react';
-import { Form, Button, Container } from 'react-bootstrap';
-import { Redirect } from 'react-router-dom';
+import React, { useReducer, useState } from 'react'
+import { Form, Button, Container } from 'react-bootstrap'
+import { Redirect } from 'react-router-dom'
+import { useSelector, useDispatch, useStore } from 'react-redux'
 
-class LogIn extends React.Component {
-    constructor(props) {
-        super(props)
-        this.state = {
-            redirect: false,
-            username: '',
-            password: '',
-        }
+import * as usersActions from '../../store/actions/users'
 
-        this.handleUsername = this.handleUsername.bind(this);
-        this.handlePassword = this.handlePassword.bind(this);
-        this.handleSubmit = this.handleSubmit.bind(this);
-    }
+const LogIn = (props) => {
+	const [redirect, redirectHandler] = useState(false)
+	const [inputValues, setInputValues] = useState({
+		username: '',
+		password: '',
+	})
 
-    handleUsername = (event) => {
-        this.setState({username: event.target.value});
-    }
+	const handleOnChange = (event) => {
+		const { name, value } = event.target
+		setInputValues({ ...inputValues, [name]: value })
+	}
 
-    handlePassword = (event) => {
-        this.setState({password: event.target.value}); 
-    }
+	const dispatch = useDispatch()
+	const store = useStore()
 
-    handleSubmit = (event) => {
-        event.preventDefault()
-        fetch('/login', {
-            method: 'POST',
-            headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({
-                "username": this.state.username,
-                "password": this.state.password
-            })
-        })
-        .then(response => response.json())
-        .then(response => {
-            console.log(response)
-            if (!response.username) alert('Username/Password are not correct.')
-            else {
-                sessionStorage.setItem("username", this.state.username)
-                sessionStorage.setItem("_id", response.id)
-                this.setState({ redirect: true })
-            }
-        })
-        .catch((error) => {
-            alert(error)
-        })
-    }
-    
+	const handleSubmit = (event) => {
+		event.preventDefault()
+		fetch('/login', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				...inputValues,
+			}),
+		})
+			.then((response) => response.json())
+			.then((response) => {
+				if (!response.username) alert('Username/Password are not correct.')
+				else {
+					sessionStorage.setItem('username', inputValues.username)
+					sessionStorage.setItem('_id', response.id)
+					localStorage.setItem('token', response.token)
+					dispatch(
+						usersActions.loginUser(
+							inputValues.username,
+							response.id,
+							response.token
+						)
+					)
 
-    render () {
-        if (this.state.redirect)
-            return (
-            <Redirect to={{
-                pathname: '/blog',
-                props: { username: this.state.username }
-            }}/>
-            )
-        else return (
-            <Container>
-                <Form onSubmit={this.handleSubmit}>
-                    <Form.Group controlId="user-username">
-                        <Form.Label>Username</Form.Label>
-                        <Form.Control type="text" placeholder="Enter username" value={this.state.username} onChange={this.handleUsername} required/>
-                    </Form.Group>
-                    <Form.Group controlId="user-password">
-                        <Form.Label>Password</Form.Label>
-                        <Form.Control type="password" placeholder="Enter password" value={this.state.password} onChange={this.handlePassword}/>
-                    </Form.Group>
-                    <Button variant="primary" type="submit">
-                        Submit
-                    </Button >
-                </Form>
-            </Container>
-        );
-    };
-};
+					console.log(store.getState())
+					redirectHandler(true)
+				}
+			})
+			.catch((error) => {
+				alert(error)
+			})
+	}
+
+	if (redirect)
+		return (
+			<Redirect
+				to={{
+					pathname: '/blog',
+					props: { username: inputValues.username },
+				}}
+			/>
+		)
+	else
+		return (
+			<Container>
+				<Form onSubmit={handleSubmit}>
+					<Form.Group controlId='user-username'>
+						<Form.Label>Username</Form.Label>
+						<Form.Control
+							type='text'
+							name='username'
+							placeholder='Enter username'
+							// value={this.state.username}
+							onChange={handleOnChange}
+							required
+						/>
+					</Form.Group>
+					<Form.Group controlId='user-password'>
+						<Form.Label>Password</Form.Label>
+						<Form.Control
+							type='password'
+							name='password'
+							placeholder='Enter password'
+							// value={this.state.password}
+							onChange={handleOnChange}
+						/>
+					</Form.Group>
+					<Button variant='primary' type='submit'>
+						Submit
+					</Button>
+				</Form>
+			</Container>
+		)
+}
 
 export default LogIn
