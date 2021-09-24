@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Navbar, Nav, NavDropdown } from 'react-bootstrap'
-import { useStore } from 'react-redux'
+import { useSelector, useStore } from 'react-redux'
 import { Redirect, Link } from 'react-router-dom'
 import '../css/navbar.css'
 
@@ -40,7 +40,7 @@ const NavBar = (props) => {
 			})
 	}
 
-	if (!store.getState().token || redirectHome) {
+	if (redirectHome) {
 		console.log(store.getState())
 		return (
 			<Redirect
