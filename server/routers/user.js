@@ -3,6 +3,7 @@ const User = require('../models/user')
 const router = new express.Router()
 const validator = require('validator')
 const jwt = require('jsonwebtoken')
+const authentice = require('../middleware/authenticate')
 
 router.post('/login', async (req, res) => {
 	try {
@@ -53,7 +54,7 @@ router.get('/logout/:username', async (req, res) => {
 	}
 })
 
-router.delete('/delete/myuser', async (req, res) => {
+router.delete('/delete/myuser', authentice, async (req, res) => {
 	try {
 		const username = req.body.username
 		const user = await User.findOne({ username }) //username is unique
@@ -67,7 +68,7 @@ router.delete('/delete/myuser', async (req, res) => {
 	}
 })
 
-router.patch('/update-user', async (req, res) => {
+router.patch('/update-user', authentice, async (req, res) => {
 	try {
 		const user = await User.findById(req.body.userID) //username is unique
 		if (!user) {

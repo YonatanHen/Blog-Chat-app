@@ -22,7 +22,10 @@ class Post extends React.Component {
     deletePost = () => {
         fetch(`/posts/${this.props._id}`, {
             method: 'DELETE',
-            headers: {'Content-Type':'application/json'}
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+                "token": localStorage.getItem("token")
+            })
         })
         .then((res) => {
             if( res.status === 404 || res.status === 500) {

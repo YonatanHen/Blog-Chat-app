@@ -1,9 +1,10 @@
 const express = require('express')
 const Post = require('../models/post')
 const User = require('../models/user.js')
+const authentice = require('../middleware/authenticate')
 const router = new express.Router()
 
-router.post('/add-post', async (req,res) => {
+router.post('/add-post', authentice, async (req,res) => {
     try {
         const authorName = await User.findById(req.body.author)
         const post = new Post({ ...req.body, authorName: authorName.username })
@@ -28,7 +29,7 @@ router.get('/posts', async(req,res) => {
 
 })
 
-router.patch('/posts/update-post', async (req,res) => {
+router.patch('/posts/update-post', authentice, async (req,res) => {
     try {
         const post = await Post.findOneAndUpdate({_id: req.body.postID}, {title: req.body.title, body: req.body.body}, {returnOriginal: false})
         await post.save()
@@ -38,7 +39,7 @@ router.patch('/posts/update-post', async (req,res) => {
     }
 })
 
-router.delete('/posts/:id', async (req,res) => {
+router.delete('/posts/:id', authentice, async (req,res) => {
     const postId = req.params.id
     try {
         const post = await Post.findOneAndDelete({ _id: postId })    

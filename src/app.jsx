@@ -24,7 +24,7 @@ class App extends React.Component {
 				<Router>
 					<Switch>
 						<Route exact path='/' component={Main} />
-            <Route path='/authError' component={authError} />
+           				<Route path='/authError' component={authError} />
 						<>
 							<NavBar />
 							<Route path='/blog' render={(props) => <Blog {...props}/>} />
