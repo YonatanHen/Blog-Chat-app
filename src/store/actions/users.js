@@ -16,12 +16,12 @@ export const logoutUser = (id) => {
     }
 }
 
-export const loginUser = (username, id, tokens) => {
+export const loginUser = (username, id, token) => {
     return dispatch => {
         try {
             dispatch({
                 type: LOGIN_USER,
-                userData: { username, id, tokens }
+                userData: { username, id, token }
             })
         }
 

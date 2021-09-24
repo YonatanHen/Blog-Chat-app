@@ -61,6 +61,25 @@ userSchema.statics.findByUsernameAndPassword = async (username, password) => {
 	return user
 }
 
+userSchema.statics.findByToken = async (token) => {
+	var decoded
+	
+	try {
+	  decoded = await jwt.verify(token, process.env.JWT_SECRET)
+	  console.log(decoded)
+	} catch (e) {
+		console.log(e)
+	  return Promise.reject()
+	}
+
+	const user = await User.findOne({
+	  '_id': decoded._id,
+	  'tokens.token': token
+	})
+	console.log(user)
+	return user
+}
+
 userSchema.pre('save', async function (next) {
 	const user = this
 

@@ -28,6 +28,7 @@ class AddPost extends React.Component {
             method: 'POST',
             headers: {'Content-Type':'application/json'},
             body: JSON.stringify({
+                "token": localStorage.getItem("token"),
                 "title": this.state.title,
                 "body": this.state.body,
                 "author": sessionStorage.getItem("_id"), //_id value saved in storage when user login/signin

@@ -3,7 +3,7 @@ import { LOGIN_USER, LOGOUT_USER } from '../actions/users'
 const initialState = {
     username: undefined,
     id: undefined,
-    tokens: []
+    token: undefined
 }
 
 export default (state = initialState, action) => {
@@ -13,7 +13,7 @@ export default (state = initialState, action) => {
                 ...state,
                 username: action.userData.username,
                 id: action.userData.id,
-                tokens: state.tokens.concat(action.userData.tokens),
+                token: action.userData.token,
             }
         case LOGOUT_USER:
             return {

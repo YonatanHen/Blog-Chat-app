@@ -35,14 +35,14 @@ const LogIn = (props) => {
 				else {
 					sessionStorage.setItem('username', inputValues.username)
 					sessionStorage.setItem('_id', response.id)
-					localStorage.getItem('tokens')
-						? localStorage.setItem(
-								'tokens',
-								localStorage.getItem('tokens').concat(response.token)
-						  )
-						: localStorage.setItem('tokens', [response.token])
-					console.log(response)
-					dispatch(usersActions.loginUser(inputValues.username, response.id, response.token))
+					localStorage.setItem('token', response.token)
+					dispatch(
+						usersActions.loginUser(
+							inputValues.username,
+							response.id,
+							response.token
+						)
+					)
 
 					console.log(store.getState())
 					redirectHandler(true)
