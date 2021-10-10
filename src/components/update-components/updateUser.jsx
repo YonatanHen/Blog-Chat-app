@@ -8,7 +8,7 @@ class UpdateUser extends React.Component {
         super(props)
         this.state = {
             redirect: false,
-            username: sessionStorage.getItem("username"),
+            username: localStorage.getItem("username"),
             password: '',
             passwordConfirmation: '',
             email: ''
@@ -44,7 +44,7 @@ class UpdateUser extends React.Component {
             headers: {'Content-Type':'application/json'},
             body: JSON.stringify({
                 "token": localStorage.getItem("token"),
-                "userID": sessionStorage.getItem("_id"), 
+                "userID": localStorage.getItem("_id"), 
                 "username": this.state.username,
                 "email": this.state.email,
                 "password": this.state.password
@@ -60,7 +60,7 @@ class UpdateUser extends React.Component {
                 window.location.reload(false); //Refreshing page
             }
             else {
-                sessionStorage.setItem("username", response.username)              
+                localStorage.setItem("username", response.username)              
                 this.setState({ redirect: true })
             }
         })

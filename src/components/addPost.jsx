@@ -31,7 +31,7 @@ class AddPost extends React.Component {
                 "token": localStorage.getItem("token"),
                 "title": this.state.title,
                 "body": this.state.body,
-                "author": sessionStorage.getItem("_id"), //_id value saved in storage when user login/signin
+                "author": localStorage.getItem("_id"), //_id value saved in storage when user login/signin
             })
         }) 
         .then(response => response.json())
