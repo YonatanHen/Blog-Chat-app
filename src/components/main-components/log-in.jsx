@@ -18,7 +18,6 @@ const LogIn = (props) => {
 	}
 
 	const dispatch = useDispatch()
-	const store = useStore()
 
 	const handleSubmit = (event) => {
 		event.preventDefault()
@@ -43,8 +42,6 @@ const LogIn = (props) => {
 							response.token
 						)
 					)
-
-					console.log(store.getState())
 					redirectHandler(true)
 				}
 			})

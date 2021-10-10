@@ -41,7 +41,6 @@ const NavBar = (props) => {
 	}
 
 	if (redirectHome) {
-		console.log(store.getState())
 		return (
 			<Redirect
 				to={{
