@@ -48,7 +48,7 @@ class Post extends React.Component {
     }
 
     userButtons = () => {
-        if (sessionStorage.getItem('_id') === (this.props.author)) {
+        if (localStorage.getItem('_id') === (this.props.author)) {
             return (
                 <>
                     <Button variant="secondary" size="sm" onClick={this.redirectToUpdatePost}>Update Post</Button>

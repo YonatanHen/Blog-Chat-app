@@ -12,6 +12,7 @@ import UpdatePost from './components/update-components/updatePost'
 import UpdateUser from './components/update-components/updateUser'
 import NavBar from './components/navbar'
 import './css/app.css'
+import clearStorage from './utilities/clearStorage'
 
 class App extends React.Component {
   constructor(props) {

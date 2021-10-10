@@ -13,7 +13,7 @@ class Like extends React.Component {
             method: 'POST',
             headers: {'Content-Type':'application/json'},
             body: JSON.stringify({
-                "userID": sessionStorage.getItem("_id"),
+                "userID": localStorage.getItem("_id"),
                 "postID": this.props._id,
             })
         })
@@ -41,7 +41,7 @@ class Like extends React.Component {
             headers: {'Content-Type':'application/json'},
             body: JSON.stringify({
                 "postID": this.props._id,
-                "userID": sessionStorage.getItem("_id"),
+                "userID": localStorage.getItem("_id"),
                 "totalLikes": this.state.totalLikes
             })
         })

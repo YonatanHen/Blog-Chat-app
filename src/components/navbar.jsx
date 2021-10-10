@@ -15,7 +15,7 @@ const NavBar = (props) => {
 			method: 'GET',
 		}) //logout user - delete tokens
 			.then(
-				sessionStorage.removeItem('username'),
+				localStorage.removeItem('username'),
 				localStorage.removeItem('token'),
 				redirectHomeHandler(true)
 			)
@@ -72,7 +72,7 @@ const NavBar = (props) => {
 				</Nav>
 				<Navbar.Collapse className='justify-content-end'>
 					<Navbar.Text>Signed in as:</Navbar.Text>
-					<NavDropdown title={LoggedUser} id='nav-dropdown'>
+					<NavDropdown title={localStorage.getItem('username')} id='nav-dropdown'>
 						<NavDropdown.Item>
 							<Link to='./updateUser' className='link'>
 								Update user

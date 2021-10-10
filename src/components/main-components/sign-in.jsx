@@ -35,8 +35,8 @@ const SignIn = (props) => {
 				if (response.status === 400) {
 					alert(response.message)
 				} else {
-					sessionStorage.setItem('username', response.username)
-					sessionStorage.setItem('_id', response.id)
+					localStorage.setItem('username', response.username)
+					localStorage.setItem('_id', response.id)
 					localStorage.setItem('token', response.token)
 					dispatch(
 						usersActions.loginUser(

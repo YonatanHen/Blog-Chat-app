@@ -32,8 +32,8 @@ const LogIn = (props) => {
 			.then((response) => {
 				if (!response.username) alert('Username/Password are not correct.')
 				else {
-					sessionStorage.setItem('username', inputValues.username)
-					sessionStorage.setItem('_id', response.id)
+					localStorage.setItem('username', inputValues.username)
+					localStorage.setItem('_id', response.id)
 					localStorage.setItem('token', response.token)
 					dispatch(
 						usersActions.loginUser(
