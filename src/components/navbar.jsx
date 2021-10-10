@@ -1,17 +1,13 @@
 import React, { useState } from 'react'
 import { Navbar, Nav, NavDropdown } from 'react-bootstrap'
-import { useSelector, useStore } from 'react-redux'
 import { Redirect, Link } from 'react-router-dom'
 import '../css/navbar.css'
 
 const NavBar = (props) => {
-	const store = useStore()
-
 	const [redirectHome, redirectHomeHandler] = useState(false)
-	const LoggedUser = store.getState().username
 
 	const RedirectToHomePage = () => {
-		fetch('/logout/' + LoggedUser, {
+		fetch('/logout/' + localStorage.getItem('username'), {
 			method: 'GET',
 		}) //logout user - delete tokens
 			.then(
@@ -21,17 +17,13 @@ const NavBar = (props) => {
 			)
 	}
 
-	// const handleRedirectToUpdateUser = () => {
-	// 	redirectToUpdateHandler(true)
-	// }
-
 	const handleDeleteUser = () => {
 		fetch('/delete/myuser', {
 			method: 'DELETE',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ 
 				"token": localStorage.getItem("token"),
-				username: LoggedUser
+				"username": localStorage.getItem("username")
 			 }),
 		})
 			.then(RedirectToHomePage())
@@ -60,7 +52,6 @@ const NavBar = (props) => {
 	// }
 	return (
 		<>
-			{console.log(store.getState())}
 			<Navbar variant='dark'>
 				<Navbar.Brand>
 					Blog-App
