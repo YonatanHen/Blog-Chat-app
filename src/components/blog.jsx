@@ -29,7 +29,6 @@ class Blog extends React.Component {
 				})
 			})
 			.catch((error) => {
-				console.log(error)
 				alert('An error occured!')
 			})
 

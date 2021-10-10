@@ -49,7 +49,6 @@ const SignIn = (props) => {
 				}
 			})
 			.catch((error) => {
-				console.log(error)
 				alert('An error occured!')
 			})
 	}
