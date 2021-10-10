@@ -36,7 +36,6 @@ class AddPost extends React.Component {
         }) 
         .then(response => response.json())
         .then(response => {
-            console.log(response)
             if(response.status === 400) {
                 alert(response.message)
             }
@@ -48,7 +47,6 @@ class AddPost extends React.Component {
             }
         })
         .catch((error) => {
-            console.log(error)
             alert("An error occured!")
         })
     }

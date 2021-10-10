@@ -66,7 +66,7 @@ userSchema.statics.findByToken = async (token) => {
 	
 	try {
 	  decoded = await jwt.verify(token, process.env.JWT_SECRET)
-	  console.log(decoded)
+
 	} catch (e) {
 		console.log(e)
 	  return Promise.reject()
@@ -76,7 +76,7 @@ userSchema.statics.findByToken = async (token) => {
 	  '_id': decoded._id,
 	  'tokens.token': token
 	})
-	console.log(user)
+
 	return user
 }
 

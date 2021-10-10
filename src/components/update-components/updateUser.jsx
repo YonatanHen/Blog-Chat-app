@@ -52,9 +52,7 @@ class UpdateUser extends React.Component {
         })
         .then(response => response.json())
         .then(response => {
-            console.log(response)
             if(response.status === 400) {
-                console.log(response)
                 alert(response.status)
             }
             else if (this.state.password !== this.state.passwordConfirmation) {
@@ -67,7 +65,6 @@ class UpdateUser extends React.Component {
             }
         })
         .catch((error) => {
-            console.log(error)
             alert("An error occured!")
         })
     }
