@@ -1,106 +1,77 @@
-import React from 'react';
-import { Card, Accordion, Button } from 'react-bootstrap';
-import { Redirect } from 'react-router-dom';
+import React, { useState } from 'react'
+import { Card, Accordion, Button } from 'react-bootstrap'
+import { Redirect } from 'react-router-dom'
 import Like from './post-components/like'
-import '../../css/post.css' 
+import '../../css/post.css'
+import * as postsActions from '../../store/actions/posts'
+import { useDispatch } from 'react-redux'
 
-var key = 0
+export const Post = (props) => {
+	let key = 0
+	const [redirectToUpdate, redirectToUpdateHandler] = useState(false)
 
-class Post extends React.Component {
-    constructor(props) {
-        super(props)
-        this.key = 0
-        this.state = {
-            redirectToUpdate: false
-        }
+	const dispatch = useDispatch()
 
-        this.userButtons = this.userButtons.bind(this)
-        this.deletePost = this.deletePost.bind(this)
-        this.redirectToUpdatePost = this.redirectToUpdatePost.bind(this)
-    }
+	const userButtons = () => {
+		if (localStorage.getItem('_id') === props.author) {
+			return (
+				<>
+					<Button
+						variant='secondary'
+						size='sm'
+						onClick={() => redirectToUpdateHandler(true)}
+					>
+						Update Post
+					</Button>
+					<Button
+						variant='danger'
+						size='sm'
+						onClick={() => dispatch(postsActions.deletePost(props._id, props.title))}
+					>
+						Delete Post
+					</Button>
+				</>
+			)
+		}
+		return null
+	}
 
-    deletePost = () => {
-        fetch(`/posts/${this.props._id}`, {
-            method: 'DELETE',
-            headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({
-                "token": localStorage.getItem("token")
-            })
-        })
-        .then((res) => {
-            if( res.status === 404 || res.status === 500) {
-                alert(res.statusText)
-            }
-            else {
-                alert(`Post ${this.props.title} deleted successfully.`)
-                window.location.reload(false)
-            }
-        })
-        .catch((error) => {
-            alert(error)
-        })
-    }
-
-    redirectToUpdatePost = () => {
-        this.setState({
-            redirectToUpdate: true
-        })
-    }
-
-    userButtons = () => {
-        if (localStorage.getItem('_id') === (this.props.author)) {
-            return (
-                <>
-                    <Button variant="secondary" size="sm" onClick={this.redirectToUpdatePost}>Update Post</Button>
-                    <Button variant="danger" size="sm"  onClick={this.deletePost}>Delete Post</Button>
-                </>
-            )
-        }
-        return null
-    }
-
-
-    render() {
-        if (this.state.redirectToUpdate)
-            return (
-            <Redirect to={{
-                pathname: '/updatePost',
-                state: {  
-                _id: this.props._id,
-                body: this.props.body, 
-                title: this.props.title }
-            }}/>
-            )
-        return (
-            <>
-            <Card className="post-card">
-            <Card.Header>
-                <Accordion.Toggle className="post-btn" eventKey={(++key).toString()}>
-                    <b>{this.props.authorName}</b> { "|" } {this.props.title}
-                </Accordion.Toggle>
-            </Card.Header>
-                <Accordion.Collapse eventKey={(key).toString()}>
-                    <Card.Body>
-                        <p>
-                            {this.props.body}
-                        </p>
-                        <br/>
-                        <div className="post-sub-btns">
-                            {this.userButtons()}
-                            <Like 
-                                _id = {this.props._id}  
-                                author = {this.props.author}
-                                totalLikes = {this.props.likes}
-                            />
-                        </div>
-                    </Card.Body>
-                </Accordion.Collapse>
-            </Card>
-            </>
-        );
-    };
- };
-
- export default Post
-
-
+	if (redirectToUpdate)
+		return (
+			<Redirect
+				to={{
+					pathname: '/updatePost',
+					state: {
+						_id: props._id,
+						body: props.body,
+						title: props.title,
+					},
+				}}
+			/>
+		)
+	return (
+		<>
+			<Card className='post-card'>
+				<Card.Header>
+					<Accordion.Toggle className='post-btn' eventKey={(++key).toString()}>
+						<b>{props.authorName}</b> {'|'} {props.title}
+					</Accordion.Toggle>
+				</Card.Header>
+				<Accordion.Collapse eventKey={key.toString()}>
+					<Card.Body>
+						<p>{props.body}</p>
+						<br />
+						<div className='post-sub-btns'>
+							{userButtons()}
+							<Like
+								_id={props._id}
+								author={props.author}
+								totalLikes={props.likes}
+							/>
+						</div>
+					</Card.Body>
+				</Accordion.Collapse>
+			</Card>
+		</>
+	)
+}
