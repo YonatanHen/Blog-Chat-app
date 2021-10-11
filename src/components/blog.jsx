@@ -16,13 +16,14 @@ import { useDispatch, useSelector } from 'react-redux'
 export const Blog = (props) => {
 	const posts = useSelector((state) => state.posts.posts)
 	const [text, setText] = useState('')
-	const [isPostDeleted, setIsPostDeleted] = useState(false)
+	const [isLoading, setIsLoading] = useState(false)
 
 	const dispatch = useDispatch()
 
 	useEffect(() => {
+		setIsLoading(true)
 		dispatch(postsActions.getPosts())
-		console.log(posts)
+		setIsLoading(false)
 	}, [postsActions.getPosts, postsActions.deletePost])
 
 	const redirectToAddPost = () => {
@@ -34,7 +35,7 @@ export const Blog = (props) => {
 	}
 	return (
 		<>
-			{posts ? (
+			{!isLoading ? (
 				<>
 					<Container className='text-center'>
 						<Jumbotron fluid>
@@ -59,11 +60,7 @@ export const Blog = (props) => {
 							<Button onClick={redirectToAddPost}>Add new post</Button>
 						</div>
 					</Container>
-					<Posts
-						postslist={posts}
-						text={text}
-						setIsPostDeleted={setIsPostDeleted}
-					/>
+					<Posts postslist={posts} text={text} />
 				</>
 			) : (
 				<div id='loading'>
