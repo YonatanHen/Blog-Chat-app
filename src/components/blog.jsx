@@ -1,4 +1,5 @@
-import React from 'react'
+import React, { useEffect } from 'react'
+import { useState } from 'react'
 import {
 	Jumbotron,
 	Container,
@@ -6,49 +7,34 @@ import {
 	InputGroup,
 	FormControl,
 } from 'react-bootstrap'
-import Navbar from './navbar'
 import '../css/blog.css'
 import '../css/loading.css'
-import Posts from './blog-components/general-components/postsList'
+import { Posts } from './blog-components/general-components/postsList'
+import * as postsActions from '../store/actions/posts'
+import { useDispatch, useSelector } from 'react-redux'
 
-class Blog extends React.Component {
-	constructor(props) {
-		super(props)
-		this.state = {
-			posts: null,
-			text: '',
-		}
+export const Blog = (props) => {
+	const posts = useSelector((state) => state.posts.posts)
+	const [text, setText] = useState('')
+	const [isPostDeleted, setIsPostDeleted] = useState(false)
 
-		fetch('/posts/', {
-			method: 'GET',
-		})
-			.then((response) => response.json())
-			.then((data) => {
-				this.setState({
-					posts: data,
-				})
-			})
-			.catch((error) => {
-				alert('An error occured!')
-			})
+	const dispatch = useDispatch()
 
-		this.redirectToAddPost = this.redirectToAddPost.bind(this)
-		this.handleSearch = this.handleSearch.bind(this)
+	useEffect(() => {
+		dispatch(postsActions.getPosts())
+		console.log(posts)
+	}, [postsActions.getPosts, postsActions.deletePost])
+
+	const redirectToAddPost = () => {
+		props.history.push('/addPost')
 	}
 
-	redirectToAddPost = () => {
-		this.props.history.push('/addPost')
+	const handleSearch = (event) => {
+		setText(event.target.value)
 	}
-
-	handleSearch = (event) => {
-		this.setState({
-			text: event.target.value,
-		})
-	}
-
-	render() {
-		if (this.state.posts)
-			return (
+	return (
+		<>
+			{posts ? (
 				<>
 					<Container className='text-center'>
 						<Jumbotron fluid>
@@ -65,26 +51,29 @@ class Blog extends React.Component {
 							<FormControl
 								aria-label='Small'
 								placeholder='Enter text here!'
-								onChange={this.handleSearch}
+								onChange={handleSearch}
 							/>
 						</InputGroup>
 						<br />
 						<div className='d-flex justify-content-center'>
-							<Button onClick={this.redirectToAddPost}>Add new post</Button>
+							<Button onClick={redirectToAddPost}>Add new post</Button>
 						</div>
 					</Container>
-					<Posts postslist={this.state.posts} text={this.state.text} />
+					<Posts
+						postslist={posts}
+						text={text}
+						setIsPostDeleted={setIsPostDeleted}
+					/>
 				</>
-			)
-		else
-			return (
+			) : (
 				<div id='loading'>
 					Loading
 					<br />
 					<div className='dot' />
 				</div>
-			)
-	}
+			)}
+		</>
+	)
 }
 
 export default Blog
