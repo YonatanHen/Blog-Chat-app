@@ -1,15 +1,16 @@
 export const LOGIN_USER = 'LOGIN_USER'
 export const LOGOUT_USER = 'LOGOUT_USER'
 
-export const logoutUser = (id) => {
+export const logoutUser = () => {
     return dispatch => {
+        localStorage.removeItem('username')
+        localStorage.removeItem('_id')
+        localStorage.removeItem('token')
         try {
             dispatch({
                 type: LOGOUT_USER,
-                userData: { id }
             })
         }
-
         catch (err) {
             throw new Error('error in logout user!')
         }
@@ -23,9 +24,7 @@ export const loginUser = (username, id, token) => {
                 type: LOGIN_USER,
                 userData: { username, id, token }
             })
-        }
-
-        catch (err) {
+        } catch (err) {
             throw new Error('error in login user!')
         }
     }

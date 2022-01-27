@@ -1,5 +1,4 @@
-import React, { useEffect } from 'react'
-import { useState } from 'react'
+import React, { useEffect, useState} from 'react'
 import {
 	Jumbotron,
 	Container,
@@ -24,7 +23,7 @@ export const Blog = (props) => {
 		setIsLoading(true)
 		dispatch(postsActions.getPosts())
 		setIsLoading(false)
-	}, [postsActions.getPosts, postsActions.deletePost])
+	}, [dispatch])
 
 	const redirectToAddPost = () => {
 		props.history.push('/addPost')

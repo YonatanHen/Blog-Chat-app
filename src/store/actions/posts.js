@@ -12,6 +12,7 @@ export const getPosts = () => {
                 posts = result
             })
             .catch((error) => {
+                console.log(error)
                 alert('An error occured!')
             })
 
@@ -20,12 +21,12 @@ export const getPosts = () => {
 }
 
 export const deletePost = (postId, postTitle) => {
-    return async dispatch => {
+    return async (dispatch, getState) => {
         await fetch(`/posts/${postId}`, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                "token": localStorage.getItem("token")
+                "token": getState().user.token
             })
         })
             .then((res) => {

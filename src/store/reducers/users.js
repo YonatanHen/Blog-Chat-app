@@ -1,12 +1,12 @@
 import { LOGIN_USER, LOGOUT_USER } from '../actions/users'
 
 const initialState = {
-    username: undefined,
-    id: undefined,
-    token: undefined
+    username: localStorage.getItem('username') || '',
+    id: localStorage.getItem('_id') || '',
+    token: localStorage.getItem('token') || ''
 }
 
-export default (state = initialState, action) => {
+const usersReducer = (state = initialState, action) => {
     switch (action.type) {
         case LOGIN_USER:
             return {
@@ -23,3 +23,5 @@ export default (state = initialState, action) => {
             return state
     }
 }
+
+export default usersReducer
