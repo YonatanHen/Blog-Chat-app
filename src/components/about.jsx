@@ -1,6 +1,4 @@
 import React from 'react';
-import Navbar from './navbar'
-
 
 class About extends React.Component {
     render(){

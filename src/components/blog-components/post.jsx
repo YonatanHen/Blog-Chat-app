@@ -4,16 +4,17 @@ import { Redirect } from 'react-router-dom'
 import Like from './post-components/like'
 import '../../css/post.css'
 import * as postsActions from '../../store/actions/posts'
-import { useDispatch } from 'react-redux'
+import { useDispatch, useSelector } from 'react-redux'
 
 export const Post = (props) => {
 	let key = 0
 	const [redirectToUpdate, redirectToUpdateHandler] = useState(false)
+	const user = useSelector(state => state.user)
 
 	const dispatch = useDispatch()
 
 	const userButtons = () => {
-		if (localStorage.getItem('_id') === props.author) {
+		if (user.id === props.author) {
 			return (
 				<>
 					<Button

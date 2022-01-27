@@ -14,9 +14,6 @@ import NavBar from './components/navbar'
 import './css/app.css'
 
 class App extends React.Component {
-  constructor(props) {
-    super(props)
-  }
 
 	render() {
 		return (
@@ -29,7 +26,7 @@ class App extends React.Component {
 							<NavBar />
 							<Route path='/blog' render={(props) => <Blog {...props}/>} />
 							<Route path='/about' render={(props) => <About {...props}/>} />
-							{/* <Route path='/chat'  render={() => <Chat />} /> */}
+							<Route path='/chat'  render={() => <Chat />} />
 							<Route path='/addPost' render={(props) => <AddPost {...props}/>} />
 							<Route path='/updatePost' render={(props) => <UpdatePost {...props}/>} />
 							<Route path='/updateUser' render={(props) => <UpdateUser {...props}/>} />

@@ -8,7 +8,7 @@ import postsReducer from './store/reducers/posts'
 import ReduxThunk from 'redux-thunk'
 
 const combinedReducer = combineReducers({
-    users: usersReducer,
+    user: usersReducer,
     posts: postsReducer
 })
 

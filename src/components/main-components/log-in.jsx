@@ -1,9 +1,8 @@
-import React, { useReducer, useState } from 'react'
+import React, { useState } from 'react'
 import { Form, Button, Container } from 'react-bootstrap'
 import { Redirect } from 'react-router-dom'
-import { useSelector, useDispatch, useStore } from 'react-redux'
-
-import * as usersActions from '../../store/actions/users'
+import { useDispatch } from 'react-redux'
+import { loginUser } from '../../store/actions/users'
 
 const LogIn = (props) => {
 	const [redirect, redirectHandler] = useState(false)
@@ -36,7 +35,7 @@ const LogIn = (props) => {
 					localStorage.setItem('_id', response.id)
 					localStorage.setItem('token', response.token)
 					dispatch(
-						usersActions.loginUser(
+						loginUser(
 							inputValues.username,
 							response.id,
 							response.token
