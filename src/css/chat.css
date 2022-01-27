@@ -1,0 +1,42 @@
+.chat {
+	margin-left: 50px;
+	margin-right: 50px;
+	margin-bottom: 2%;
+	font-size: 12px;
+	height: 500px;
+}
+
+.messages {
+	overflow-y: scroll;
+	position: sticky;
+	height: 100%;
+}
+
+.message-input {
+	position: absolute;
+	bottom: 1;
+	width: 90%;
+	overflow: auto;
+	padding: 5px 0 5px 0;
+}
+
+.message-box {
+	border-left: black 3px solid;
+	padding-left: 5px;
+}
+
+::-webkit-scrollbar {
+	width: 5px;
+}
+
+::-webkit-scrollbar-track {
+	background: #4a5d23;
+}
+
+::-webkit-scrollbar-thumb {
+	background: white;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: #555;
+}

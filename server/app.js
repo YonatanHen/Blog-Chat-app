@@ -25,35 +25,45 @@ app.get('/*', (req, res) => {
 });
 
 io.on("connection", (socket) => {
-  console.log("New webSocket connection");
 
-  socket.emit('message', {
-    text: 'Welcome!',
-    createdAt: new Date().getTime()
+  socket.on("join", (message) => {
+
+    socket.emit('message', {
+      text: `Welcome ${message.user}`,
+      createdAt: new Date().getTime()
+    })
+    socket.broadcast.emit('message', {
+      text: `${message.user} has joined!`,
+      createdAt: new Date().getTime()
+    })
+
+    socket.on('disconnect', (message) => {
+      socket.broadcast.emit('message', {
+        text: `User has left`,
+        createdAt: new Date().getTime()
+      })
+    })
+  
   })
-  socket.broadcast.emit('message', 'A new user has joined!')
 
   socket.on('sendMessage', (message, callback) => {
     const filter = new Filter()
 
-    if (filter.isProfane(message)) {
+    if (filter.isProfane(message.message)) {
       return callback('Profanity is not allowed!')
     }
 
     io.emit('message', {
-      text: message,
+      text: message.message,
+      user: message.user,
       createdAt: new Date().getTime()
     })
     callback()
   })
 
-  socket.on('disconnect', () => {
-    io.emit('message', 'A user has left')
-  })
-
 });
 
 
-server.listen(port , (req, res) => {
-    console.log('App is listen to port ' + port)
+server.listen(port, (req, res) => {
+  console.log('App is listen to port ' + port)
 })
