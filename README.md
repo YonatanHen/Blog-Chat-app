@@ -17,7 +17,7 @@ In addittion, There is a chat feature that based on WebSocket API implemented wi
 - Socket.io
 - JWT
 
-### Screens
+### Screens:
 #### Log-in:
 ![image](https://user-images.githubusercontent.com/57364867/151522312-c629b79b-a275-45ca-8b75-5dfaa086ce5c.png)
 
