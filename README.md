@@ -3,8 +3,8 @@ This project was bootstrapped with [Create React App](https://github.com/faceboo
 The Blog-Chat app built with MERN stack and socket.io.
 
 ### General
-The app implements CRUD operations of users and posts in a server-client architecture. Those operations based on HTTP requests between the server (Express server) and the client (which builded with React.js).
-In addittion, There is a chat feature that based on WebSocket API implemented with Socket.io.
+The app implements CRUD operations of users and posts in a server-client architecture. Those operations are based on HTTP requests between the server (Express server) and the client (which built with React.js).
+In addition, There is a chat feature that based on WebSocket API implemented with Socket.io.
 
 ### Main Technologies:
 - React.js + Hooks
