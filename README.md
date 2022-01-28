@@ -21,7 +21,7 @@ In addittion, There is a chat feature that based on WebSocket API implemented wi
 #### Log-in:
 ![image](https://user-images.githubusercontent.com/57364867/151522312-c629b79b-a275-45ca-8b75-5dfaa086ce5c.png)
 
-#### Sign-Up:
+#### Sign-In:
 ![image](https://user-images.githubusercontent.com/57364867/151522360-3507b840-77cb-4185-bc38-3441f680b2b6.png)
 
 #### Blog:
