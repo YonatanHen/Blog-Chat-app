@@ -28,4 +28,4 @@ In addittion, There is a chat feature that based on WebSocket API implemented wi
 ![image](https://user-images.githubusercontent.com/57364867/151522845-6525101e-f11c-48fc-bad8-7e3b8084ea66.png)
 
 #### Chat:
-![image](https://user-images.githubusercontent.com/57364867/151522755-906d1dac-3d17-48cb-8501-1223887192b8.png)
+![image](https://user-images.githubusercontent.com/57364867/151523003-5264d95c-d4cc-4106-9b51-7ce49bf3ca35.png)
