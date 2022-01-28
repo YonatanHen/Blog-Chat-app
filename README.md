@@ -1,6 +1,6 @@
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
-The Blog-Chat app built with MERN stack and socket.io.
+The Blog-Chat app was built with MERN stack and socket.io.
 
 ### General
 The app implements CRUD operations of users and posts in a server-client architecture. Those operations are based on HTTP requests between the server (Express server) and the client (which built with React.js).
