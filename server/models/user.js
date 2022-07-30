@@ -1,6 +1,6 @@
 require('../db/mongoose')
 const mongoose = require('mongoose')
-const bcrypt = require('bcrypt')
+const bcrypt = require('bcryptjs')
 const Post = require('./post')
 const jwt = require('jsonwebtoken')
 
