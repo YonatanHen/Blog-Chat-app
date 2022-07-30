@@ -12,7 +12,7 @@
     "@testing-library/user-event": "^7.2.1",
     "axios": "^0.21.1",
     "bad-words": "^3.0.0",
-    "bcrypt": "^5.0.0",
+    "bcryptjs": "^2.4.3",
     "bootstrap": "^4.5.3",
     "cors": "^2.8.5",
     "dotenv": "^8.2.0",
@@ -22,6 +22,7 @@
     "moment": "^2.29.1",
     "mongod": "^2.0.0",
     "mongoose": "^5.13.9",
+    "node-pre-gyp": "^0.12.0",
     "nodemailer": "^6.5.0",
     "react": "^16.14.0",
     "react-bootstrap": "^1.4.0",
@@ -69,7 +70,7 @@
     "nodemon": "^2.0.6"
   },
   "engines": {
-    "node": "14.x",
-    "npm": "6.x"
+    "node": "16.x",
+    "npm": "8.x"
   }
 }
