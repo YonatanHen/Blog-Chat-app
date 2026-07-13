@@ -45,7 +45,7 @@ project's identity: a MERN blog with real-time chat.
 | Hosting (prod) | **Render** | Long-lived containers, unlike Vercel's serverless functions. |
 | Local / staging / E2E | **Docker Compose + `compose watch`** | Fully containerized, hot reload preserved. Replaces a cloud staging environment. See §11. |
 | Styling | **Tailwind + shadcn/ui** | Current default; accessible primitives the user owns. |
-| Theme | **Light only. White primary, black secondary.** | Monochrome editorial aesthetic. **No dark-mode toggle.** |
+| Theme | **Light only. White primary, blue secondary.** | Editorial aesthetic; blue is the accent (actions, links, focus), body text stays near-black for readability. **No dark-mode toggle.** |
 | Images | **S3 (existing bucket) + CloudFront** | User already runs S3. CloudFront free tier is generous; S3→CloudFront transfer is free. |
 | Likes | **Toggle (like / unlike)** | Not up/down voting. Count never goes below zero. |
 | Repo | **Monorepo** | Two services must share models, Zod schemas, and ticket verification. |
@@ -497,7 +497,7 @@ agents.
 
 | Phase | Branch | Deliverable |
 |---|---|---|
-| **P1** | `dev/nextjs-foundation` | Monorepo, Next.js 15 + TS, Tailwind + shadcn (white/black), design-system skeleton (`ui`/`patterns`/`layouts`), Mongoose 8 + Zod in `packages/shared`, Auth.js credentials login, posts CRUD with correct authorization, Compose (dev + e2e), seed script, CI, deployed to Render. |
+| **P1** | `dev/nextjs-foundation` | Monorepo, Next.js 15 + TS, Tailwind + shadcn (white/blue), design-system skeleton (`ui`/`patterns`/`layouts`), Mongoose 8 + Zod in `packages/shared`, Auth.js credentials login, posts CRUD with correct authorization, Compose (dev + e2e), seed script, CI, deployed to Render. |
 | **P2** | `dev/comments-markdown` | Threaded comments, Markdown editor + preview, `AutoForm`, post timestamps, `premium` flag + gating + paywall JSON-LD. |
 | **P3** | `dev/realtime-chat` | `apps/realtime` Socket.io service, signed handshake tickets, Redis message buffer, presence + typing indicators. |
 | **P4** | `dev/media-and-search` | Presigned S3 uploads, CloudFront + OAC, `next/image`, avatars + cover images, tags, MongoDB full-text search. |
