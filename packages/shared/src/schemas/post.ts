@@ -1,10 +1,18 @@
 import { z } from 'zod'
 
 export const CreatePostSchema = z.object({
-  title: z.string().trim().min(3, 'Title must be at least 3 characters').max(120),
-  body: z.string().trim().min(1, 'Body cannot be empty'),
+  title: z
+    .string()
+    .trim()
+    .min(3, 'Title must be at least 3 characters')
+    .max(120, 'Title must be at most 120 characters'),
+  body: z
+    .string()
+    .trim()
+    .min(1, 'Body cannot be empty')
+    .max(50_000, 'Body must be at most 50,000 characters'),
   premium: z.coerce.boolean().default(false),
-  tags: z.array(z.string().trim().min(1)).max(5).default([]),
+  tags: z.array(z.string().trim().min(1)).max(5, 'A post can have at most 5 tags').default([]),
 })
 
 export const UpdatePostSchema = CreatePostSchema.extend({
