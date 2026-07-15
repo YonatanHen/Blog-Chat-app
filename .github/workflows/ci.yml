@@ -3,6 +3,13 @@ name: CI/CD
 on:
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: "1-2. Source & Build"
