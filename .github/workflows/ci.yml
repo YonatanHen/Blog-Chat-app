@@ -1,0 +1,32 @@
+name: CI/CD
+
+on:
+  pull_request:
+
+jobs:
+  build:
+    name: "1-2. Source & Build"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      # TODO: add 'npm run build --workspace=@blog/web' once apps/web exists (Task 5, dev/web-app-scaffold)
+      - run: npm run lint
+
+  test:
+    name: "3. Test"
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run test
