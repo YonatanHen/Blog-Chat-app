@@ -30,3 +30,20 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run test
+
+  staging-deploy:
+    name: "4. Staging Deploy (ephemeral)"
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bring up the ephemeral stack
+        run: docker compose -f compose.e2e.yaml up --build --wait
+      - name: Smoke test
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/blog)
+          echo "Got HTTP $status"
+          test "$status" = "200" || test "$status" = "404"
+      - name: Tear down
+        if: always()
+        run: docker compose -f compose.e2e.yaml down -v
