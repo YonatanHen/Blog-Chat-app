@@ -1,0 +1,15 @@
+.justify-content-end {
+    margin-right: 3%;
+  }
+
+#nav-dropdown {
+    color: white;
+  }
+
+.link {
+  color: #212529 !important;
+}
+
+.link:hover {
+    text-decoration: none;
+  }

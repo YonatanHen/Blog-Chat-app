@@ -1,10 +1,17 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+#env
+config/
+
+# dependencies
 node_modules/
-.next/
-dist/
-*.tsbuildinfo
-.env
-.env.local
-coverage/
-test-results/
-playwright-report/
+
+# testing
+/coverage
+
+# misc
 .DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local

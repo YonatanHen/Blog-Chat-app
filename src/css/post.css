@@ -1,0 +1,30 @@
+
+.post-btn {
+    background: none !important;
+    border: none !important;
+    outline: none !important;
+  }
+  
+  .post-btn:hover {
+    font-weight: 700;
+  }
+  
+  .post-sub-btns {
+    bottom: 5%;
+    right: 1%;
+    padding: 1%;
+    display: inline-flex;
+    position: absolute;
+    flex-wrap: wrap;
+    gap: 2px;
+  }
+  
+  .post-sub-btns > div {
+    margin: 6px;
+  }
+  
+  
+  .post-card {
+    margin: 1.5%;   
+  }
+  
