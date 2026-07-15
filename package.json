@@ -5,7 +5,7 @@
   "engines": { "node": ">=22" },
   "scripts": {
     "dev": "docker compose watch",
-    "typecheck": "tsc --build --force",
+    "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint .",
     "test": "vitest run",
     "test:e2e": "playwright test",
