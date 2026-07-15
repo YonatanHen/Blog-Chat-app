@@ -47,3 +47,15 @@ jobs:
       - name: Tear down
         if: always()
         run: docker compose -f compose.e2e.yaml down -v
+
+  prod-deploy:
+    name: "5. Production Deploy"
+    needs: staging-deploy
+    runs-on: ubuntu-latest
+    # This job only runs after a human approves it in the GitHub Actions UI.
+    environment: production
+    steps:
+      - run: |
+          echo "Render auto-deploys on push to master via its own GitHub webhook."
+          echo "This job exists to make the pipeline stage explicit and to gate"
+          echo "it behind manual approval — it does not itself trigger a deploy."
