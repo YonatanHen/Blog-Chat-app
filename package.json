@@ -5,11 +5,12 @@
   "engines": { "node": ">=22" },
   "scripts": {
     "dev": "docker compose watch",
-    "typecheck": "tsc --build --force",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint .",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "seed": "npm run seed --workspace=@blog/web"
+    "seed": "npm run seed --workspace=@blog/api"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

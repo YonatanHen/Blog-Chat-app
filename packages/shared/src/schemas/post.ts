@@ -15,9 +15,10 @@ export const CreatePostSchema = z.object({
   tags: z.array(z.string().trim().min(1)).max(5, 'A post can have at most 5 tags').default([]),
 })
 
-export const UpdatePostSchema = CreatePostSchema.extend({
-  postId: z.string().min(1),
-})
+// PATCH /api/v1/posts/:slug — the slug identifies the post, so the body carries
+// no id, and every field is optional. A body field must never identify a
+// resource or its owner (spec §5).
+export const UpdatePostSchema = CreatePostSchema.partial()
 
 export type CreatePost = z.infer<typeof CreatePostSchema>
 export type UpdatePost = z.infer<typeof UpdatePostSchema>
