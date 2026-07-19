@@ -111,7 +111,7 @@ apps/api/
 
 ### Two decisions this plan makes that the spec does not spell out
 
-1. **`buildApp({ sessionStore })` takes the session store as a parameter.** Integration tests pass express-session's in-memory `MemoryStore`; the composition root passes `RedisStore`. This keeps the whole Supertest suite runnable with no Redis container. The session *behavior* under test (cookie flags, regeneration, `req.session.userId`) is identical — only the storage backend differs, and real Redis is exercised by the Compose e2e stack in Task 12. Without this, every integration test would need a live Redis.
+1. **`buildApp({ session })` takes one grouped, all-or-nothing session config** (`{ store, secret, secure }`, the same `SessionOptions` type `lib/session.ts` declares) rather than three independent optional fields. Integration tests pass `MemoryStore`; the composition root passes `RedisStore` and `env.SESSION_SECRET`. Grouping the fields means there is no per-field fallback and no default secret living in `app.ts` — a caller either supplies a complete, real session config or gets no session middleware at all. Test files that need a working session but don't care about its secret use `buildTestApp()` from `apps/api/src/test/helpers.ts`, which is deliberately outside anything `src/index.ts` ever imports (unreachable from the tsup bundle and the Docker image), so the test-only secret it holds cannot end up in production by construction, not by convention. This keeps the whole Supertest suite runnable with no Redis container; real Redis is exercised by the Compose e2e stack in Task 12.
 2. **`ConflictError` → 409 is added** alongside the four error types §10 lists. Duplicate username/email is a conflict, not a validation failure, and §3 says "prefer correct HTTP semantics over convenience." This is an addition consistent with the spec, not a contradiction of it.
 
 ---
@@ -788,6 +788,7 @@ git commit -m "feat(api): express app skeleton with asserted middleware order
 - Create: `apps/api/src/lib/redis.ts`
 - Create: `apps/api/src/lib/session.ts`
 - Create: `apps/api/src/types/express-session.d.ts`
+- Create: `apps/api/src/test/helpers.ts` (`buildTestApp()` — pulled forward from Task 5)
 - Modify: `apps/api/src/app.ts`
 - Modify: `apps/api/src/routes/v1/index.ts` (add a test-only session route)
 - Test: `apps/api/src/lib/session.test.ts`
@@ -796,7 +797,9 @@ git commit -m "feat(api): express app skeleton with asserted middleware order
 - Consumes: `buildApp`, `env` (Task 2)
 - Produces:
   - `getRedis(url: string): Promise<RedisClientType>` — globalThis-cached
-  - `buildSessionMiddleware(opts: { store: session.Store; secret: string; secure: boolean }): RequestHandler`
+  - `buildSessionMiddleware(opts: SessionOptions): RequestHandler` where `SessionOptions = { store: session.Store; secret: string; secure: boolean }`
+  - `BuildAppOptions.session?: SessionOptions` — grouped, all-or-nothing. There is no per-field default and no fallback secret in `app.ts`: a caller either supplies a complete real config or gets no session middleware. This is a correction made during implementation — see the note after Step 6.
+  - `buildTestApp(overrides?: Partial<BuildAppOptions>): express.Express` (`apps/api/src/test/helpers.ts`) — wraps `buildApp` with an in-memory store and a fixed test-only secret, for tests that need a working session but don't care about its value. Because `src/index.ts` never imports anything under `src/test/`, this secret is unreachable from the tsup bundle and the Docker image — isolation by construction, not by convention. Later tasks (6, 8, 9, 10) use this instead of hand-rolling `sessionStore: new session.MemoryStore()`.
   - `req.session.userId?: string` and `req.session.username?: string` (module augmentation) — **every later task reads these**
 
 - [ ] **Step 1: Augment the session type**
@@ -855,13 +858,24 @@ import { buildApp } from '../app.js'
 
 const SECRET = 'test-secret-at-least-32-characters-long'
 
-function appWith(secure: boolean) {
-  return buildApp({ sessionStore: new session.MemoryStore(), sessionSecret: SECRET, secure })
+function appWith(secure: boolean, trustProxy = false) {
+  return buildApp({
+    session: { store: new session.MemoryStore(), secret: SECRET, secure },
+    trustProxy,
+  })
 }
 
-/** Reads the Set-Cookie header for our session cookie, or '' if absent. */
-async function sessionCookie(secure: boolean, path = '/api/v1/session-test/login') {
-  const res = await request(appWith(secure)).post(path).send({})
+/**
+ * Reads the Set-Cookie header for our session cookie, or '' if absent.
+ * When `secure` and `trustProxy` are both true, sends X-Forwarded-Proto:
+ * https — this is what express-session actually checks (see issecure() in
+ * express-session/index.js). Render's proxy sends this header for real; a
+ * plain supertest request never looks secure without it.
+ */
+async function sessionCookie(secure: boolean, trustProxy = false, path = '/api/v1/session-test/login') {
+  const req = request(appWith(secure, trustProxy)).post(path)
+  if (trustProxy) req.set('X-Forwarded-Proto', 'https')
+  const res = await req.send({})
   const raw = res.headers['set-cookie']
   const cookies = Array.isArray(raw) ? raw : raw ? [raw] : []
   return cookies.find((c) => c.startsWith('sid=')) ?? ''
@@ -880,8 +894,15 @@ describe('session cookie policy', () => {
     expect(await sessionCookie(false)).toMatch(/^sid=/)
   })
 
-  it('is Secure in production', async () => {
-    expect(await sessionCookie(true)).toMatch(/Secure/i)
+  it('is Secure in production — behind Render, trustProxy + X-Forwarded-Proto make the request look secure', async () => {
+    expect(await sessionCookie(true, true)).toMatch(/Secure/i)
+  })
+
+  it('withholds the cookie entirely if secure is true but the request is not actually secure', async () => {
+    // express-session does not merely omit the Secure attribute here — it
+    // refuses to send Set-Cookie at all. Proven by reading its source rather
+    // than assumed: cookie.secure && !issecure() short-circuits before touch.
+    expect(await sessionCookie(true, false)).toBe('')
   })
 
   it('is NOT Secure in dev — a Secure cookie over plain http:// is silently dropped', async () => {
@@ -905,10 +926,20 @@ describe('session lifecycle', () => {
 })
 ```
 
+> **Why `trustProxy` matters here, not just `secure`:** `express-session` decides whether a
+> request "is secure" via its own `issecure()` check, which only trusts `X-Forwarded-Proto`
+> when the app has `trust proxy` enabled. Passing `secure: true` alone, against a plain
+> supertest request with no trust-proxy setup, doesn't just omit the `Secure` attribute — it
+> makes `express-session` withhold `Set-Cookie` entirely (verified by reading
+> `express-session/index.js`: `if (cookie.secure && !issecure(req, trustProxy)) return`). The
+> two options are coupled by design, and that coupling matches Render's real topology: TLS
+> terminates at Render's proxy, which forwards `X-Forwarded-Proto: https`, and `trustProxy`
+> is exactly what makes Express believe that header.
+
 - [ ] **Step 4: Run it and confirm it fails**
 
 Run: `npm run test -- apps/api/src/lib/session.test.ts`
-Expected: FAIL — `buildApp` does not accept `sessionSecret`/`secure`, and `/api/v1/session-test/*` does not exist.
+Expected: FAIL — `buildApp` does not accept a `session` option, and `/api/v1/session-test/*` does not exist.
 
 - [ ] **Step 5: Write the session middleware factory**
 
@@ -947,35 +978,31 @@ export function buildSessionMiddleware({ store, secret, secure }: SessionOptions
 }
 ```
 
-- [ ] **Step 6: Wire the session into `app.ts`**
+- [ ] **Step 6: Wire the session into `app.ts` — grouped config, no fallback secret**
 
 Replace `apps/api/src/app.ts` in full:
 
 ```ts
 import express from 'express'
-import type session from 'express-session'
 import helmet from 'helmet'
-import { buildSessionMiddleware } from './lib/session.js'
+import { buildSessionMiddleware, type SessionOptions } from './lib/session.js'
 import { errorHandler } from './middleware/error-handler.js'
 import { notFound } from './middleware/not-found.js'
 import { v1Router } from './routes/v1/index.js'
 
 export type BuildAppOptions = {
   /**
-   * Session store. The composition root passes RedisStore; integration tests
-   * pass express-session's MemoryStore so the suite needs no Redis container.
-   * The cookie behaviour under test is identical either way — only the storage
-   * backend differs, and real Redis is covered by the Compose e2e stack.
+   * Omit entirely to build an app with NO session middleware (used by tests
+   * that only exercise the base chain). To enable sessions, every field of
+   * SessionOptions is required TOGETHER — there is no default secret anywhere
+   * in this file. index.ts always supplies the real store/secret/secure from
+   * validated env; env.ts refuses to boot without SESSION_SECRET, so a
+   * production app can never be built with a missing or fallback secret.
    */
-  sessionStore?: session.Store
-  sessionSecret?: string
-  /** true in production only — a Secure cookie is dropped over plain http://. */
-  secure?: boolean
-  /** Behind Render's proxy this must be set or Secure cookies are dropped. */
+  session?: SessionOptions
+  /** Behind Render's proxy this must be set, or Secure cookies are dropped. */
   trustProxy?: boolean
 }
-
-const TEST_SECRET = 'test-only-secret-at-least-32-characters'
 
 /**
  * Builds the Express app. Order is load-bearing and asserted by app.test.ts:
@@ -993,16 +1020,8 @@ export function buildApp(opts: BuildAppOptions): express.Express {
   app.use(helmet())
   app.use(express.json({ limit: '100kb' }))
 
-  if (opts.sessionStore) {
-    app.use(
-      buildSessionMiddleware({
-        store: opts.sessionStore,
-        // Never a fallback in production: index.ts always passes the validated
-        // env value, and env.ts refuses to boot without it.
-        secret: opts.sessionSecret ?? TEST_SECRET,
-        secure: opts.secure ?? false,
-      }),
-    )
+  if (opts.session) {
+    app.use(buildSessionMiddleware(opts.session))
   }
 
   app.use('/api/v1', v1Router)
@@ -1013,6 +1032,52 @@ export function buildApp(opts: BuildAppOptions): express.Express {
   return app
 }
 ```
+
+> **Why this is grouped rather than three independent optional fields (`sessionStore` /
+> `sessionSecret` / `secure`), and why there is no `TEST_SECRET` constant in this file:** a
+> per-field `secret: opts.sessionSecret ?? TEST_SECRET` fallback is an if/else that a reader of
+> `app.ts` cannot verify is safe without trusting a comment about a *different* file
+> (`env.ts`). Grouping the fields means a caller either supplies a complete, real
+> `SessionOptions` or gets no session middleware at all — there is no partial, no default, no
+> in-between state to reason about. The test-only convenience this removes is restored in
+> Step 6a below, in a location (`src/test/`) that is unreachable from the production bundle by
+> construction, not by convention.
+
+- [ ] **Step 6a: Add the test-only app builder**
+
+Every later task's route tests need a *working* session without caring about its secret.
+Rather than repeat `{ store: new session.MemoryStore(), secret: '<32-char-literal>', secure:
+false }` in every test file — or reintroduce a fallback into `app.ts` — put that boilerplate
+in one place that is provably test-only.
+
+Create `apps/api/src/test/helpers.ts`:
+
+```ts
+import session from 'express-session'
+import type express from 'express'
+import { buildApp, type BuildAppOptions } from '../app.js'
+
+// Test-only. Never imported by src/index.ts, so it is unreachable from the
+// tsup bundle and the production image. Production secrets always come from
+// validated env (apps/api/src/lib/env.ts) — this constant exists so tests that
+// need a working session don't each have to invent their own 32-char string.
+const TEST_SESSION_SECRET = 'test-only-secret-never-used-in-production-32c'
+
+/**
+ * Builds an app with a real (in-memory) session for tests that need one but
+ * don't care about its exact secret or store. Tests asserting the cookie
+ * policy itself (session.test.ts) call buildApp() directly instead.
+ */
+export function buildTestApp(overrides: Partial<BuildAppOptions> = {}): express.Express {
+  return buildApp({
+    session: { store: new session.MemoryStore(), secret: TEST_SESSION_SECRET, secure: false },
+    ...overrides,
+  })
+}
+```
+
+(Task 5 extends this same file with `useTestDb()` — they live together as the project's one
+test-infrastructure module.)
 
 - [ ] **Step 7: Add the test-only session routes**
 
@@ -1031,11 +1096,11 @@ In `apps/api/src/routes/v1/index.ts`, inside the existing `if (process.env.NODE_
 - [ ] **Step 8: Run the test and confirm it passes**
 
 Run: `npm run test -- apps/api/src/lib/session.test.ts`
-Expected: PASS (7 tests)
+Expected: PASS (8 tests)
 
 - [ ] **Step 9: Confirm Task 2's tests still pass**
 
-`app.test.ts` calls `buildApp({})` with no store, so the session middleware is skipped and the chain still runs.
+`app.test.ts` calls `buildApp({})` with no session, so the session middleware is skipped and the chain still runs.
 
 Run: `npm run test -- apps/api && npm run typecheck && npm run lint`
 Expected: all pass.
@@ -1049,7 +1114,9 @@ git commit -m "feat(api): session middleware on redis with a hardened cookie pol
 - cookie is httpOnly + SameSite=Lax + Secure-in-prod, named sid
 - saveUninitialized: false — anonymous reads must not allocate redis keys
 - redis client cached on globalThis: tsx watch reloads would exhaust the 50-conn cap
-- store is injected, so the integration suite needs no redis container
+- BuildAppOptions.session groups store/secret/secure: no per-field fallback,
+  no default secret in app.ts; buildTestApp() isolates the test-only secret
+  in src/test/, unreachable from the production bundle
 - SessionData augmented with userId: the only source of caller identity"
 ```
 
@@ -1291,7 +1358,7 @@ the root cause of all five legacy authorization holes.
 ## Task 5: Test helpers, `validate` middleware, and `userService`
 
 **Files:**
-- Create: `apps/api/src/test/helpers.ts`
+- Modify: `apps/api/src/test/helpers.ts` (created in Task 3 with `buildTestApp()`; this task appends `useTestDb()` alongside it)
 - Create: `apps/api/src/middleware/validate.ts`
 - Create: `apps/api/src/lib/services/user.ts`
 - Test: `apps/api/src/middleware/validate.test.ts`
@@ -1307,13 +1374,32 @@ the root cause of all five legacy authorization holes.
   - `userService.getPublicProfile(id: string): Promise<PublicUser>` where
     `type PublicUser = { id: string; username: string; bio?: string; image?: string; createdAt: Date }`
 
-- [ ] **Step 1: Write the shared test helper**
+- [ ] **Step 1: Add the shared DB test helper alongside `buildTestApp()`**
 
 `models.test.ts` and the abandoned `user.test.ts` each hand-rolled the same
 mongodb-memory-server boilerplate. P1 adds several more DB-backed test files, so
-extract it once.
+extract it once. `apps/api/src/test/helpers.ts` already exists from Task 3
+(it holds `buildTestApp()`) — append `useTestDb()` to it rather than
+overwriting the file.
 
-Create `apps/api/src/test/helpers.ts`:
+The file currently reads (from Task 3):
+
+```ts
+import session from 'express-session'
+import type express from 'express'
+import { buildApp, type BuildAppOptions } from '../app.js'
+
+const TEST_SESSION_SECRET = 'test-only-secret-never-used-in-production-32c'
+
+export function buildTestApp(overrides: Partial<BuildAppOptions> = {}): express.Express {
+  return buildApp({
+    session: { store: new session.MemoryStore(), secret: TEST_SESSION_SECRET, secure: false },
+    ...overrides,
+  })
+}
+```
+
+Add these imports to the top and `useTestDb` below `buildTestApp` — do not remove `buildTestApp`:
 
 ```ts
 import { CommentModel, LikeModel, PostModel, UserModel } from '@blog/shared'
@@ -1693,15 +1779,13 @@ git commit -m "feat(api): validate middleware and userService
 Create `apps/api/src/routes/v1/auth.test.ts`:
 
 ```ts
-import session from 'express-session'
 import request from 'supertest'
 import { describe, expect, it } from 'vitest'
-import { buildApp } from '../../app.js'
-import { useTestDb } from '../../test/helpers.js'
+import { buildTestApp, useTestDb } from '../../test/helpers.js'
 
 useTestDb()
 
-const app = () => buildApp({ sessionStore: new session.MemoryStore() })
+const app = () => buildTestApp()
 const CREDS = { username: 'yonatan', email: 'y@example.com', password: 'correct-horse' }
 
 describe('POST /api/v1/auth/signup', () => {
@@ -2306,19 +2390,17 @@ Where the §14 security checklist gets enforced against real HTTP.
 Create `apps/api/src/routes/v1/posts.test.ts`:
 
 ```ts
-import session from 'express-session'
 import request from 'supertest'
 import { describe, expect, it } from 'vitest'
-import { buildApp } from '../../app.js'
-import { useTestDb } from '../../test/helpers.js'
+import { buildTestApp, useTestDb } from '../../test/helpers.js'
 
 useTestDb()
 
-const app = () => buildApp({ sessionStore: new session.MemoryStore() })
+const app = () => buildTestApp()
 const BODY = 'Para one.\n\nPara two.\n\nPara three — the gated bytes.'
 
 /** Signs up a fresh user and returns an agent carrying their session cookie. */
-async function signedInAgent(app: ReturnType<typeof buildApp>, username: string) {
+async function signedInAgent(app: ReturnType<typeof buildTestApp>, username: string) {
   const agent = request.agent(app)
   await agent
     .post('/api/v1/auth/signup')
@@ -2702,17 +2784,15 @@ Expected: PASS (8 tests)
 Create `apps/api/src/routes/v1/likes.test.ts`:
 
 ```ts
-import session from 'express-session'
 import request from 'supertest'
 import { describe, expect, it } from 'vitest'
-import { buildApp } from '../../app.js'
-import { useTestDb } from '../../test/helpers.js'
+import { buildTestApp, useTestDb } from '../../test/helpers.js'
 
 useTestDb()
 
-const app = () => buildApp({ sessionStore: new session.MemoryStore() })
+const app = () => buildTestApp()
 
-async function signedInAgent(app: ReturnType<typeof buildApp>, username: string) {
+async function signedInAgent(app: ReturnType<typeof buildTestApp>, username: string) {
   const agent = request.agent(app)
   await agent
     .post('/api/v1/auth/signup')
@@ -2884,17 +2964,15 @@ Create `apps/api/src/routes/v1/users.test.ts`:
 ```ts
 import { UserModel } from '@blog/shared'
 import bcrypt from 'bcryptjs'
-import session from 'express-session'
 import request from 'supertest'
 import { describe, expect, it } from 'vitest'
-import { buildApp } from '../../app.js'
-import { useTestDb } from '../../test/helpers.js'
+import { buildTestApp, useTestDb } from '../../test/helpers.js'
 
 useTestDb()
 
-const app = () => buildApp({ sessionStore: new session.MemoryStore() })
+const app = () => buildTestApp()
 
-async function signedInAgent(app: ReturnType<typeof buildApp>, username: string) {
+async function signedInAgent(app: ReturnType<typeof buildTestApp>, username: string) {
   const agent = request.agent(app)
   const res = await agent
     .post('/api/v1/auth/signup')
@@ -3313,9 +3391,11 @@ async function main(): Promise<void> {
   await connectDb(env.MONGODB_URI)
 
   const app = buildApp({
-    sessionStore: new RedisStore({ client: redis, prefix: 'sess:' }),
-    sessionSecret: env.SESSION_SECRET,
-    secure: isProd, // a Secure cookie over plain http:// is silently dropped
+    session: {
+      store: new RedisStore({ client: redis, prefix: 'sess:' }),
+      secret: env.SESSION_SECRET,
+      secure: isProd, // a Secure cookie over plain http:// is silently dropped
+    },
     trustProxy: isProd, // Render terminates TLS at a proxy
     clientDist: env.CLIENT_DIST,
   })

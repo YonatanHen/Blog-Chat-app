@@ -27,4 +27,11 @@ if (process.env.NODE_ENV !== 'production') {
   v1Router.get('/throw-test/boom', () => {
     throw new Error('db password rejected')
   })
+  v1Router.post('/session-test/login', (req, res) => {
+    req.session.userId = 'user-123'
+    res.json({ ok: true })
+  })
+  v1Router.get('/session-test/whoami', (req, res) => {
+    res.json({ userId: req.session?.userId ?? null })
+  })
 }

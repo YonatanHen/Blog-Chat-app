@@ -1,16 +1,12 @@
 import express from 'express'
-import type session from 'express-session'
 import helmet from 'helmet'
+import { buildSessionMiddleware, type SessionOptions } from './lib/session.js'
 import { errorHandler } from './middleware/error-handler.js'
 import { notFound } from './middleware/not-found.js'
 import { v1Router } from './routes/v1/index.js'
 
 export type BuildAppOptions = {
-  /**
-   * Session store. The composition root passes RedisStore; integration tests
-   * pass express-session's MemoryStore so the suite needs no Redis container.
-   */
-  sessionStore?: session.Store
+  session?: SessionOptions
   /** Behind Render's proxy this must be set, or Secure cookies are dropped. */
   trustProxy?: boolean
 }
@@ -19,12 +15,22 @@ export type BuildAppOptions = {
  * Builds the Express app. Order is load-bearing and asserted by app.test.ts:
  *   helmet → json → session → routers → 404 → error handler
  */
-export function buildApp(_opts: BuildAppOptions): express.Express {
+export function buildApp(opts: BuildAppOptions): express.Express {
   const app = express()
+
+  if (opts.trustProxy) {
+    // Render terminates TLS at a proxy. Without this Express sees the proxy's
+    // IP, marks the connection insecure, and silently drops the Secure cookie.
+    app.set('trust proxy', 1)
+  }
 
   app.use(helmet())
   app.use(express.json({ limit: '100kb' }))
-  // session goes here
+
+  if (opts.session) {
+    app.use(buildSessionMiddleware(opts.session))
+  }
+
   app.use('/api/v1', v1Router)
   // static SPA catch-all goes here
   app.use(notFound)
