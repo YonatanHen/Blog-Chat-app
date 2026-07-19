@@ -4,6 +4,7 @@ dist/
 *.tsbuildinfo
 .env
 .env.local
+compose.override.yaml
 coverage/
 test-results/
 playwright-report/
