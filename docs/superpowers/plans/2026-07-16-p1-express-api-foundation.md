@@ -28,6 +28,7 @@ Every task's requirements implicitly include this section.
   - Inside a handler registered on a literal path (`router.get('/:slug', h)`), Express infers the params and **`req.params.slug` is a plain `string`**. Nothing to do.
   - In a **standalone** middleware or loader typed with a bare `Request`, `params` is an index signature, so `req.params.slug` is **`string | string[] | undefined`** — note the `string[]`, which means `?? ''` does **not** rescue it.
   - Fix: type the function to its route — `Request<{ slug: string }>` / `RequestHandler<{ id: string }>` — and make any middleware factory that accepts such a function generic over the params (see Task 4's `requireOwner`). A non-generic `load: (req: Request) => ...` parameter **rejects** a `Request<{slug: string}>` loader on contravariance.
+- **`vi.fn().mock.calls[0][0]` fails `tsc --noEmit` under `noUncheckedIndexedAccess`, even though it runs fine under vitest.** Found during Task 4/5 execution (three parallel agents building Tasks 4, 5, and 7 all hit it independently in their `next.mock.calls[0][0]` assertions) and confirmed by direct probe: indexing the outer `calls` array is `T | undefined`, and the second index on that possibly-undefined value is what `tsc` flags — vitest's runtime type for an untyped `vi.fn()` mock doesn't surface this at test-run time, only at typecheck time. **Fix, verified to compile clean with no follow-on errors:** `next.mock.calls[0]?.[0]` — the optional chain on the *second* index only. This is now the standard idiom in every test file in this plan; don't reintroduce the unguarded double-index form in Tasks 6/8/9/10 if a unit-style `vi.fn()` assertion shows up there.
 
 **Version pins — do NOT upgrade these in P1:**
 
@@ -1175,13 +1176,13 @@ describe('requireAuth', () => {
   it('passes UnauthorizedError when the session has no userId', () => {
     const { req, res, next } = ctx({})
     requireAuth(req, res, next)
-    expect(next.mock.calls[0][0]).toBeInstanceOf(UnauthorizedError)
+    expect(next.mock.calls[0]?.[0]).toBeInstanceOf(UnauthorizedError)
   })
 
   it('passes UnauthorizedError when there is no session at all', () => {
     const { req, res, next } = ctx(undefined)
     requireAuth(req, res, next)
-    expect(next.mock.calls[0][0]).toBeInstanceOf(UnauthorizedError)
+    expect(next.mock.calls[0]?.[0]).toBeInstanceOf(UnauthorizedError)
   })
 })
 ```
@@ -1250,21 +1251,21 @@ describe('requireOwner', () => {
     // THE legacy vulnerability: post.js:42 let any signed-in user delete any post.
     const { req, res, next } = ctx(new Types.ObjectId().toString())
     await requireOwner(async () => ({ author: new Types.ObjectId() }))(req, res, next)
-    expect(next.mock.calls[0][0]).toBeInstanceOf(ForbiddenError)
+    expect(next.mock.calls[0]?.[0]).toBeInstanceOf(ForbiddenError)
   })
 
   it('passes UnauthorizedError for an anonymous caller — and never runs the loader', async () => {
     const load = vi.fn()
     const { req, res, next } = ctx(undefined)
     await requireOwner(load)(req, res, next)
-    expect(next.mock.calls[0][0]).toBeInstanceOf(UnauthorizedError)
+    expect(next.mock.calls[0]?.[0]).toBeInstanceOf(UnauthorizedError)
     expect(load).not.toHaveBeenCalled() // don't hit the DB for a request we already reject
   })
 
   it('passes NotFoundError when the resource does not exist', async () => {
     const { req, res, next } = ctx(new Types.ObjectId().toString())
     await requireOwner(async () => null)(req, res, next)
-    expect(next.mock.calls[0][0]).toBeInstanceOf(NotFoundError)
+    expect(next.mock.calls[0]?.[0]).toBeInstanceOf(NotFoundError)
   })
 
   it('forwards a loader rejection instead of swallowing it into a 403', async () => {
@@ -1475,7 +1476,7 @@ describe('validate', () => {
   it('passes a ValidationError carrying Zod field errors', () => {
     const { req, res, next } = ctx({ title: 'no' })
     validate(Schema)(req, res, next)
-    const err = next.mock.calls[0][0]
+    const err = next.mock.calls[0]?.[0]
     expect(err).toBeInstanceOf(ValidationError)
     expect(err.fields).toEqual({ title: ['Title must be at least 3 characters'] })
   })
@@ -1490,7 +1491,7 @@ describe('validate', () => {
   it('treats a missing body as an empty object rather than throwing', () => {
     const { req, res, next } = ctx(undefined)
     validate(Schema)(req, res, next)
-    expect(next.mock.calls[0][0]).toBeInstanceOf(ValidationError)
+    expect(next.mock.calls[0]?.[0]).toBeInstanceOf(ValidationError)
   })
 })
 ```
@@ -2346,7 +2347,7 @@ export const postService = {
 - [ ] **Step 4: Run it and confirm it passes**
 
 Run: `npm run test -- apps/api/src/lib/services/post.test.ts`
-Expected: PASS (18 tests)
+Expected: PASS (22 tests — 4 create + 4 list + 5 getBySlug + 4 update + 3 remove + 2 findBySlugForOwnerCheck)
 
 - [ ] **Step 5: Gate and commit**
 
