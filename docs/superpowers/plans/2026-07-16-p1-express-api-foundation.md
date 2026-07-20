@@ -28,7 +28,10 @@ Every task's requirements implicitly include this section.
   - Inside a handler registered on a literal path (`router.get('/:slug', h)`), Express infers the params and **`req.params.slug` is a plain `string`**. Nothing to do.
   - In a **standalone** middleware or loader typed with a bare `Request`, `params` is an index signature, so `req.params.slug` is **`string | string[] | undefined`** — note the `string[]`, which means `?? ''` does **not** rescue it.
   - Fix: type the function to its route — `Request<{ slug: string }>` / `RequestHandler<{ id: string }>` — and make any middleware factory that accepts such a function generic over the params (see Task 4's `requireOwner`). A non-generic `load: (req: Request) => ...` parameter **rejects** a `Request<{slug: string}>` loader on contravariance.
-- **`vi.fn().mock.calls[0][0]` fails `tsc --noEmit` under `noUncheckedIndexedAccess`, even though it runs fine under vitest.** Found during Task 4/5 execution (three parallel agents building Tasks 4, 5, and 7 all hit it independently in their `next.mock.calls[0][0]` assertions) and confirmed by direct probe: indexing the outer `calls` array is `T | undefined`, and the second index on that possibly-undefined value is what `tsc` flags — vitest's runtime type for an untyped `vi.fn()` mock doesn't surface this at test-run time, only at typecheck time. **Fix, verified to compile clean with no follow-on errors:** `next.mock.calls[0]?.[0]` — the optional chain on the *second* index only. This is now the standard idiom in every test file in this plan; don't reintroduce the unguarded double-index form in Tasks 6/8/9/10 if a unit-style `vi.fn()` assertion shows up there.
+- **Double-indexing any array-typed value fails `tsc --noEmit` under `noUncheckedIndexedAccess`, even when it runs fine under vitest** — this bit twice, same root cause, two different arrays:
+  - `vi.fn().mock.calls[0][0]`, found during Task 4/5 execution (three parallel agents building Tasks 4, 5, and 7 all hit it independently). Fix: `next.mock.calls[0]?.[0]` — optional chain on the *second* index only.
+  - `res.headers['set-cookie'][0]` (a supertest `Response`), found in Task 6's own Step-1 test code. Fix, same shape: `res.headers['set-cookie']?.[0]`.
+  - In both cases `tsc` flags the second index because the first index already produced a possibly-undefined value (`T | undefined`) under this flag; vitest's runtime types don't surface this, only `tsc` does. **The general rule:** any time a test chains two `[...]` indexes on an array/tuple-shaped value (mock calls, header arrays, split results, etc.), add `?.` before the second index. This is now the standard idiom in every test file in this plan — don't reintroduce the unguarded double-index form in Tasks 9/10 if a similar pattern shows up.
 
 **Version pins — do NOT upgrade these in P1:**
 
@@ -1763,6 +1766,7 @@ git commit -m "feat(api): validate middleware and userService
 
 **Files:**
 - Create: `apps/api/src/routes/v1/auth.ts`
+- Modify: `apps/api/src/lib/session.ts` (adds `regenerateSession`/`destroySession`)
 - Modify: `apps/api/src/routes/v1/index.ts`
 - Test: `apps/api/src/routes/v1/auth.test.ts`
 
@@ -1794,7 +1798,7 @@ describe('POST /api/v1/auth/signup', () => {
     const res = await request(app()).post('/api/v1/auth/signup').send(CREDS)
     expect(res.status).toBe(201)
     expect(res.body).toEqual({ id: expect.any(String), username: 'yonatan' })
-    expect(res.headers['set-cookie'][0]).toMatch(/^sid=/)
+    expect(res.headers['set-cookie']?.[0]).toMatch(/^sid=/)
   })
 
   it('never returns the password or its hash', async () => {
@@ -1904,36 +1908,51 @@ Expected: FAIL — every request 404s; `/api/v1/auth/*` is not mounted.
 
 - [ ] **Step 3: Implement the auth router**
 
+The promisified `session.regenerate`/`session.destroy` wrappers live in `apps/api/src/lib/session.ts`
+as `regenerateSession`/`destroySession`, not inline in this file — `lib/session.ts` already owns every
+other session concern (`buildSessionMiddleware`), and route files under `routes/v1/` stay route
+definitions only, nothing else.
+
+Add to `apps/api/src/lib/session.ts` (after `buildSessionMiddleware`):
+
+```ts
+/**
+ * Promisified session.regenerate/destroy — express-session's callbacks,
+ * wrapped so route handlers can await them like everything else and let
+ * Express 5 forward a failure to the error handler automatically.
+ */
+export function regenerateSession(req: Request): Promise<void> {
+  return new Promise((resolve, reject) => {
+    req.session.regenerate((err) => (err ? reject(err) : resolve()))
+  })
+}
+
+export function destroySession(req: Request): Promise<void> {
+  return new Promise((resolve, reject) => {
+    req.session.destroy((err) => (err ? reject(err) : resolve()))
+  })
+}
+```
+
+(This needs `Request` added to the `import type { Request, RequestHandler } from 'express'` at the top of `session.ts`.)
+
 Create `apps/api/src/routes/v1/auth.ts`:
 
 ```ts
 import { LoginSchema, SignupSchema, UnauthorizedError } from '@blog/shared'
 import { Router } from 'express'
+import { destroySession, regenerateSession } from '../../lib/session.js'
 import { userService } from '../../lib/services/user.js'
 import { requireAuth } from '../../middleware/require-auth.js'
 import { validate } from '../../middleware/validate.js'
 
 export const authRouter = Router()
 
-/** Promisified session.regenerate — it is callback-based. */
-function regenerate(req: import('express').Request): Promise<void> {
-  return new Promise((resolve, reject) => {
-    req.session.regenerate((err) => (err ? reject(err) : resolve()))
-  })
-}
-
-/** Promisified session.destroy. */
-function destroy(req: import('express').Request): Promise<void> {
-  return new Promise((resolve, reject) => {
-    req.session.destroy((err) => (err ? reject(err) : resolve()))
-  })
-}
-
 authRouter.post('/signup', validate(SignupSchema), async (req, res) => {
   const user = await userService.signup(req.body)
   // Regenerate BEFORE writing identity: an attacker who planted a session id
   // must not end up holding a session that is now authenticated.
-  await regenerate(req)
+  await regenerateSession(req)
   req.session.userId = user.id
   req.session.username = user.username
   res.status(201).json(user)
@@ -1946,7 +1965,7 @@ authRouter.post('/login', validate(LoginSchema), async (req, res) => {
   // keeps the HTTP response identical too.
   if (!user) throw new UnauthorizedError('Invalid username or password.')
 
-  await regenerate(req)
+  await regenerateSession(req)
   req.session.userId = user.id
   req.session.username = user.username
   res.json(user)
@@ -1955,7 +1974,7 @@ authRouter.post('/login', validate(LoginSchema), async (req, res) => {
 // POST, never GET: the legacy GET logout meant any <img src="/logout"> on any
 // page logged the visitor out. requireAuth makes an anonymous logout a 401.
 authRouter.post('/logout', requireAuth, async (req, res) => {
-  await destroy(req)
+  await destroySession(req)
   res.clearCookie('sid')
   res.status(204).end()
 })
