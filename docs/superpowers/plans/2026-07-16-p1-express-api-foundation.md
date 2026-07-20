@@ -2896,19 +2896,36 @@ Expected: FAIL — the like routes 404.
 
 - [ ] **Step 7: Add the like routes**
 
-Append to `apps/api/src/routes/v1/posts.ts` (and add `likeService` to the imports):
+Insert into `apps/api/src/routes/v1/posts.ts` (and add `likeService` to the imports) — above the bare
+`/:slug` handlers, per the ordering note below:
 
 ```ts
-// Like is PUT/DELETE, not POST /toggle: a toggle is not idempotent, and the
-// unique (user, post) index exists precisely so repeating cannot corrupt the count.
-postsRouter.put('/:slug/likes', requireAuth, async (req, res) => {
+// Explicit type argument: mixing requireAuth (a plain, params-agnostic
+// RequestHandler) into a :slug route collapses inference to ParamsDictionary
+// for the whole chain otherwise, unlike requireOwner which is generic over P.
+postsRouter.put<{ slug: string }>('/:slug/likes', requireAuth, async (req, res) => {
   res.json(await likeService.like(req.params.slug, req.session.userId!))
 })
 
-postsRouter.delete('/:slug/likes', requireAuth, async (req, res) => {
+postsRouter.delete<{ slug: string }>('/:slug/likes', requireAuth, async (req, res) => {
   res.json(await likeService.unlike(req.params.slug, req.session.userId!))
 })
 ```
+
+> **Another `req.params` landmine, found during Task 9 execution, not covered by the Global
+> Constraints note above:** `requireOwner` was made generic over `<P>` in Task 4 specifically so
+> composing it with a `:slug` route doesn't break inference. `requireAuth` was NOT made generic
+> (it never reads `req.params`, so there was no reason to) — but that turns out to matter anyway.
+> `postsRouter.put('/:slug/likes', requireAuth, handler)` (no explicit type argument) fails
+> `tsc --noEmit` with `req.params.slug` typed as `string | string[] | undefined` inside `handler`,
+> even though the identical shape (`GET '/:slug', handler`, no middleware in front) infers fine.
+> Confirmed by direct probe: mixing an untyped `RequestHandler` like `requireAuth` into a
+> multi-handler call for a `:param` route collapses the WHOLE chain's inferred `P` to
+> `ParamsDictionary`, not just that one handler's. It doesn't happen on the single-handler `GET`
+> route because there's nothing else in that call to collapse against. Fix, verified to compile
+> clean: give the route call an **explicit type argument** — `postsRouter.put<{ slug: string
+> }>(...)` — rather than fixing `requireAuth` itself (it's simpler left non-generic since it
+> truly never touches params; the explicit argument is one line at each call site that needs it).
 
 > **Ordering matters:** these must be registered BEFORE `postsRouter.delete('/:slug', ...)` would
 > otherwise capture `/:slug/likes`. Express matches the full path, so `/:slug` does not match
