@@ -1,5 +1,6 @@
 import { CreatePostSchema, UpdatePostSchema } from '@blog/shared'
 import { Router, type Request } from 'express'
+import { likeService } from '../../lib/services/like.js'
 import { postService } from '../../lib/services/post.js'
 import { requireAuth } from '../../middleware/require-auth.js'
 import { requireOwner } from '../../middleware/require-owner.js'
@@ -23,6 +24,14 @@ postsRouter.get('/', async (_req, res) => {
 postsRouter.post('/', requireAuth, validate(CreatePostSchema), async (req, res) => {
   // requireAuth guarantees userId is set.
   res.status(201).json(await postService.create(req.body, req.session.userId!))
+})
+
+postsRouter.put<{ slug: string }>('/:slug/likes', requireAuth, async (req, res) => {
+  res.json(await likeService.like(req.params.slug, req.session.userId!))
+})
+
+postsRouter.delete<{ slug: string }>('/:slug/likes', requireAuth, async (req, res) => {
+  res.json(await likeService.unlike(req.params.slug, req.session.userId!))
 })
 
 postsRouter.get('/:slug', async (req, res) => {
