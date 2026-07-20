@@ -3369,7 +3369,10 @@ export function mountStatic(app: express.Express, clientDist: string): void {
   // EXPRESS 5: '*' is NOT a valid path — path-to-regexp v8 throws
   // "Missing parameter name at index 1" AT STARTUP. The wildcard must be named:
   // '/*splat'. (Spec §3 hazard 2 shows the Express 4 form; it would crash here.)
-  app.get('/*splat', (req, res, next) => {
+  // LANDMINE: a bare '/*splat' requires >=1 segment and does NOT match '/'
+  // itself — verified via pathToRegexp('/*splat').regexp.test('/') === false.
+  // Wrap it in '{}' — '/{*splat}' — to make the group optional.
+  app.get('/{*splat}', (req, res, next) => {
     // Never let the SPA answer for the API. Without this guard an unknown API
     // route returns index.html with a 200, and a fetch() gets HTML where it
     // expected JSON — the single most confusing failure mode in this topology.
@@ -3465,6 +3468,17 @@ Then confirm it fails correctly with no env — this proves the no-fallback rule
 Run: `node apps/api/dist/index.js`
 Expected: exit 1, `Invalid environment:` listing `MONGODB_URI`, `REDIS_URL`, `SESSION_SECRET`. **It must not start.**
 
+> **LANDMINE found here:** the first run instead threw `Dynamic require of
+> "crypto" is not supported` from deep inside the bundled mongodb driver.
+> `noExternal: ['@blog/shared']` doesn't stop at shared's own files — esbuild
+> recursively bundles everything shared imports too, including `mongoose`,
+> which is `@blog/shared`'s dependency, not `apps/api`'s, so it was never in
+> tsup's automatic external list. The mongodb driver's CJS `require()` of Node
+> builtins doesn't survive being merged that deep into an ESM bundle. Fix:
+> add `external: ['mongoose']` to `apps/api/tsup.config.ts` — verified this
+> drops the bundle from 2.73 MB to 22.5 KB and the no-env run then exits 1
+> with the expected `Invalid environment:` message instead of crashing.
+
 - [ ] **Step 8: Gate and commit**
 
 Run: `npm run typecheck && npm run lint && npm run test`
@@ -3473,8 +3487,12 @@ Run: `npm run typecheck && npm run lint && npm run test`
 git add apps/api
 git commit -m "feat(api): composition root and SPA catch-all
 
-- EXPRESS 5: the catch-all is '/*splat'; a bare '*' throws at startup
-  (path-to-regexp v8). The spec's §3 example is the Express 4 form.
+- EXPRESS 5: the catch-all is '/{*splat}'; a bare '*' throws at startup
+  (path-to-regexp v8), and a bare '/*splat' requires >=1 segment and
+  does not match '/' itself — the spec's §3 example is the Express 4 form
+- tsup: mongoose must be external — noExternal on @blog/shared pulls in
+  its transitive deps too, and the mongodb driver's CJS require() of
+  node builtins does not survive being bundled into ESM
 - the catch-all excludes /api/ so it cannot shadow the API — asserted:
   an unknown API route returns JSON 404, never index.html
 - mountStatic no-ops when there is no build, which is the P1 default
