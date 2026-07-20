@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { z } from 'zod'
 
 // Validate the environment once, at boot, and fail loudly. A missing
@@ -14,8 +15,21 @@ const EnvSchema = z.object({
 
 export type Env = z.infer<typeof EnvSchema>
 
+const FILE_BACKED_KEYS = ['SESSION_SECRET'] as const
+
+function resolveFileBackedSecrets(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const resolved = { ...source }
+  for (const key of FILE_BACKED_KEYS) {
+    const filePath = source[`${key}_FILE`]
+    if (filePath) {
+      resolved[key] = readFileSync(filePath, 'utf-8').trim()
+    }
+  }
+  return resolved
+}
+
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
-  const result = EnvSchema.safeParse(source)
+  const result = EnvSchema.safeParse(resolveFileBackedSecrets(source))
   if (!result.success) {
     const details = Object.entries(result.error.flatten().fieldErrors)
       .map(([key, messages]) => `  ${key}: ${messages?.join(', ')}`)
