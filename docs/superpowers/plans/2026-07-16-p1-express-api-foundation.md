@@ -3509,11 +3509,36 @@ git commit -m "feat(api): composition root and SPA catch-all
 - Create: `.dockerignore`
 - Create: `compose.yaml`
 - Create: `compose.e2e.yaml`
-- Modify: `.gitignore` (ensure `compose.override.yaml` is ignored)
+- Create: `secrets/dev/session_secret.txt.example`, `secrets/e2e/session_secret.txt.example`, `secrets/README.md`
+- Modify: `apps/api/src/lib/env.ts`, `apps/api/src/lib/env.test.ts` (Docker-secret `_FILE` convention)
+- Modify: `compose.override.yaml` (local, gitignored — fixed a stale service name)
+- Modify: `.gitignore` (`secrets/**/*.txt`)
 
 **Interfaces:**
 - Consumes: `apps/api` build (Task 11)
 - Produces: `docker compose watch` dev stack; `compose.e2e.yaml` serving the prod image on :3000
+
+> **Deviation from the original plan, decided during implementation:** only
+> `SESSION_SECRET` is treated as a real secret. `MONGODB_URI`/`REDIS_URL` carry
+> no credentials — mongo/redis run unauthenticated in both dev and e2e — so
+> they stay plain `environment:` vars. `SESSION_SECRET` is a cryptographic
+> signing key, so it's wired through Docker Compose's file-based secrets
+> mechanism (`secrets:` block, mounted at `/run/secrets/<name>`) instead of
+> being inlined in the tracked yaml. Since Compose secrets are files, not env
+> vars, `apps/api/src/lib/env.ts` gained support for a `SESSION_SECRET_FILE`
+> var that takes precedence over a plain `SESSION_SECRET` — the same
+> convention official Docker images (e.g. Postgres) use.
+>
+> **Second correction, made after first committing the secret files directly:**
+> even though the dev/e2e values are throwaway and public on purpose (mongo/
+> redis run unauthenticated, no real user data, e2e publishes no db ports),
+> committing real files under a directory literally named `secrets/` is the
+> wrong habit to establish in a public repo regardless of what's actually in
+> them. Fixed by gitignoring `secrets/**/*.txt` and committing
+> `*.txt.example` templates instead (`secrets/README.md` documents the
+> `cp *.example *.txt` step). Real production secrets still never appear
+> here — they live only in the Render dashboard (`render.yaml` uses
+> `sync: false`).
 
 - [ ] **Step 1: Write the `.dockerignore`**
 
@@ -3532,11 +3557,56 @@ coverage
 test-results
 playwright-report
 .DS_Store
+**.md
 ```
 
-- [ ] **Step 2: Write the Dockerfile**
+- [ ] **Step 2: Write the failing test for the `SESSION_SECRET_FILE` convention**
 
-Create `apps/api/Dockerfile`:
+Create `apps/api/src/lib/env.test.ts` covering: a plain `SESSION_SECRET` still works; a
+`SESSION_SECRET_FILE` pointing at a temp file is read and trimmed; `_FILE` wins when both are
+set; a missing required var still throws `Invalid environment:` naming it.
+
+Run: `npm run test -- apps/api/src/lib/env.test.ts`
+Expected: FAIL — `loadEnv` doesn't know about `_FILE` vars yet.
+
+- [ ] **Step 3: Implement the `_FILE` convention in `env.ts`**
+
+```ts
+import { readFileSync } from 'node:fs'
+// ...EnvSchema unchanged...
+
+const FILE_BACKED_KEYS = ['SESSION_SECRET'] as const
+
+function resolveFileBackedSecrets(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const resolved = { ...source }
+  for (const key of FILE_BACKED_KEYS) {
+    const filePath = source[`${key}_FILE`]
+    if (filePath) {
+      resolved[key] = readFileSync(filePath, 'utf-8').trim()
+    }
+  }
+  return resolved
+}
+
+export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
+  const result = EnvSchema.safeParse(resolveFileBackedSecrets(source))
+  // ...unchanged...
+}
+```
+
+Run: `npm run test -- apps/api/src/lib/env.test.ts`
+Expected: PASS (5 tests)
+
+- [ ] **Step 4: Write the Dockerfile**
+
+Create `apps/api/Dockerfile`. Two things differ from a naive single-`node_modules` copy:
+
+1. A `--mount=type=cache,target=/root/.npm` cache mount on each `npm ci`, alongside the existing
+   `extra-ca` secret mount — speeds up repeat builds by reusing npm's package cache across builds
+   without baking it into the image.
+2. A dedicated `prod-deps` stage running `npm ci --omit=dev`, separate from `deps` (which installs
+   devDependencies too, for `dev`'s tsx and `builder`'s tsup). `runner` copies from `prod-deps`, not
+   `builder` — so vitest/eslint/playwright/tsup never ship in the production image.
 
 ```dockerfile
 # syntax=docker/dockerfile:1
@@ -3552,6 +3622,7 @@ COPY apps/api/package.json ./apps/api/
 # compose.override.yaml) without it ever entering the image or the repo.
 # When the secret is absent — CI, Render, any normal machine — this is a no-op.
 RUN --mount=type=secret,id=extra-ca,target=/tmp/extra-ca.pem \
+    --mount=type=cache,target=/root/.npm \
     if [ -s /tmp/extra-ca.pem ]; then export NODE_EXTRA_CA_CERTS=/tmp/extra-ca.pem; fi \
     && npm ci
 
@@ -3564,22 +3635,37 @@ FROM deps AS builder
 COPY . .
 RUN npm run build --workspace=@blog/api
 
+# A separate production-only install: `deps` installs devDependencies too
+# (tsx/tsup/vitest/etc, needed by `dev` and `builder`), which `runner` has no
+# use for and shouldn't ship.
+FROM base AS prod-deps
+COPY package.json package-lock.json ./
+COPY packages/shared/package.json ./packages/shared/
+COPY apps/api/package.json ./apps/api/
+RUN --mount=type=secret,id=extra-ca,target=/tmp/extra-ca.pem \
+    --mount=type=cache,target=/root/.npm \
+    if [ -s /tmp/extra-ca.pem ]; then export NODE_EXTRA_CA_CERTS=/tmp/extra-ca.pem; fi \
+    && npm ci --omit=dev
+
 FROM base AS runner
 ENV NODE_ENV=production
 # Non-root. The legacy Dockerfile ran as root with a Windows WORKDIR in a Linux image.
 RUN addgroup -g 1001 nodejs && adduser -S -u 1001 -G nodejs api
-# tsup bundles @blog/shared and every workspace import into dist/index.js, so the
-# runner needs the bundle and the production node_modules — no source, no tsx.
-COPY --from=builder --chown=api:nodejs /app/apps/api/dist ./dist
-COPY --from=builder --chown=api:nodejs /app/node_modules ./node_modules
+# tsup bundles @blog/shared into dist/index.js but leaves real npm deps
+# (express, mongoose, ...) external — see tsup.config.ts.
+# Bring over the clean prod-deps workspace (preserves the monorepo layout /
+# hoisting structure the other stages already use).
+COPY --from=prod-deps --chown=api:nodejs /app /app
+# Inject the built production code.
+COPY --from=builder --chown=api:nodejs /app/apps/api/dist ./apps/api/dist
 USER api
 EXPOSE 3000
-CMD ["node", "dist/index.js"]
+CMD ["node", "apps/api/dist/index.js"]
 ```
 
-- [ ] **Step 3: Write the dev Compose file**
+- [ ] **Step 5: Write the dev Compose file**
 
-Create `compose.yaml`:
+Create `compose.yaml`. `SESSION_SECRET` comes from a Compose secret, not an inline value:
 
 ```yaml
 name: blogchat
@@ -3595,9 +3681,9 @@ services:
       NODE_ENV: development
       MONGODB_URI: mongodb://mongo:27017/blogchat
       REDIS_URL: redis://redis:6379
-      # Dev-only throwaway. It protects nothing and grants nothing: the real
-      # secret is set in the Render dashboard and never lives in this repo.
-      SESSION_SECRET: dev-only-session-secret-not-for-production
+      SESSION_SECRET_FILE: /run/secrets/session_secret
+    secrets:
+      - session_secret
     depends_on:
       mongo: { condition: service_healthy }
       redis: { condition: service_healthy }
@@ -3639,11 +3725,15 @@ services:
 
 volumes:
   mongo-data:
+
+secrets:
+  session_secret:
+    file: ./secrets/dev/session_secret.txt
 ```
 
-- [ ] **Step 4: Write the E2E Compose file**
+- [ ] **Step 6: Write the E2E Compose file**
 
-Create `compose.e2e.yaml`:
+Create `compose.e2e.yaml` — same `SESSION_SECRET_FILE`/`secrets:` shape, pointed at the e2e file:
 
 ```yaml
 # The stack CI stands up, built from the PROD image (target: runner) — the same
@@ -3662,7 +3752,9 @@ services:
       NODE_ENV: production
       MONGODB_URI: mongodb://mongo:27017/blogchat
       REDIS_URL: redis://redis:6379
-      SESSION_SECRET: e2e-only-session-secret-not-for-production
+      SESSION_SECRET_FILE: /run/secrets/session_secret
+    secrets:
+      - session_secret
     depends_on:
       mongo: { condition: service_healthy }
       redis: { condition: service_healthy }
@@ -3689,21 +3781,27 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+secrets:
+  session_secret:
+    file: ./secrets/e2e/session_secret.txt
 ```
 
 Note: mongo and redis publish **no ports** here — nothing outside the Compose network needs them.
 
-- [ ] **Step 5: Confirm `compose.override.yaml` is gitignored**
+- [ ] **Step 7: Confirm `compose.override.yaml` is gitignored, and fix its stale service name**
 
-Check `.gitignore` contains it; add it if not:
+Check `.gitignore` contains `compose.override.yaml`; add it if not. That file is where this machine
+supplies its Avast root CA to the `extra-ca` secret. **A CA certificate must never be committed or
+baked into an image.**
 
-```
-compose.override.yaml
-```
+> **LANDMINE found here:** the existing local `compose.override.yaml` (carried over from setup done
+> on the abandoned Next.js branch) targeted a service named `web`. This repo's service is `api` —
+> the mismatch meant the CA secret merge silently applied to nothing. Fixed by editing the
+> gitignored file directly (`web` → `api`); nothing to commit, but worth knowing if `npm ci` starts
+> failing on TLS again after a fresh clone.
 
-That file is where this machine supplies its Avast root CA to the `extra-ca` secret. **A CA certificate must never be committed or baked into an image.**
-
-- [ ] **Step 6: Verify the dev stack comes up**
+- [ ] **Step 8: Verify the dev stack comes up**
 
 Run: `docker compose up -d --build`
 Then: `curl -s http://localhost:3000/api/v1/health`
@@ -3715,7 +3813,11 @@ Expected: `{"status":"ok"}`
 > CLAUDE.md and spec §11. Do **not** disable TLS verification and do **not**
 > commit the certificate.
 
-- [ ] **Step 7: Verify the prod stack comes up**
+Verified: build succeeded, `blogchat-api-1`/`mongo-1`/`redis-1` all healthy, health check
+returned `{"status":"ok"}`. Torn down with `docker compose down --remove-orphans` (an orphaned
+`blogchat-web-1` from a prior stack needed the flag).
+
+- [ ] **Step 9: Verify the prod stack comes up**
 
 Run: `docker compose -f compose.e2e.yaml up -d --build --wait`
 Then: `curl -s http://localhost:3000/api/v1/health`
@@ -3725,19 +3827,59 @@ Tear down both:
 
 Run: `docker compose -f compose.e2e.yaml down -v && docker compose down`
 
-- [ ] **Step 8: Commit**
+Verified: `--wait` returned once all three containers (`prod-deps`-based `runner` image included)
+reported healthy; health check confirmed directly too.
+
+- [ ] **Step 10: Gate and commit**
+
+Run: `npm run typecheck && npm run lint && npm run test` — 159 tests pass (154 from Task 11 + 5 new
+`env.test.ts` cases).
 
 ```bash
-git add .dockerignore compose.yaml compose.e2e.yaml apps/api/Dockerfile .gitignore
+git add .dockerignore compose.yaml compose.e2e.yaml apps/api/Dockerfile secrets apps/api/src/lib/env.ts apps/api/src/lib/env.test.ts
 git commit -m "build: multi-stage Dockerfile and dev/e2e compose stacks
 
-- runner target is non-root and ships only the tsup bundle + prod deps
+- runner target is non-root and copies from a dedicated prod-deps stage
+  (npm ci --omit=dev), not the full deps install — no dev tooling ships
+- npm ci uses a cache mount, alongside the existing extra-ca secret mount
 - compose.yaml uses watch-sync, not bind mounts: a bind-mounted node_modules
   breaks across the Windows→Linux boundary and inotify is unreliable there
-- mongo/redis bind to 127.0.0.1: they run unauthenticated locally
+- mongo/redis bind to 127.0.0.1 in dev, publish no ports at all in e2e:
+  both run unauthenticated, so nothing outside the compose network may reach them
+- SESSION_SECRET is the only real secret here (mongo/redis URIs carry no
+  credentials) — wired through Compose file-based secrets and a new
+  SESSION_SECRET_FILE convention in env.ts, not inlined in the tracked yaml
 - compose.e2e.yaml builds the PROD image, so a broken prod build fails in CI
 - optional extra-ca build secret for TLS-intercepting AV; never baked in"
 ```
+
+- [ ] **Step 11: Follow-up fix — gitignore the secret files themselves**
+
+Step 10's commit included the real `secrets/dev/session_secret.txt` and `secrets/e2e/session_secret.txt`
+files. Caught immediately after: a directory named `secrets/` should never hold committed files,
+whatever the actual content — it trains the wrong habit for a public repo. Fix:
+
+- Add `secrets/**/*.txt` to `.gitignore`.
+- Rename the two files to `*.txt.example` (git recognizes this as a rename, not a delete+add).
+- `git rm --cached` isn't needed once renamed — `git add` on the new path plus the gitignore change
+  is enough; the old tracked path disappears as part of the rename.
+- Add `secrets/README.md` documenting the `cp *.example *.txt` step needed before `docker compose up`.
+
+```bash
+git add .gitignore secrets/
+git commit -m "fix(security): gitignore secret files, commit .example templates instead
+
+Even throwaway, non-sensitive values should not sit as real files under a
+directory named secrets/ in a public repo - it invites exactly the kind of
+scanning/scraping the naming convention exists to signal against. The dev
+and e2e session-secret values are now .txt.example templates (committed);
+the real .txt files Compose actually reads are gitignored and created
+locally via the copy step documented in secrets/README.md."
+```
+
+> **Note for Task 14 (CI workflow):** the CI job running `compose.e2e.yaml` will need a step that
+> materializes `secrets/e2e/session_secret.txt` from its `.example` (e.g. `cp secrets/e2e/session_secret.txt.example secrets/e2e/session_secret.txt`)
+> before bringing the stack up — there's no other machine to source it from.
 
 ---
 
