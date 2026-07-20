@@ -1,4 +1,4 @@
-import { ConflictError, NotFoundError, UserModel, type Signup } from '@blog/shared'
+import { ConflictError, NotFoundError, UserModel, type Signup, type UpdateUser } from '@blog/shared'
 import bcrypt from 'bcryptjs'
 import { Types } from 'mongoose'
 
@@ -77,5 +77,28 @@ export const userService = {
       image: user.image ?? undefined,
       createdAt: user.createdAt,
     }
+  },
+
+  async updateProfile(id: string, input: UpdateUser): Promise<PublicUser> {
+    if (!Types.ObjectId.isValid(id)) throw new NotFoundError('User not found.')
+    const user = await UserModel.findById(id)
+    if (!user) throw new NotFoundError('User not found.')
+
+    if (input.bio !== undefined) user.bio = input.bio
+    if (input.image !== undefined) user.image = input.image
+    // Only when explicitly provided. The legacy handler compared the plaintext
+    // field to the stored hash, so every profile save reset the password.
+    if (input.password !== undefined) {
+      user.password = await bcrypt.hash(input.password, BCRYPT_COST)
+    }
+
+    await user.save()
+    return this.getPublicProfile(id)
+  },
+
+  async remove(id: string): Promise<void> {
+    if (!Types.ObjectId.isValid(id)) throw new NotFoundError('User not found.')
+    const result = await UserModel.findByIdAndDelete(id)
+    if (!result) throw new NotFoundError('User not found.')
   },
 }
