@@ -11,4 +11,5 @@ export default defineConfig({
   // bundled in. Left external, `node dist/index.js` would try to import raw .ts
   // at runtime and crash.
   noExternal: ['@blog/shared'],
+  external: ['mongoose'],
 })

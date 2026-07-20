@@ -4,11 +4,14 @@ import { buildSessionMiddleware, type SessionOptions } from './lib/session.js'
 import { errorHandler } from './middleware/error-handler.js'
 import { notFound } from './middleware/not-found.js'
 import { v1Router } from './routes/v1/index.js'
+import { mountStatic } from './static.js'
 
 export type BuildAppOptions = {
   session?: SessionOptions
   /** Behind Render's proxy this must be set, or Secure cookies are dropped. */
   trustProxy?: boolean
+  /** Directory holding the built SPA. Absent in P1 — there is no client yet. */
+  clientDist?: string
 }
 
 /**
@@ -32,7 +35,7 @@ export function buildApp(opts: BuildAppOptions): express.Express {
   }
 
   app.use('/api/v1', v1Router)
-  // static SPA catch-all goes here
+  if (opts.clientDist) mountStatic(app, opts.clientDist)
   app.use(notFound)
   app.use(errorHandler)
 
