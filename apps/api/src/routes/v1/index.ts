@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { ForbiddenError, NotFoundError, ValidationError } from '@blog/shared'
 import { authRouter } from './auth.js'
+import { postsRouter } from './posts.js'
 
 export const v1Router = Router()
 
@@ -10,6 +11,7 @@ v1Router.get('/health', (_req, res) => {
 })
 
 v1Router.use('/auth', authRouter)
+v1Router.use('/posts', postsRouter)
 
 // Routes that exist only to let app.test.ts assert the middleware chain from the
 // outside. Registered only outside production so they can never ship.
