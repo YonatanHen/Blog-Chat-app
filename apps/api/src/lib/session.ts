@@ -1,5 +1,5 @@
 import session from 'express-session'
-import type { RequestHandler } from 'express'
+import type { Request, RequestHandler } from 'express'
 
 const ONE_WEEK_MS = 1000 * 60 * 60 * 24 * 7
 
@@ -26,5 +26,22 @@ export function buildSessionMiddleware({ store, secret, secure }: SessionOptions
       maxAge: ONE_WEEK_MS,
       path: '/',
     },
+  })
+}
+
+/**
+ * Promisified session.regenerate/destroy — express-session's callbacks,
+ * wrapped so route handlers can await them like everything else and let
+ * Express 5 forward a failure to the error handler automatically.
+ */
+export function regenerateSession(req: Request): Promise<void> {
+  return new Promise((resolve, reject) => {
+    req.session.regenerate((err) => (err ? reject(err) : resolve()))
+  })
+}
+
+export function destroySession(req: Request): Promise<void> {
+  return new Promise((resolve, reject) => {
+    req.session.destroy((err) => (err ? reject(err) : resolve()))
   })
 }
