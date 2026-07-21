@@ -1,0 +1,26 @@
+name: PR to master
+
+on:
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-source-branch:
+    name: Validate source branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require staging as the head branch
+        # build/test/e2e already ran on this exact commit via staging-pipeline.yml
+        # (checks match by SHA, not by triggering workflow) — no need to repeat them.
+        run: |
+          if [[ "${{ github.head_ref }}" != "staging" ]]; then
+            echo "PRs into master must come from staging (got '${{ github.head_ref }}')." >&2
+            exit 1
+          fi
