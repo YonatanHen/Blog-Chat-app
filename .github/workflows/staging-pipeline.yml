@@ -1,0 +1,83 @@
+name: Staging pipeline
+
+# Runs on every push to staging (i.e. every merged dev/* PR). Re-validates the
+# MERGED result: two branches can each pass their own PR-to-staging checks
+# individually and still break each other once combined here.
+on:
+  push:
+    branches: [staging]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run build
+
+  test:
+    name: Test
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run test
+
+  e2e-smoke:
+    name: E2E smoke (prod image)
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cp secrets/e2e/session_secret.txt.example secrets/e2e/session_secret.txt
+      - name: Bring up the ephemeral prod-image stack
+        run: docker compose -f compose.e2e.yaml up --build --wait
+      - name: Smoke test the API
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/v1/health)
+          echo "GET /api/v1/health -> $status"
+          test "$status" = "200"
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose -f compose.e2e.yaml logs
+      - name: Tear down
+        if: always()
+        run: docker compose -f compose.e2e.yaml down -v
+
+  open-release-pr:
+    name: Open/refresh staging -> master PR
+    runs-on: ubuntu-latest
+    # Independent of build/test/e2e-smoke: the PR should exist (and show their
+    # status) whether or not staging is currently green.
+    steps:
+      - uses: actions/checkout@v4
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh pr list --base master --head staging --state open --json number --jq '.[0].number' | grep -q .; then
+            echo "PR already open — it aggregates automatically, nothing to do."
+          else
+            gh pr create --base master --head staging \
+              --title "Release: staging -> master" \
+              --body "Aggregates everything merged into staging since the last release."
+          fi

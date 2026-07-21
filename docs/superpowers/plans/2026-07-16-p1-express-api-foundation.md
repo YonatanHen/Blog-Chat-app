@@ -4055,8 +4055,12 @@ Seeds one premium post, so the gating rule is demoable with curl alone."
 > verbatim. Two things change: the build/test commands target `@blog/api`, and
 > **the stage-4 smoke test hits `/api/v1/health`, not `/blog`.** PR #8's stage 4
 > failed because `compose.e2e.yaml` did not exist; it does now (Task 12).
+>
+> **Superseded — see the deviation note under Step 3.** The single-file,
+> environment-gated design below was the starting point but was not what got built;
+> it was replaced with three workflows gated by branch protection instead.
 
-- [ ] **Step 1: Write the workflow**
+- [x] **Step 1: Write the workflow**
 
 Create `.github/workflows/ci.yml`:
 
@@ -4139,26 +4143,74 @@ jobs:
           echo "it behind manual approval — it does not itself trigger a deploy."
 ```
 
-- [ ] **Step 2: Verify the CI steps pass locally first**
+- [x] **Step 2: Verify the CI steps pass locally first**
 
 CI runs exactly these. Confirm before pushing:
 
 Run: `npm ci && npm run typecheck && npm run lint && npm run build && npm run test`
 Expected: all pass.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
-```bash
-git add .github/workflows/ci.yml
-git commit -m "ci: 4-stage PR pipeline with a manual production gate
-
-Carried from PR #8, retargeted at @blog/api. Stage 4 stands up
-compose.e2e.yaml — the prod image — so a broken production build fails in
-CI rather than on Render. PR #8's stage 4 failed only because that file
-did not exist yet; it does now.
-
-Smoke test hits /api/v1/health (P1 has no /blog route — that is P2)."
-```
+> **Deviation, decided live with the user:** the single `environment: production`-gated
+> `ci.yml` above was never committed. Two problems surfaced:
+>
+> 1. The repo's real `dev/* → staging → master` flow (documented in this file's own
+>    header) has most PRs targeting `staging`, not `master` — but `staging` had no
+>    branch protection and the `production` GitHub Environment's deployment-branch
+>    policy was restricted to protected branches (`master` only). A `pull_request`-
+>    triggered job gated on that environment would be unreliable for staging-targeted
+>    PRs.
+> 2. GitHub Environments' deployment branch policies are built around real branch refs
+>    (`push`, `workflow_dispatch`); they don't reliably interact with `pull_request`-
+>    triggered runs, which execute against a synthetic `refs/pull/N/merge` ref rather
+>    than a real branch. Confirmed by reading GitHub's own environments docs, which are
+>    silent on the interaction — a known rough edge, not something to build the actual
+>    safety gate on.
+>
+> Replaced with three separate workflows, gated by branch protection instead of an
+> Environment (branch protection is the tool actually designed to control PR
+> mergeability; Environments are for pausing an already-triggered deployment job):
+>
+> - **`.github/workflows/pr-to-staging.yml`** — `pull_request: branches: [staging]`.
+>   `validate-source-branch` job rejects any head branch that isn't `dev/*`; then
+>   build/typecheck/lint → test → e2e-smoke (`compose.e2e.yaml`, same as the original
+>   stage 4).
+> - **`.github/workflows/staging-pipeline.yml`** — `push: branches: [staging]`. Re-runs
+>   build/test/e2e-smoke on the *merged* result, since two `dev/*` branches can each
+>   pass their own PR checks individually and still break each other once combined —
+>   this is the check that guarantees that. Also opens (or leaves alone, if one is
+>   already open) a single aggregating `staging → master` PR via `gh pr create`, so
+>   every subsequent push to `staging` just updates that PR's diff instead of spawning
+>   duplicates.
+> - **`.github/workflows/pr-to-master.yml`** — `pull_request: branches: [master]`. Only
+>   a `validate-source-branch` job requiring the head branch to be exactly `staging` —
+>   does NOT repeat build/test/e2e, because GitHub matches required status checks by
+>   commit SHA, not by which workflow produced them, and `staging-pipeline.yml`'s
+>   checks already ran on that exact SHA.
+>
+> **Branch protection** (`gh api .../branches/{branch}/protection`), applied to both
+> `staging` and `master`: required status checks (each branch's respective workflow
+> job names above), required PR before merging (no direct push), no force-push/delete,
+> and **`enforce_admins: true`** on both — a direct `git push` or a stray `git merge`
+> to either branch is rejected server-side regardless of who does it, closing the gap
+> where an admin could otherwise bypass required reviews/checks entirely. `master`
+> additionally keeps its pre-existing `required_approving_review_count: 1`.
+>
+> The `production` GitHub Environment (created before this task, holding the
+> `required_reviewers` rule this design replaces) was deleted via
+> `gh api -X DELETE repos/{owner}/{repo}/environments/production` — redundant once
+> the human-approval gate lives in `master`'s required PR review instead.
+>
+> This work also needed its own branch per the one-branch-per-feature rule (CLAUDE.md):
+> the abandoned Next.js-era `dev/ci-cd-pipeline` (PR #8) was renamed to
+> `dev/ci-cd-pipeline-nextjs-abandoned` (kept, not deleted) and a fresh
+> `dev/ci-cd-pipeline` was branched from `dev/express-api-foundation`'s tip.
+>
+> Commits (on `dev/ci-cd-pipeline`):
+> ```
+> ci: three-workflow pipeline with branch-protection gates
+> ```
 
 ---
 
