@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { SignupSchema, CreatePostSchema, slugify, deriveTeaser } from './index.js'
+import { SignupSchema, CreatePostSchema, UpdatePostSchema, slugify, deriveTeaser } from './index.js'
 
 describe('SignupSchema', () => {
   it('accepts a valid signup', () => {
@@ -73,6 +73,30 @@ describe('CreatePostSchema', () => {
       author: 'attacker-controlled-id',
     } as never)
     expect('author' in result).toBe(false)
+  })
+})
+
+describe('UpdatePostSchema', () => {
+  it('accepts a partial update — PATCH does not require every field', () => {
+    const result = UpdatePostSchema.safeParse({ title: 'Just The New Title' })
+    expect(result.success).toBe(true)
+  })
+
+  it('accepts an empty object — a no-op PATCH is valid, not a 400', () => {
+    expect(UpdatePostSchema.safeParse({}).success).toBe(true)
+  })
+
+  it('still enforces field rules on the fields that ARE present', () => {
+    const result = UpdatePostSchema.safeParse({ title: 'no' })
+    expect(result.success).toBe(false)
+  })
+
+  it('does not carry postId — the slug in the URL identifies the post', () => {
+    const parsed = UpdatePostSchema.parse({
+      title: 'A Valid Title',
+      postId: 'attacker-supplied',
+    } as never)
+    expect(parsed).not.toHaveProperty('postId')
   })
 })
 

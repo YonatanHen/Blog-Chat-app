@@ -2,8 +2,8 @@ import mongoose, { Schema, type InferSchemaType, type Model } from 'mongoose'
 
 const postSchema = new Schema(
   {
-    // Bounds mirror CreatePostSchema as defense-in-depth: Zod only guards the
-    // Server Action boundary, and scripts/seed.ts writes to PostModel directly.
+    // Bounds mirror CreatePostSchema as defense-in-depth: Zod guards the API
+    // boundary, and scripts/seed.ts writes to PostModel directly.
     title: { type: String, required: true, trim: true, minlength: 3, maxlength: 120 },
     slug: { type: String, required: true, unique: true },
     body: { type: String, required: true, minlength: 1, maxlength: 50_000 },
@@ -22,8 +22,6 @@ const postSchema = new Schema(
   },
   { timestamps: true },
 )
-
-// Full-text search (used in P4). Replaces the legacy client-side .includes() filter.
 postSchema.index({ title: 'text', body: 'text' })
 
 export type Post = InferSchemaType<typeof postSchema>

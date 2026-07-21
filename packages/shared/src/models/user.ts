@@ -5,7 +5,7 @@ const userSchema = new Schema(
     username: { type: String, required: true, unique: true, trim: true, minlength: 3, maxlength: 30 },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     password: { type: String }, // absent for OAuth users
-    image: { type: String },    // S3 object key
+    image: { type: String },    // Cloudinary public ID
     // TODO(P5): no Zod schema covers `bio` yet — there is no profile-update
     // feature in P1. Add a matching length bound here once one exists.
     bio: { type: String },
