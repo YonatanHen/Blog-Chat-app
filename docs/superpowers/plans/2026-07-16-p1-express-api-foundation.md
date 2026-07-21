@@ -3892,7 +3892,7 @@ locally via the copy step documented in secrets/README.md."
 - Consumes: `connectDb`, models (`@blog/shared`); `userService` (Task 5)
 - Produces: `npm run seed` — an idempotent demo dataset with a known demo account
 
-- [ ] **Step 1: Write the seed script**
+- [x] **Step 1: Write the seed script**
 
 Create `apps/api/src/scripts/seed.ts`:
 
@@ -3987,7 +3987,7 @@ seed().catch((err) => {
 })
 ```
 
-- [ ] **Step 2: Run it against the dev stack**
+- [x] **Step 2: Run it against the dev stack**
 
 Run: `docker compose up -d`
 Then: `MONGODB_URI=mongodb://localhost:27019/blogchat REDIS_URL=redis://localhost:6379 SESSION_SECRET=local-seed-secret-at-least-32-chars npm run seed`
@@ -4005,7 +4005,7 @@ Done. Sign in as: demo / demo-password-1234
 
 Note the port is **27019** — that is what `compose.yaml` publishes on the host.
 
-- [ ] **Step 3: Verify the seeded gating rule with curl — the P1 demo**
+- [x] **Step 3: Verify the seeded gating rule with curl — the P1 demo**
 
 This is the "demoable via curl alone" acceptance check from spec §13.
 
@@ -4030,7 +4030,7 @@ Expected: `1` — the full body is present for a signed-in reader.
 
 Tear down: `docker compose down`
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/api/src/scripts/seed.ts

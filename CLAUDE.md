@@ -97,7 +97,7 @@ routers, so it never applied. The error handler is always last.
 full `body` from its return value when a post is premium and there's no session — the API never serializes
 it, so there is nothing to find in DevTools. Gating in a component would be cosmetic. See spec §6.
 
-## Project conventions
+## Project constraints
 
 - **Never write credentials, tokens, or connection strings into source.** Use `.env` (gitignored) locally;
   `.env.example` documents every variable with no real values. In production, secrets are set in the Render
@@ -120,3 +120,4 @@ it, so there is nothing to find in DevTools. Gating in a component would be cosm
 - **Server state belongs to TanStack Query, not a client store.** No Redux. Components never call `fetch`
   directly — go through the typed wrappers in `apps/client/src/api/*`, which send `credentials: 'include'`.
   Mutations invalidate query keys rather than hand-patching a cache.
+- Never implement separate features in the same branch.
