@@ -3,6 +3,9 @@ name: PR to master
 on:
   pull_request:
     branches: [master]
+  # Lets this workflow be re-run manually — e.g. if GitHub never registered it because
+  # its first potential trigger was suppressed (see the GITHUB_TOKEN note below).
+  workflow_dispatch:
 
 permissions:
   contents: read

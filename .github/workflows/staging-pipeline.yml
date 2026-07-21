@@ -72,7 +72,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - env:
-          GH_TOKEN: ${{ github.token }}
+          # A PR opened with the default GITHUB_TOKEN does not trigger other
+          # workflows (GitHub's loop-prevention rule) — pr-to-master.yml would
+          # never run on it. RELEASE_PR_TOKEN is a real PAT so the resulting
+          # PR is authored by a user, not the Actions bot, and triggers normally.
+          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
         run: |
           if gh pr list --base master --head staging --state open --json number --jq '.[0].number' | grep -q .; then
             echo "PR already open — it aggregates automatically, nothing to do."
