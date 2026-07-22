@@ -636,8 +636,9 @@ shipping a UI.
 ### Disposition of the Next.js work
 
 Tasks 1–7 of the withdrawn P1 plan were built on `dev/web-app-scaffold`, plus a CI pipeline on
-`dev/ci-cd-pipeline` (PR #8). Both are **abandoned unmerged** — retained in git history, not deleted. PR #8
-is closed without merging. `master` continues to run the legacy app untouched.
+`dev/ci-cd-pipeline-nextjs-abandoned` (renamed after PR #8 closed unmerged, to free the `dev/ci-cd-pipeline`
+name for the real P1 CI work in PR #9). Both are **abandoned unmerged** — retained in git history, not
+deleted. `master` continues to run the legacy app untouched.
 
 **Carried forward** (mostly by copy, not by merge):
 - `packages/shared` — Zod schemas, Mongoose models + the `Model<T>` typing fix, `connectDb` cache, error
