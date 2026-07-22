@@ -1,6 +1,10 @@
 {
   "compilerOptions": {
     "composite": true,
+    // composite projects must emit (TS6310) — nothing actually consumes this
+    // output (Vite loads vite.config.ts directly), so it goes to a gitignored
+    // scratch dir instead of polluting src/.
+    "outDir": "node_modules/.tsc-out",
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
