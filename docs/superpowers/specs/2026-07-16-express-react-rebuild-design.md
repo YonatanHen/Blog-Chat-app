@@ -636,8 +636,9 @@ shipping a UI.
 ### Disposition of the Next.js work
 
 Tasks 1–7 of the withdrawn P1 plan were built on `dev/web-app-scaffold`, plus a CI pipeline on
-`dev/ci-cd-pipeline` (PR #8). Both are **abandoned unmerged** — retained in git history, not deleted. PR #8
-is closed without merging. `master` continues to run the legacy app untouched.
+`dev/ci-cd-pipeline-nextjs-abandoned` (renamed after PR #8 closed unmerged, to free the `dev/ci-cd-pipeline`
+name for the real P1 CI work in PR #9). Both are **abandoned unmerged** — retained in git history, not
+deleted. `master` continues to run the legacy app untouched.
 
 **Carried forward** (mostly by copy, not by merge):
 - `packages/shared` — Zod schemas, Mongoose models + the `Model<T>` typing fix, `connectDb` cache, error
@@ -660,33 +661,33 @@ Every item is a real defect in the current codebase. Each must have a test in th
 items, a Supertest integration test against the real route.
 
 **Security**
-- [ ] Non-owner cannot delete a post (`server/routers/post.js:42`)
-- [ ] Non-owner cannot edit a post (`server/routers/post.js:34`)
-- [ ] User cannot modify another user's account (`server/routers/user.js:73` — **account takeover**)
-- [ ] User cannot delete another user's account (`server/routers/user.js:60`)
-- [ ] Logout requires authentication **and is POST-only** (`server/routers/user.js:45` — unauthenticated GET)
-- [ ] Like requires authentication and uses session identity, not a body field
+- [x] Non-owner cannot delete a post (`server/routers/post.js:42`) — `posts.test.ts`
+- [x] Non-owner cannot edit a post (`server/routers/post.js:34`) — `posts.test.ts`
+- [x] User cannot modify another user's account (`server/routers/user.js:73` — **account takeover**) — `users.test.ts`
+- [x] User cannot delete another user's account (`server/routers/user.js:60`) — `users.test.ts`
+- [x] Logout requires authentication **and is POST-only** (`server/routers/user.js:45` — unauthenticated GET) — `auth.test.ts`
+- [x] Like requires authentication and uses session identity, not a body field — `likes.test.ts`
 - [ ] Chat messages use server-derived identity — a client cannot speak as another user
-      (old `app.js:56` echoed `message.user` straight from the client payload)
-- [ ] Session token is not readable by JavaScript (httpOnly cookie, not `localStorage`)
-- [ ] Login does not reveal whether a username exists
-- [ ] A premium post's full body is absent from the API response for an anonymous reader (§6)
+      (old `app.js:56` echoed `message.user` straight from the client payload) — **P4** (realtime, not built yet)
+- [x] Session token is not readable by JavaScript (httpOnly cookie, not `localStorage`) — `session.test.ts`
+- [x] Login does not reveal whether a username exists — `auth.test.ts`
+- [x] A premium post's full body is absent from the API response for an anonymous reader (§6) — `posts.test.ts`
 
 **Correctness**
-- [ ] Socket listeners are cleaned up (old `chat.jsx:51` added a listener per message received)
-- [ ] Chat does not emit `disconnect` on every render (`chat.jsx:57`)
-- [ ] A failed delete does not remove the post from the UI (`store/actions/posts.js:44`)
-- [ ] Password confirmation is validated *before* the request, not after (`updateUser.jsx:58`)
-- [ ] Password is not silently reset on every profile update (`user.js:79` compares plaintext to a hash)
-- [ ] Double-click cannot double-like (enforced by the DB unique index)
-- [ ] Search does not crash on a post with no body (`postsList.jsx:12`)
-- [ ] Unique username/email enforced by index, not a racy `findOne` check
-- [ ] The loading state actually renders (`blog.jsx:22` set it true and false synchronously)
-- [ ] Logout is not fired before the delete request resolves (`navbar.jsx:33` invoked the callback immediately)
+- [ ] Socket listeners are cleaned up (old `chat.jsx:51` added a listener per message received) — **P4**
+- [ ] Chat does not emit `disconnect` on every render (`chat.jsx:57`) — **P4**
+- [ ] A failed delete does not remove the post from the UI (`store/actions/posts.js:44`) — **P2** (client)
+- [ ] Password confirmation is validated *before* the request, not after (`updateUser.jsx:58`) — **P2** (client)
+- [x] Password is not silently reset on every profile update (`user.js:79` compares plaintext to a hash) — `users.test.ts`
+- [x] Double-click cannot double-like (enforced by the DB unique index) — `likes.test.ts` + `models.test.ts`
+- [ ] Search does not crash on a post with no body (`postsList.jsx:12`) — **P5**
+- [x] Unique username/email enforced by index, not a racy `findOne` check — `user.test.ts`
+- [ ] The loading state actually renders (`blog.jsx:22` set it true and false synchronously) — **P2** (client)
+- [ ] Logout is not fired before the delete request resolves (`navbar.jsx:33` invoked the callback immediately) — **P2** (client)
 
 **Build correctness**
-- [ ] Production build and static serving work (the old `Dockerfile` had a Windows `WORKDIR` in a Linux image,
-      and `app.js:21` served `server/build` while CRA builds to `./build`)
-- [ ] Middleware order is correct — the old `app.js:19` registered `cors()` *after* the routers, so it never
-      applied. The new chain is asserted by an integration test (§3).
-- [ ] The SPA catch-all does not shadow `/api/*` (§3)
+- [x] Production build and static serving work (the old `Dockerfile` had a Windows `WORKDIR` in a Linux image,
+      and `app.js:21` served `server/build` while CRA builds to `./build`) — `compose.e2e.yaml` (CI stage 4) + `static.test.ts`
+- [x] Middleware order is correct — the old `app.js:19` registered `cors()` *after* the routers, so it never
+      applied. The new chain is asserted by an integration test (§3). — `app.test.ts`
+- [x] The SPA catch-all does not shadow `/api/*` (§3) — `static.test.ts`
