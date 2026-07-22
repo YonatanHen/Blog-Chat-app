@@ -1,0 +1,19 @@
+/* apps/client/src/index.css — Tailwind v4 is CSS-first: no tailwind.config.js,
+   no postcss.config.js. Light theme only (spec §2) — no .dark block. */
+@import 'tailwindcss';
+
+:root {
+  --background: oklch(0.98 0.051 105);       /* #FDFBD4 cream */
+  --foreground: oklch(0.28 0.047 67.5);      /* #38240D espresso */
+  --primary: oklch(0.581 0.155 49.5);        /* #C05800 burnt orange */
+  --primary-foreground: oklch(0.98 0.051 105); /* cream, for text on the orange primary */
+  --border: oklch(0.87 0.035 55);            /* light tan, same hue family as rust/orange */
+  --muted: oklch(0.94 0.025 60);             /* pale tan panel background */
+  --muted-foreground: oklch(0.403 0.101 53.8); /* #713600 rust */
+  --destructive: oklch(0.58 0.24 27);        /* red-orange, kept — already warm, harmonizes */
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}

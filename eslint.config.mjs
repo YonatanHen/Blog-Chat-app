@@ -14,4 +14,14 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    files: ['apps/client/**/*.{ts,tsx}'],
+    rules: {
+      // React 19 doesn't need `import React` for JSX; unused-import churn is noise.
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
+      ],
+    },
+  },
 )
