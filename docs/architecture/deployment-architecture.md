@@ -5,7 +5,7 @@ Living reference doc — update as the rebuild progresses. Unlike `docs/superpow
 
 **Status legend:** ✅ live today · 🚧 in progress · 📋 planned, not built yet
 
-**Last verified against reality:** 2026-07-16, at the Express + React stack pivot.
+**Last verified against reality:** 2026-07-22, P1 (Express API foundation) complete on `staging`.
 
 ---
 
@@ -24,8 +24,8 @@ rebuild. Everything under "Target production topology" below is 📋 planned —
 
 **Stack pivot (2026-07-16):** the rebuild was originally designed on Next.js 15; Tasks 1–7 were built
 before the direction changed to **Express + React (Vite)**, to make the project a better portfolio piece
-for fullstack/backend roles. `dev/web-app-scaffold` and `dev/ci-cd-pipeline` (PR #8) are abandoned
-unmerged — retained in git history, never deleted. See
+for fullstack/backend roles. `dev/web-app-scaffold` and `dev/ci-cd-pipeline-nextjs-abandoned` (PR #8) are
+abandoned unmerged — retained in git history, never deleted. See
 `docs/superpowers/specs/2026-07-16-express-react-rebuild-design.md` §2 and §13.
 
 ---
@@ -50,11 +50,10 @@ flowchart TD
     S5 -->|user approves| Master
 ```
 
-**Status:** branch model (`dev/*` → `staging` → `master`) is ✅ live. The 5-stage workflow was built on
-`dev/ci-cd-pipeline` (PR #8) against the Next.js layout and is now 📋 to be rebuilt — its *shape* carries
-forward verbatim (`pull_request`-only trigger, per-workspace typecheck fanout, ephemeral stage 4, manual
-gate at stage 5, `permissions: contents: read`, `concurrency` cancel-superseded). Only the build/test
-commands change.
+**Status:** branch model (`dev/*` → `staging` → `master`) is ✅ live. PR #8's 5-stage workflow was built
+against the abandoned Next.js layout and was closed unmerged. The pipeline was rebuilt from scratch on
+`dev/ci-cd-pipeline` (PR #9, merged) as three workflows over one env-gated file rather than a single
+5-stage job — see `docs/superpowers/plans/` Task 14 deviations for why. It is ✅ live on `staging`.
 
 **Why the trigger is `pull_request` only:** a raw commit to a feature branch must never run CI — only
 opening or updating a PR does.
@@ -97,10 +96,10 @@ flowchart TB
 
 | Component | Status | Notes |
 |---|---|---|
-| `apps/api` Render service | 📋 planned | P1. Serves the REST API **and** the built SPA from one origin — no CORS, no cross-origin cookie problem |
+| `apps/api` Render service | 🚧 built, not yet deployed | P1. Serves the REST API **and** the built SPA from one origin — no CORS, no cross-origin cookie problem |
 | `apps/client` | 📋 planned | P2. Vite build; static assets baked into the `apps/api` image, not a separate service |
 | `apps/realtime` Render service | 📋 planned | P4 — Socket.io, separate service, cold starts accepted |
-| Render Key Value (Redis) | 📋 planned | P1 (sessions) → P4 (chat buffer, presence) → P6 (rate limiting). Ephemeral by design |
+| Render Key Value (Redis) | 🚧 declared in `render.yaml`, not yet provisioned | P1 (sessions) → P4 (chat buffer, presence) → P6 (rate limiting). Ephemeral by design |
 | MongoDB Atlas M0 | ✅ exists, 🚧 being re-secured | Credential was leaked and rotated on 2026-07-16; cluster will be wiped and reseeded before go-live |
 | Cloudinary | 📋 planned | P5 — replaces the S3 + CloudFront plan; free forever, no shared-AWS-account hazard |
 | Socket auth across origins | 📋 planned | P4 — short-lived signed JWT ticket. Render subdomains are on the Public Suffix List, so the two services **cannot** share a session cookie |
@@ -158,6 +157,5 @@ flowchart LR
 This is the literal implementation of pipeline stage 4 above — it builds the same `runner` Docker target
 that would ship to Render, so a broken production build fails here, not after a real deploy.
 
-**Note:** `compose.e2e.yaml` did not exist when stage 4 was first written, which is why PR #8's CI run
-failed on it. In the new plan the file lands in P1 alongside the API, so the stage has something real to
-stand up from the start.
+**Status:** `compose.e2e.yaml` now exists and builds the `runner` (production) Docker target — stage 4 of
+the CI pipeline stands it up and smoke-tests `/api/v1/health` before Playwright runs against it.
