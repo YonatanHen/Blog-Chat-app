@@ -1434,7 +1434,9 @@ import { Textarea } from '../ui/textarea.js'
 type FieldKind = 'checkbox' | 'textarea' | 'tags' | 'text'
 
 function fieldKind(key: string, def: z.ZodTypeAny): FieldKind {
-  const inner = 'unwrap' in def && typeof def.unwrap === 'function' ? def.unwrap() : def
+  // z.coerce.boolean().default(false) / z.array(...).default([]) wrap the real
+  // type in ZodDefault — it has no .unwrap(), only .removeDefault() (_def.innerType).
+  const inner = def._def.typeName === 'ZodDefault' ? def._def.innerType : def
   if (inner._def.typeName === 'ZodBoolean') return 'checkbox'
   if (inner._def.typeName === 'ZodArray') return 'tags'
   if (key === 'body') return 'textarea'
