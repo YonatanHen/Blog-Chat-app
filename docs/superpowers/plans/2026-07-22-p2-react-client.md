@@ -3,7 +3,7 @@
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build `apps/client` — a Vite + React SPA that consumes P1's API, giving the blog a UI. Served by
-`apps/api` in prod (one origin, no CORS — spec §11); proxied by Vite in dev for the same reason.
+`apps/server` in prod (one origin, no CORS — spec §11); proxied by Vite in dev for the same reason.
 
 **Architecture:** Server state lives in TanStack Query, never a client store — no Redux (spec §9). Every
 network call goes through a typed wrapper in `src/api/*` with `credentials: 'include'`; no component calls
@@ -38,7 +38,7 @@ components/hooks (unit layer), Playwright for E2E (spec §10).
   (page chrome), per CLAUDE.md.
 - **The API's error JSON shape is fixed and must not be re-invented client-side:**
   `{ error: { message: string, fields?: Record<string, string[]> } }` — `fields` present only on a 400
-  (`apps/api/src/middleware/error-handler.ts`).
+  (`apps/server/src/middleware/error-handler.ts`).
 - **No `any`** — `@typescript-eslint/no-explicit-any` is already an error at the root; `apps/client` inherits
   the root `eslint.config.mjs`, extended with React-specific rules in Task 1.
 - **Light theme only, no dark-mode toggle** (spec §2) — cream background, burnt-orange/espresso brand palette.
@@ -54,14 +54,14 @@ components/hooks (unit layer), Playwright for E2E (spec §10).
 |---|---|
 | `package.json` | add `@blog/client` workspace is automatic (already `apps/*`); no root script changes needed — `typecheck`/`build`/`test` already fan out |
 | `eslint.config.mjs` | add a React-scoped config block (JSX, hooks rules) for `apps/client/**` |
-| `.env.example` | uncomment `CLIENT_DIST`, document `VITE_API_PROXY_TARGET` |
-| `compose.yaml` | add a `client` dev service (Vite dev server, proxying `/api` to `api`) |
-| `compose.e2e.yaml` | `api` service gets `CLIENT_DIST=apps/client/dist` — the runner image now has a build to serve |
-| `render.yaml` | no new service — the client ships baked into `blogchat-api`'s image, per spec §11 |
-| `playwright.config.ts` | create — points at `compose.e2e.yaml`'s stack |
+| `apps/server/.env.example`, `apps/client/.env.example` | document `CLIENT_DIST` (server) and `VITE_API_PROXY_TARGET` (client) — split per-app during the P2 restructure, no longer a single root file |
+| `infra/compose.yaml` | add a `client` dev service (Vite dev server, proxying `/api` to `api`) |
+| `infra/compose.e2e.yaml` | `api` service gets `CLIENT_DIST=apps/client/dist` — the runner image now has a build to serve |
+| `infra/render.yaml` | no new service — the client ships baked into `blogchat-api`'s image, per spec §11 |
+| `playwright.config.ts` | create — points at `infra/compose.e2e.yaml`'s stack |
 | `e2e/*.spec.ts` | create — Playwright specs |
 
-**Modified in `apps/api`:** `Dockerfile` (`builder` stage also builds the client; `runner` stage copies its
+**Modified in `apps/server`:** `Dockerfile` (`builder` stage also builds the client; `runner` stage copies its
 `dist` alongside the API's).
 
 **Created in `apps/client`:**
@@ -124,7 +124,7 @@ apps/client/
     "preview": "vite preview"
   },
   "dependencies": {
-    "@blog/shared": "*",
+    "@blog/zod-shared": "*",
     "@tanstack/react-query": "^5.101.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -278,7 +278,7 @@ Append to `eslint.config.mjs`'s `tseslint.config(...)` call, as an additional co
 
 ```bash
 # Directory holding the built SPA. Unset in dev (Vite serves it separately).
-# Set by compose.e2e.yaml / render.yaml for the production/e2e image.
+# Set by infra/compose.e2e.yaml / infra/render.yaml for the production/e2e image.
 # CLIENT_DIST=apps/client/dist
 
 # Where the client dev server proxies /api to. Defaults to localhost; Compose
@@ -512,12 +512,12 @@ git commit -m "feat(client): ui primitives (Button, Input, Label, Textarea, Card
 
 **Interfaces:**
 - Consumes: `PostDto`-shaped JSON from `GET/POST/PATCH /api/v1/posts*` (P1); the fixed error shape from
-  `apps/api/src/middleware/error-handler.ts`
+  `apps/server/src/middleware/error-handler.ts`
 - Produces:
   - `class ApiError extends Error { status: number; fields: Record<string, string[]> }`
   - `request<T>(path: string, init?: RequestInit): Promise<T>` — throws `ApiError` on a non-2xx response
   - `type Post = { id: string; title: string; slug: string; body: string; premium: boolean; gated: boolean; author: { id: string; username: string }; tags: string[]; likeCount: number; coverImage?: string; createdAt: string; updatedAt: string }`
-    (mirrors `apps/api/src/lib/services/post.ts`'s `PostDto`, with dates as ISO strings over JSON)
+    (mirrors `apps/server/src/lib/services/post.ts`'s `PostDto`, with dates as ISO strings over JSON)
   - `authApi.signup/login/logout/me`, `postsApi.list/get/create/update/remove/like/unlike`,
     `usersApi.get/update/remove`
 
@@ -1364,7 +1364,7 @@ git commit -m "feat(client): post detail page with server-driven gating UI"
 - Test: `apps/client/src/components/patterns/AutoForm.test.tsx`
 
 **Interfaces:**
-- Consumes: `CreatePostSchema`/`UpdatePostSchema` from `@blog/shared` (P1)
+- Consumes: `CreatePostSchema`/`UpdatePostSchema` from `@blog/zod-shared` (P1)
 - Produces: `<AutoForm schema={ZodObject} initialValues? onSubmit={(values) => void} submitLabel? />` —
   renders one field per schema key (string → text/textarea by field name heuristic, boolean → checkbox,
   `string[]` → comma-separated text input), shows `ZodError` field messages inline, calls `onSubmit` with
@@ -1567,7 +1567,7 @@ export function useUpdatePost(slug: string) {
 
 ```tsx
 // apps/client/src/pages/NewPostPage.tsx
-import { CreatePostSchema } from '@blog/shared'
+import { CreatePostSchema } from '@blog/zod-shared'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { AutoForm } from '../components/patterns/AutoForm.js'
@@ -1598,7 +1598,7 @@ export function NewPostPage() {
 
 ```tsx
 // apps/client/src/pages/EditPostPage.tsx
-import { UpdatePostSchema } from '@blog/shared'
+import { UpdatePostSchema } from '@blog/zod-shared'
 import { useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
 import { AutoForm } from '../components/patterns/AutoForm.js'
@@ -1868,43 +1868,43 @@ git commit -m "feat(client): likes with optimistic UI and rollback on failure"
 ## Task 11: Docker/Compose — client dev container + prod build baked into the API image
 
 **Files:**
-- Modify: `apps/api/Dockerfile` (`builder`/`runner` stages)
-- Modify: `compose.yaml` (new `client` service)
-- Modify: `compose.e2e.yaml`, `render.yaml` (`CLIENT_DIST`)
+- Modify: `apps/server/Dockerfile` (`builder`/`runner` stages)
+- Modify: `infra/compose.yaml` (new `client` service)
+- Modify: `infra/compose.e2e.yaml`, `infra/render.yaml` (`CLIENT_DIST`)
 
 **Interfaces:**
 - Consumes: `apps/client`'s build output (Task 1)
 - Produces: `docker compose watch` now serves the client on `:5173` proxying to `api`; the `runner` image
-  serves the built SPA from `apps/api` alone, no separate client container in prod (spec §11)
+  serves the built SPA from `apps/server` alone, no separate client container in prod (spec §11)
 
-- [ ] **Step 1: Update `apps/api/Dockerfile`'s `deps`/`builder`/`runner` stages**
+- [ ] **Step 1: Update `apps/server/Dockerfile`'s `deps`/`builder`/`runner` stages**
 
 The `deps` stage's `COPY package.json` lines need the client's manifest too, so `npm ci` installs it; the
 `builder` stage needs to build the client as well as the API; `runner` needs the client's `dist` alongside
 the API's, at the path `CLIENT_DIST` will point to.
 
 ```dockerfile
-# apps/api/Dockerfile — diff against the existing file
+# apps/server/Dockerfile — diff against the existing file
 
 # In the `deps` stage, add the client manifest next to the existing COPY lines:
 COPY apps/client/package.json ./apps/client/
 
-# In the `builder` stage, build both workspaces (was: only @blog/api):
-RUN npm run build --workspace=@blog/api --workspace=@blog/client
+# In the `builder` stage, build both workspaces (was: only @blog/server):
+RUN npm run build --workspace=@blog/server --workspace=@blog/client
 
 # In the `prod-deps` stage, also add:
 COPY apps/client/package.json ./apps/client/
 
-# In the `runner` stage, after the existing api dist COPY, add:
-COPY --from=builder --chown=api:nodejs /app/apps/client/dist ./apps/client/dist
+# In the `runner` stage, after the existing server dist COPY, add:
+COPY --from=builder --chown=server:nodejs /app/apps/client/dist ./apps/client/dist
 # CLIENT_DIST is relative to the WORKDIR (/app), matching this path.
 ENV CLIENT_DIST=apps/client/dist
 ```
 
-- [ ] **Step 2: Add the `client` dev service to `compose.yaml`**
+- [ ] **Step 2: Add the `client` dev service to `infra/compose.yaml`**
 
 ```yaml
-# compose.yaml — add alongside the existing `api` service
+# infra/compose.yaml — add alongside the existing `api` service
   client:
     build:
       context: .
@@ -1923,12 +1923,12 @@ ENV CLIENT_DIST=apps/client/dist
 
 ```dockerfile
 # apps/client/Dockerfile.dev — a minimal dev-only image (no multi-stage prod
-# target here; the prod bundle is built as part of apps/api's Dockerfile instead)
+# target here; the prod bundle is built as part of apps/server's Dockerfile instead)
 # syntax=docker/dockerfile:1
 FROM node:22-alpine
 WORKDIR /app
 COPY package.json package-lock.json ./
-COPY packages/shared/package.json ./packages/shared/
+COPY packages/zod-shared/package.json ./packages/zod-shared/
 COPY apps/client/package.json ./apps/client/
 RUN --mount=type=secret,id=extra-ca,target=/tmp/extra-ca.pem \
     --mount=type=cache,target=/root/.npm \
@@ -1942,10 +1942,10 @@ CMD ["npm", "run", "dev", "--workspace=@blog/client", "--", "--host"]
 `--host` is required so Vite listens on `0.0.0.0` inside the container — without it, `localhost:5173` from
 the host machine can't reach the dev server bound only to the container's loopback interface.
 
-- [ ] **Step 3: Point `compose.e2e.yaml`'s `api` service at the built client**
+- [ ] **Step 3: Point `infra/compose.e2e.yaml`'s `api` service at the built client**
 
 ```yaml
-# compose.e2e.yaml — add to the api service's `environment:` block
+# infra/compose.e2e.yaml — add to the api service's `environment:` block
       CLIENT_DIST: apps/client/dist
 ```
 
@@ -1953,10 +1953,10 @@ the host machine can't reach the dev server bound only to the container's loopba
 too is redundant but harmless; keep it for clarity/consistency with how every other env var in this file is
 explicit rather than relying on an image default.)
 
-- [ ] **Step 4: Add `CLIENT_DIST` to `render.yaml`**
+- [ ] **Step 4: Add `CLIENT_DIST` to `infra/render.yaml`**
 
 ```yaml
-# render.yaml — api service's envVars, alongside the existing entries
+# infra/render.yaml — api service's envVars, alongside the existing entries
       - key: CLIENT_DIST
         value: apps/client/dist
 ```
@@ -1966,15 +1966,15 @@ explicit rather than relying on an image default.)
 Run: `docker compose up -d --build`
 Then: open `http://localhost:5173` — confirm the blog feed loads (proxied through to the `api` container).
 
-Run: `docker compose -f compose.e2e.yaml up --build -d --wait`
+Run: `docker compose -f infra/compose.e2e.yaml --project-directory . up --build -d --wait`
 Then: `curl -s localhost:3000/` — expect the built `index.html`, not a 404 (proves the SPA catch-all now has
 a real build to serve, not just the P1 fixture).
-Tear down: `docker compose down -v` / `docker compose -f compose.e2e.yaml down -v`
+Tear down: `docker compose -f infra/compose.yaml --project-directory . down -v` / `docker compose -f infra/compose.e2e.yaml --project-directory . down -v`
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add apps/api/Dockerfile apps/client/Dockerfile.dev compose.yaml compose.e2e.yaml render.yaml
+git add apps/server/Dockerfile apps/client/Dockerfile.dev infra/compose.yaml infra/compose.e2e.yaml infra/render.yaml
 git commit -m "build: bake the client build into the api image; add a client dev container"
 ```
 
@@ -1985,11 +1985,11 @@ git commit -m "build: bake the client build into the api image; add a client dev
 **Files:**
 - Create: `playwright.config.ts`, `e2e/auth-and-posts.spec.ts`, `e2e/gating.spec.ts`
 - Modify: root `package.json` (`@playwright/test` devDependency)
-- Modify: CI workflow(s) — the e2e-smoke job already runs `compose.e2e.yaml`; add a Playwright step after
+- Modify: CI workflow(s) — the e2e-smoke job already runs `infra/compose.e2e.yaml`; add a Playwright step after
   the health check
 
 **Interfaces:**
-- Consumes: `compose.e2e.yaml`'s stack (Task 11), the seeded demo account (`apps/api/src/scripts/seed.ts`,
+- Consumes: `infra/compose.e2e.yaml`'s stack (Task 11), the seeded demo account (`apps/server/src/scripts/seed.ts`,
   P1 Task 13)
 
 - [ ] **Step 1: Add the dependency and config**
@@ -2008,7 +2008,7 @@ export default defineConfig({
   testDir: './e2e',
   use: { baseURL: 'http://localhost:3000' },
   webServer: {
-    command: 'docker compose -f compose.e2e.yaml up --build --wait',
+    command: 'docker compose -f infra/compose.e2e.yaml --project-directory . up --build --wait',
     url: 'http://localhost:3000/api/v1/health',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
@@ -2056,7 +2056,7 @@ level per spec §10 ("asserting on raw response bytes, not the DOM").
 import { expect, test } from '@playwright/test'
 
 test('an anonymous reader never receives a premium post\'s full body over the wire', async ({ page, request }) => {
-  // Seeded by apps/api/src/scripts/seed.ts — a known premium post slug.
+  // Seeded by apps/server/src/scripts/seed.ts — a known premium post slug.
   const res = await request.get('/api/v1/posts/gating-content-at-the-serialization-boundary')
   const body = await res.json()
   expect(body.gated).toBe(true)
@@ -2068,7 +2068,7 @@ test('an anonymous reader never receives a premium post\'s full body over the wi
 ```
 
 > **Depends on seed data:** this test assumes the seeded premium post's non-teaser paragraph contains the
-> literal string asserted against. Check `apps/api/src/scripts/seed.ts`'s actual post body when implementing
+> literal string asserted against. Check `apps/server/src/scripts/seed.ts`'s actual post body when implementing
 > this step and adjust the string to match — do not invent a slug or sentence that doesn't exist in the seed.
 
 - [ ] **Step 4: Run locally and confirm both pass**
@@ -2113,7 +2113,7 @@ bypass the UI" framing rather than the primary path.
 
 - [ ] **Step 2: Update `docs/architecture/deployment-architecture.md`**
 
-`apps/client` row: `📋 planned` → `🚧 built, baked into the apps/api image` (not a separate Render service —
+`apps/client` row: `📋 planned` → `🚧 built, baked into the apps/server image` (not a separate Render service —
 this was always the design, spec §11). Update "Last verified against reality" to the date this lands.
 
 - [ ] **Step 3: Tick the P2-scoped spec §14 items**

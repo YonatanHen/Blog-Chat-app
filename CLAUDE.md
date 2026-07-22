@@ -32,7 +32,7 @@ npm run typecheck    # fans out to each workspace's own typecheck script (no roo
 npm run lint         # eslint . (flat config, typescript-eslint recommended + no-explicit-any as error)
 npm run test         # vitest run, across packages/**/*.test.ts and apps/**/*.test.ts
 npm run test -- path/to/one.test.ts   # single test file
-npm run test:e2e     # playwright, against compose.e2e.yaml (prod-target build)
+npm run test:e2e     # playwright, against infra/compose.e2e.yaml (prod-target build)
 npm run seed         # seed the database
 ```
 
@@ -41,42 +41,49 @@ incompatible with TypeScript's project-references build mode. There is no root `
 workspace declares its own `typecheck` script and the root runs `npm run typecheck --workspaces
 --if-present`. Don't reintroduce a root `tsc --build` — it's been tried and reverted.
 
-**Docker:** per-app multi-stage Dockerfiles (`base → deps → dev`/`builder → runner`). `compose.yaml` is the
-dev stack (`target: dev`, hot reload); `compose.e2e.yaml` builds the `runner` target — the actual production
-image — for CI/E2E, so a broken prod build is caught before Render is. If you're behind a TLS-intercepting
-proxy/AV locally (Avast on this machine breaks all container TLS), the Dockerfiles accept an optional
-`extra-ca` BuildKit secret (see `compose.override.yaml`, gitignored) — **never bake a CA cert into an image
-or commit one**.
+**Docker:** per-app multi-stage Dockerfiles (`base → deps → dev`/`builder → runner`), kept inside each app
+(`apps/server/Dockerfile`). Orchestration/deploy config lives in `infra/`: `infra/compose.yaml` is the dev
+stack (`target: dev`, hot reload); `infra/compose.e2e.yaml` builds the `runner` target — the actual production
+image — for CI/E2E, so a broken prod build is caught before Render is; `infra/render.yaml` is the prod
+infra-as-code. **Both compose files must be invoked with `--project-directory .` from the repo root** — they
+live in `infra/` but their `context`/`develop.watch`/secrets paths are written relative to the repo root, and
+Compose resolves them relative to the compose file's own directory otherwise (already wired into `npm run
+dev` and the CI workflows — don't invoke `docker compose -f infra/compose*.yaml` without it). If you're behind
+a TLS-intercepting proxy/AV locally (Avast on this machine breaks all container TLS), the Dockerfiles accept
+an optional `extra-ca` BuildKit secret (see `infra/compose.override.yaml`, gitignored) — **never bake a CA
+cert into an image or commit one**.
 
 ## Architecture
 
 ```
 apps/
-  api/         # Express REST API; also serves the built SPA in prod → Render web service
-  client/      # React + Vite SPA → static bundle, served by apps/api
+  server/      # Express REST API; also serves the built SPA in prod → Render web service
+  client/      # React + Vite SPA → static bundle, served by apps/server
   realtime/    # Socket.io service (P4) → separate Render web service
 packages/
-  shared/      # Mongoose models, Zod schemas, db/redis caches, errors — the cross-app package
+  zod-shared/  # Zod schemas only — the cross-app package (server validates and client forms both use it)
 ```
 
-**One origin, one service.** `apps/api` serves both `/api/v1/*` and the built SPA (catch-all → `index.html`).
-In dev, Vite's `server.proxy` forwards `/api` to the API container, reproducing the same origin. This is
-load-bearing: the httpOnly session cookie works identically in dev, CI, and prod, and **CORS is never needed
-anywhere**. `apps/realtime` is the exception — it's a separate origin, which is exactly why it needs a signed
-handshake ticket instead of the cookie (Render subdomains are on the Public Suffix List and cannot share
-cookies).
+**One origin, one service.** `apps/server` serves both `/api/v1/*` and the built SPA (catch-all →
+`index.html`). In dev, Vite's `server.proxy` forwards `/api` to the API container, reproducing the same
+origin. This is load-bearing: the httpOnly session cookie works identically in dev, CI, and prod, and **CORS
+is never needed anywhere**. `apps/realtime` is the exception — it's a separate origin, which is exactly why
+it needs a signed handshake ticket instead of the cookie (Render subdomains are on the Public Suffix List and
+cannot share cookies).
 
-**Zod is the single source of truth for validation.** Schemas live in `packages/shared/src/schemas/`;
+**Zod is the single source of truth for validation.** Schemas live in `packages/zod-shared/src/schemas/`;
 TypeScript types are inferred from them (`z.infer<...>`), never hand-declared. The same schema validates the
-request on the server and drives the form on the client.
+request on the server and drives the form on the client — this is the only reason `zod-shared` is a separate
+package rather than living inside `apps/server`.
 
-**Mongoose models use explicit `Model<T>` typing** (`packages/shared/src/models/*.ts`) —
+**Mongoose models use explicit `Model<T>` typing** (`apps/server/src/models/*.ts`) —
 `mongoose.models.X as Model<T> ?? mongoose.model<T>(...)` — because the untyped union return breaks
-`.create()`'s overload resolution otherwise.
+`.create()`'s overload resolution otherwise. Models are server-only — never imported by the client.
 
-**Mongo/Redis connections are cached on `globalThis`** (`packages/shared/src/db.ts`, `apps/api/src/lib/`).
-A naive `connect()` opens a new connection per module reload until the pool is exhausted (Render's free Redis
-caps at 50 connections). Never call `mongoose.connect()` / `new Redis()` outside these cached wrappers.
+**Mongo/Redis connections are cached on `globalThis`** (`apps/server/src/lib/db.ts`,
+`apps/server/src/lib/redis.ts`). A naive `connect()` opens a new connection per module reload until the pool
+is exhausted (Render's free Redis caps at 50 connections). Never call `mongoose.connect()` / `new Redis()`
+outside these cached wrappers.
 
 **Sessions:** `express-session` + `connect-redis`. The cookie is httpOnly + Secure + SameSite=Lax and holds
 only an opaque session ID; data lives in Redis. `SameSite=Lax` is sufficient CSRF protection **only because**
@@ -100,9 +107,10 @@ it, so there is nothing to find in DevTools. Gating in a component would be cosm
 ## Project constraints
 
 - **Never write credentials, tokens, or connection strings into source.** Use `.env` (gitignored) locally;
-  `.env.example` documents every variable with no real values. In production, secrets are set in the Render
-  dashboard (`render.yaml` uses `sync: false`) — never committed, never hardcoded as a fallback. (A leaked
-  credential was found in this repo's git history on 2026-07-16 and scrubbed — this is not hypothetical.)
+  each app's own `.env.example` (`apps/server/.env.example`, `apps/client/.env.example`) documents its
+  variables with no real values. In production, secrets are set in the Render dashboard (`infra/render.yaml`
+  uses `sync: false`) — never committed, never hardcoded as a fallback. (A leaked credential was found in
+  this repo's git history on 2026-07-16 and scrubbed — this is not hypothetical.)
 - **Business logic is isolated from request handling.** `lib/services/` holds the logic; routers and
   middleware stay thin — authenticate, authorize, validate with Zod, delegate to a service. Never put
   business logic in a route handler.
@@ -111,8 +119,8 @@ it, so there is nothing to find in DevTools. Gating in a component would be cosm
   HTTP semantics over convenience: like/unlike is idempotent `PUT`/`DELETE`, not `POST /toggle`; logout is
   `POST`, not `GET`.
 - **Errors are typed and translated once.** Services throw `UnauthorizedError`/`ForbiddenError`/
-  `NotFoundError`/`ValidationError` from `packages/shared`; `middleware/error-handler.ts` maps them to
-  status codes and a consistent JSON shape. Handlers never build error responses ad hoc.
+  `NotFoundError`/`ValidationError` from `apps/server/src/lib/errors.ts`; `middleware/error-handler.ts` maps
+  them to status codes and a consistent JSON shape. Handlers never build error responses ad hoc.
 - **One component per `.tsx` file.** Follow the three-tier split under `apps/client/src/components/`:
   `ui/` (styling primitives, `cva` variants — e.g. `Button`), `patterns/` (composed app-level components),
   `layouts/` (page chrome, e.g. `PageShell`). If a component must be shared across apps, its prop-driven

@@ -4,13 +4,13 @@
   "workspaces": ["packages/*", "apps/*"],
   "engines": { "node": ">=22" },
   "scripts": {
-    "dev": "docker compose watch",
+    "dev": "docker compose -f infra/compose.yaml --project-directory . watch",
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint .",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "seed": "npm run seed --workspace=@blog/api"
+    "seed": "npm run seed --workspace=@blog/server"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

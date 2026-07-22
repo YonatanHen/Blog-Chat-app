@@ -1,0 +1,66 @@
+# Invoke with --project-directory . (repo root) — this file lives in infra/, but
+# `context`, `develop.watch` paths, and the secrets `file:` path below are all
+# written relative to the repo root, not this file's own directory. Without
+# --project-directory, Compose resolves them relative to infra/ instead and every
+# path silently breaks (verified via `docker compose -f infra/compose.yaml config`).
+name: blogchat
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+      target: dev
+    ports: ['3000:3000']
+    environment:
+      NODE_ENV: development
+      MONGODB_URI: mongodb://mongo:27017/blogchat
+      REDIS_URL: redis://redis:6379
+      SESSION_SECRET_FILE: /run/secrets/session_secret
+    secrets:
+      - session_secret
+    depends_on:
+      mongo: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    develop:
+      watch:
+        - action: sync
+          path: ./apps/server
+          target: /app/apps/server
+          ignore: [node_modules/, dist/]
+        - action: sync
+          path: ./packages/zod-shared
+          target: /app/packages/zod-shared
+          ignore: [node_modules/, dist/]
+        - action: rebuild
+          path: ./package.json
+        - action: rebuild
+          path: ./package-lock.json
+
+  mongo:
+    image: mongo:8
+    # 127.0.0.1 ONLY. Mongo runs unauthenticated here; on 0.0.0.0 it would be an
+    # open database on the LAN.
+    ports: ['127.0.0.1:27019:27017']
+    volumes: ['mongo-data:/data/db']
+    healthcheck:
+      test: ['CMD', 'mongosh', '--quiet', '--eval', "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports: ['127.0.0.1:6379:6379']
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  mongo-data:
+
+secrets:
+  session_secret:
+    file: ./infra/secrets/dev/session_secret.txt

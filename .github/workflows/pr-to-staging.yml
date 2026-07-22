@@ -59,13 +59,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # secrets/e2e/*.txt is gitignored (never commit a secret file, even a
+      # infra/secrets/e2e/*.txt is gitignored (never commit a secret file, even a
       # throwaway one) — CI has no other source for it, so materialize it here.
-      - run: cp secrets/e2e/session_secret.txt.example secrets/e2e/session_secret.txt
+      - run: cp infra/secrets/e2e/session_secret.txt.example infra/secrets/e2e/session_secret.txt
       - name: Bring up the ephemeral prod-image stack
         # Builds the `runner` target — the same image Render would run — so a
         # broken production build fails here rather than after a real deploy.
-        run: docker compose -f compose.e2e.yaml up --build --wait
+        run: docker compose -f infra/compose.e2e.yaml --project-directory . up --build --wait
       - name: Smoke test the API
         run: |
           status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/v1/health)
@@ -73,7 +73,7 @@ jobs:
           test "$status" = "200"
       - name: Show logs on failure
         if: failure()
-        run: docker compose -f compose.e2e.yaml logs
+        run: docker compose -f infra/compose.e2e.yaml --project-directory . logs
       - name: Tear down
         if: always()
-        run: docker compose -f compose.e2e.yaml down -v
+        run: docker compose -f infra/compose.e2e.yaml --project-directory . down -v

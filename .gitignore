@@ -11,4 +11,4 @@ playwright-report/
 .DS_Store
 .local
 .claude
-secrets/**/*.txt
+infra/secrets/**/*.txt
