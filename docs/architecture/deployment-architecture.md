@@ -80,7 +80,7 @@ flowchart TB
     Master -->|auto-deploy webhook| RealtimeSvc
 
     subgraph RenderCloud["Render (free tier)"]
-        ApiSvc["apps/api<br/>Express REST API<br/>+ serves apps/client build"]
+        ApiSvc["apps/server<br/>Express REST API<br/>+ serves apps/client build"]
         RealtimeSvc["apps/realtime<br/>Socket.io service"]
         Redis[("Render Key Value — Redis<br/>sessions, chat buffer, rate limit")]
         ApiSvc <-->|internal network| Redis
@@ -96,10 +96,10 @@ flowchart TB
 
 | Component | Status | Notes |
 |---|---|---|
-| `apps/api` Render service | 🚧 built, not yet deployed | P1. Serves the REST API **and** the built SPA from one origin — no CORS, no cross-origin cookie problem |
-| `apps/client` | 📋 planned | P2. Vite build; static assets baked into the `apps/api` image, not a separate service |
+| `apps/server` Render service | 🚧 built, not yet deployed | P1. Serves the REST API **and** the built SPA from one origin — no CORS, no cross-origin cookie problem |
+| `apps/client` | 📋 planned | P2. Vite build; static assets baked into the `apps/server` image, not a separate service |
 | `apps/realtime` Render service | 📋 planned | P4 — Socket.io, separate service, cold starts accepted |
-| Render Key Value (Redis) | 🚧 declared in `render.yaml`, not yet provisioned | P1 (sessions) → P4 (chat buffer, presence) → P6 (rate limiting). Ephemeral by design |
+| Render Key Value (Redis) | 🚧 declared in `infra/render.yaml`, not yet provisioned | P1 (sessions) → P4 (chat buffer, presence) → P6 (rate limiting). Ephemeral by design |
 | MongoDB Atlas M0 | ✅ exists, 🚧 being re-secured | Credential was leaked and rotated on 2026-07-16; cluster will be wiped and reseeded before go-live |
 | Cloudinary | 📋 planned | P5 — replaces the S3 + CloudFront plan; free forever, no shared-AWS-account hazard |
 | Socket auth across origins | 📋 planned | P4 — short-lived signed JWT ticket. Render subdomains are on the Public Suffix List, so the two services **cannot** share a session cookie |
@@ -140,12 +140,12 @@ bug cannot hide until deploy.
 **Mongo and Redis bind to `127.0.0.1`, never `0.0.0.0`** — they run unauthenticated locally, and
 publishing them on all interfaces would expose an unauthenticated database to the LAN.
 
-## CI ephemeral staging (📋 planned — `compose.e2e.yaml` + smoke test in P1; Playwright added in P2)
+## CI ephemeral staging (📋 planned — `infra/compose.e2e.yaml` + smoke test in P1; Playwright added in P2)
 
 ```mermaid
 flowchart LR
     subgraph Runner["GitHub Actions runner — ephemeral, torn down after"]
-        Compose["docker compose -f compose.e2e.yaml up --wait"] --> ApiE2E["api container<br/>prod/runner target<br/>serves the built SPA"]
+        Compose["docker compose -f infra/compose.e2e.yaml --project-directory . up --wait"] --> ApiE2E["api container<br/>prod/runner target<br/>serves the built SPA"]
         Compose --> RealtimeE2E["realtime container<br/>prod target"]
         ApiE2E <--> MongoE2E[("mongo container")]
         ApiE2E <--> RedisE2E[("redis container")]
@@ -157,5 +157,5 @@ flowchart LR
 This is the literal implementation of pipeline stage 4 above — it builds the same `runner` Docker target
 that would ship to Render, so a broken production build fails here, not after a real deploy.
 
-**Status:** `compose.e2e.yaml` now exists and builds the `runner` (production) Docker target — stage 4 of
+**Status:** `infra/compose.e2e.yaml` now exists and builds the `runner` (production) Docker target — stage 4 of
 the CI pipeline stands it up and smoke-tests `/api/v1/health` before Playwright runs against it.

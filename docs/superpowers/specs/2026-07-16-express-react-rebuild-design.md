@@ -54,7 +54,7 @@ preserving the project's identity: a MERN blog with real-time chat.
 | Ephemeral store | **Redis** (Render Key Value in prod, container locally) | Session store, chat buffer, rate limiting, presence. See §7. |
 | Realtime | **Standalone Socket.io service** (`apps/realtime`) | Its own long-running Render container. |
 | Hosting (prod) | **Render** | Long-lived containers. |
-| Prod topology | **`apps/api` serves the built SPA + the API from one origin** | No CORS, no cross-origin cookie problem, one web service. See §11. |
+| Prod topology | **`apps/server` serves the built SPA + the API from one origin** | No CORS, no cross-origin cookie problem, one web service. See §11. |
 | Local / staging / E2E | **Docker Compose + `compose watch`** | Fully containerized, hot reload preserved. Replaces a cloud staging environment. See §11. |
 | Styling | **Tailwind + shadcn/ui** | Current default; accessible primitives the user owns. |
 | Theme | **Light only. White primary, blue secondary.** | Editorial aesthetic; blue is the accent (actions, links, focus), body text stays near-black. **No dark-mode toggle.** |
@@ -114,21 +114,24 @@ than ported.
 ```
 blog-chat-app/
 ├── apps/
-│   ├── api/                  # Express REST API + serves the built SPA → Render web service
-│   ├── client/               # React (Vite) SPA → static bundle, served by apps/api
-│   └── realtime/             # Socket.io server → separate Render web service
+│   ├── server/                # Express REST API + serves the built SPA → Render web service
+│   │                          # (models, connection caches, errors live here — server-only)
+│   ├── client/                # React (Vite) SPA → static bundle, served by apps/server
+│   └── realtime/              # Socket.io server → separate Render web service
 ├── packages/
-│   └── shared/               # Mongoose models, Zod schemas, connection caches, errors, ticket verify
-├── compose.yaml              # full stack, dev target + `develop.watch` hot reload
-├── compose.e2e.yaml          # prod-target images, seeded, for E2E / CI
-├── render.yaml               # prod infrastructure as code
+│   └── zod-shared/           # Zod schemas only — the one thing server AND client both need
+├── infra/
+│   ├── compose.yaml           # full stack, dev target + `develop.watch` hot reload
+│   ├── compose.e2e.yaml       # prod-target images, seeded, for E2E / CI
+│   ├── render.yaml            # prod infrastructure as code
+│   └── secrets/               # Compose file-based secrets (gitignored *.txt + committed *.example)
 └── docs/
 ```
 
 Two Render services in prod (`api`, `realtime`). Both are permitted to sleep and cold-start (~60 s) — an
 accepted trade-off, since 750 free instance-hours/month funds only *one* always-on service.
 
-### `apps/api` layout
+### `apps/server` layout
 
 ```
 src/
@@ -209,8 +212,8 @@ too, so CORS is never needed anywhere; that is a *consequence* of the topology c
 
 | Old | New |
 |---|---|
-| `server/routers/post.js`, `user.js` | `apps/api/src/routes/v1/*` (thin) + `apps/api/src/lib/services/*` (logic) |
-| `server/middleware/authenticate.js` | `apps/api/src/middleware/require-auth.ts` + `require-owner.ts` |
+| `server/routers/post.js`, `user.js` | `apps/server/src/routes/v1/*` (thin) + `apps/server/src/lib/services/*` (logic) |
+| `server/middleware/authenticate.js` | `apps/server/src/middleware/require-auth.ts` + `require-owner.ts` |
 | `src/store/` (Redux, thunks, reducers) | **Deleted** — TanStack Query owns server state |
 | `src/app.jsx` (`<Route>` config) | `apps/client/src/routes.tsx` |
 | `src/functions/checkLogin.js` | **Deleted** (dead code; never worked) |
@@ -310,8 +313,9 @@ session cookie will never reach the realtime service. Cookie-based socket auth i
 1. The client calls `POST /api/v1/auth/socket-ticket`; the API verifies the session and mints a
    **~60-second JWT** containing `{ userId, username }`, signed with a secret shared by both services.
 2. The client passes the ticket in the Socket.io handshake (`io(url, { auth: { ticket } })`).
-3. The realtime service verifies the signature and expiry using the shared verifier in `packages/shared`,
-   then attaches the identity to the socket.
+3. The realtime service verifies the signature and expiry using a shared verifier (P4 — where this lands
+   is still open: `packages/zod-shared` is Zod-only by design as of the P2 restructure, so a JWT verifier may
+   warrant its own package rather than being force-fit in there), then attaches the identity to the socket.
 
 The realtime service **never trusts a username sent from the client**. The old app echoed `message.user`
 straight from the client payload, so anyone could speak as anyone.
@@ -379,8 +383,9 @@ archive, and Redis is the semantically correct tier.
 machinery. It is the correct answer to "how would you scale this?" and is documented as such in the README
 rather than built prematurely.
 
-**Deployment:** Key Value is a **managed addon**, not a container we build. It is declared in `render.yaml` as
-`type: keyvalue`, and Render injects its internal connection string into both services via `fromService`.
+**Deployment:** Key Value is a **managed addon**, not a container we build. It is declared in
+`infra/render.yaml` as `type: keyvalue`, and Render injects its internal connection string into both
+services via `fromService`.
 Constraints:
 
 - **All three (api, realtime, keyvalue) must be pinned to the same region** — the internal URL is only
@@ -396,7 +401,8 @@ Constraints:
 
 ## 8. Data Model
 
-All models live in `packages/shared`, each paired with a Zod schema. TypeScript types are **inferred** from the
+Mongoose models live in `apps/server/src/models/` (server-only — the client never imports them); each is
+paired with a Zod schema in `packages/zod-shared/src/schemas/`. TypeScript types are **inferred** from the
 Zod schemas (`z.infer<typeof X>`), so validation and types cannot disagree. Models use explicit `Model<T>`
 typing (`mongoose.models.X as Model<T> ?? mongoose.model<T>(...)`) — the untyped union return breaks
 `.create()`'s overload resolution otherwise.
@@ -488,8 +494,8 @@ invalidation refetches from the server, so a failed delete leaves the post visib
 demonstrates the failure path, not just the happy path, and replaces the old hand-managed state that could
 desync permanently.
 
-**Rendering:** no SSR (§2). Vite builds a static bundle; `apps/api` serves it and returns `index.html` for any
-non-`/api` route so client-side routing survives a refresh.
+**Rendering:** no SSR (§2). Vite builds a static bundle; `apps/server` serves it and returns `index.html` for
+any non-`/api` route so client-side routing survives a refresh.
 
 | Route | Notes |
 |---|---|
@@ -504,16 +510,17 @@ non-`/api` route so client-side routing survives a refresh.
 ## 10. Errors & Testing
 
 **Errors:** typed classes (`UnauthorizedError`, `ForbiddenError`, `NotFoundError`, `ValidationError`) live in
-`packages/shared`, are thrown by services, and are translated **once** by `middleware/error-handler.ts` into a
-status code and a consistent JSON error shape. Handlers never build error responses ad hoc, and the mapping
-lives in exactly one place.
+`apps/server/src/lib/errors.ts`, are thrown by services, and are translated **once** by
+`middleware/error-handler.ts` into a status code and a consistent JSON error shape. Handlers never build
+error responses ad hoc, and the mapping lives in exactly one place.
 
 On the client, **every `alert()` is removed**; field errors render inline from Zod's
 `error.flatten().fieldErrors` (the same schema that produced the API's 400), and transient feedback uses
 `sonner` toasts.
 
-**Vitest (unit)** — `packages/shared` and `apps/api/src/lib/services/*` against `mongodb-memory-server`, no
-live database required. Covers Zod schemas, slug generation, teaser derivation, socket-ticket verification,
+**Vitest (unit)** — `apps/server/src/models/*` and `apps/server/src/lib/services/*` against
+`mongodb-memory-server` (no live database required), plus `packages/zod-shared` for schema-only tests. Covers
+Zod schemas, slug generation, teaser derivation, socket-ticket verification,
 and the service-layer authorization rules.
 
 **Supertest (API integration)** — the layer that most directly demonstrates backend competence, and where the
@@ -544,7 +551,7 @@ a cloud staging tier, costs nothing, and sidesteps Render's one-free-Redis limit
 | Redis | Container, port bound to `127.0.0.1` | Container | Render Key Value |
 | Images | Cloudinary dev folder | mocked | Cloudinary prod folder |
 
-**Same-origin in every environment.** In prod, `apps/api` serves the built SPA — one origin, so the session
+**Same-origin in every environment.** In prod, `apps/server` serves the built SPA — one origin, so the session
 cookie just works and CORS never enters the picture. In dev, Vite's `server.proxy` forwards `/api` to the
 Express container, which reproduces the same-origin behavior without a build step. This is the single most
 important consequence of the topology decision: **the auth model is identical in dev, CI, and prod**, so a
@@ -553,8 +560,10 @@ cookie bug cannot hide until deploy.
 **Container ports bind to `127.0.0.1`, never `0.0.0.0`.** Mongo and Redis run without authentication locally;
 publishing them on all interfaces exposes an unauthenticated database to the LAN.
 
-**`compose.yaml`** — the full stack, all containerized, with **`develop.watch`** for hot reload.
-`docker compose watch` is the dev command.
+**`infra/compose.yaml`** — the full stack, all containerized, with **`develop.watch`** for hot reload.
+`npm run dev` runs `docker compose -f infra/compose.yaml --project-directory . watch`; the
+`--project-directory .` is load-bearing — Compose otherwise resolves the file's relative paths against
+`infra/` instead of the repo root.
 
 **Why Compose Watch rather than bind mounts** (this matters on Windows): a bind-mounted `node_modules` breaks
 across the Windows→Linux boundary because native binaries are compiled for the wrong platform, and inotify
@@ -563,15 +572,16 @@ container instead, so both problems disappear. `node_modules` stays inside the i
 
 **TLS-intercepting antivirus (this machine):** Avast's Web/Mail Shield MITMs container TLS, breaking `npm ci`
 and even `apk` inside the build. The Dockerfiles accept an optional `extra-ca` BuildKit secret supplied by a
-gitignored `compose.override.yaml`; the secret is absent in CI and on Render, where the mount is a no-op.
-**Never bake a CA certificate into an image or commit one.**
+gitignored `infra/compose.override.yaml`; the secret is absent in CI and on Render, where the mount is a
+no-op. **Never bake a CA certificate into an image or commit one.**
 
-**`compose.e2e.yaml`** — the full stack built from **prod-target** images, health-checked and seeded.
+**`infra/compose.e2e.yaml`** — the full stack built from **prod-target** images, health-checked and seeded.
 Playwright runs against it locally *and* in CI, so the production build is proven before Render ever sees it.
 
 **CI (GitHub Actions, free for public repos):** triggered `on: pull_request` **only** — a raw commit to a
 feature branch never runs CI. Stages: typecheck → lint → Vitest → Supertest → `docker compose -f
-compose.e2e.yaml up --wait` → seed → Playwright → build. Production deploy is gated behind a GitHub
+infra/compose.e2e.yaml --project-directory . up --wait` → seed → Playwright → build. Production deploy is
+gated behind a GitHub
 Environment (`production`) with a required reviewer; it never runs unattended. `permissions: contents: read`
 and a `concurrency` group (cancel superseded runs) are set at the workflow level.
 
@@ -586,7 +596,7 @@ running as root) with per-app multi-stage Dockerfiles that run as a non-root use
 
 | Component | Host | Free tier |
 |---|---|---|
-| `apps/api` (+ the SPA it serves) | Render web service | 750 instance-hours/workspace/month; 100 GB egress |
+| `apps/server` (+ the SPA it serves) | Render web service | 750 instance-hours/workspace/month; 100 GB egress |
 | `apps/realtime` | Render web service | (shares the same 750-hour pool) |
 | Redis | Render Key Value | 25 MB, 50 connections, **no persistence**, **one per workspace** |
 | Database | MongoDB Atlas M0 | 512 MB |
@@ -597,7 +607,7 @@ running as root) with per-app multi-stage Dockerfiles that run as a non-root use
 are permitted to sleep. (750 hours funds only *one* always-on service, so keeping both warm is not possible on
 the free tier — hence cold starts are accepted rather than worked around.)
 
-**`render.yaml`** declares all three prod resources as infrastructure-as-code. Secrets (`MONGODB_URI`,
+**`infra/render.yaml`** declares all three prod resources as infrastructure-as-code. Secrets (`MONGODB_URI`,
 `CLOUDINARY_URL`, OAuth credentials) use `sync: false` and are set in the dashboard — never committed, never
 hardcoded as a fallback. `SESSION_SECRET` and the socket-ticket secret use `generateValue: true`.
 
@@ -622,8 +632,8 @@ parallel agents.
 
 | Phase | Branch | Deliverable |
 |---|---|---|
-| **P1** | `dev/express-api-foundation` | Monorepo re-shape, `apps/api` (Express + TS), session auth on Redis, `requireAuth`/`requireOwner`, posts CRUD with correct authorization, Supertest integration suite, Compose dev + e2e, seed script, CI, deployed to Render. **Demoable via curl/Postman — no UI needed.** |
-| **P2** | `dev/react-client` | Vite + React + React Router + TanStack Query, Tailwind + shadcn (`ui`/`patterns`/`layouts`), auth pages, blog feed/post/editor, likes with optimistic UI, Playwright E2E, served by `apps/api` in prod. |
+| **P1** | `dev/express-api-foundation` | Monorepo re-shape, `apps/server` (Express + TS; originally scaffolded as `apps/api`, renamed during the P2 restructure) session auth on Redis, `requireAuth`/`requireOwner`, posts CRUD with correct authorization, Supertest integration suite, Compose dev + e2e, seed script, CI, deployed to Render. **Demoable via curl/Postman — no UI needed.** |
+| **P2** | `dev/react-client` | Vite + React + React Router + TanStack Query, Tailwind + shadcn (`ui`/`patterns`/`layouts`), auth pages, blog feed/post/editor, likes with optimistic UI, Playwright E2E, served by `apps/server` in prod. |
 | **P3** | `dev/comments-markdown` | Threaded comments, Markdown editor + preview, `AutoForm`, `premium` flag + gating (no JSON-LD — SEO dropped). |
 | **P4** | `dev/realtime-chat` | `apps/realtime` Socket.io service, signed handshake tickets, Redis message buffer, presence + typing indicators. |
 | **P5** | `dev/media-and-search` | Signed Cloudinary uploads, avatars + cover images, tags, MongoDB full-text search. |
@@ -641,8 +651,10 @@ name for the real P1 CI work in PR #9). Both are **abandoned unmerged** — reta
 deleted. `master` continues to run the legacy app untouched.
 
 **Carried forward** (mostly by copy, not by merge):
-- `packages/shared` — Zod schemas, Mongoose models + the `Model<T>` typing fix, `connectDb` cache, error
-  classes. Essentially unchanged; it was always framework-agnostic.
+- `packages/shared` (as it was at the time — later split during the P2 restructure into
+  `packages/zod-shared`, Zod-only, plus `apps/server/src/models`/`lib`, server-only) — Zod schemas, Mongoose
+  models + the `Model<T>` typing fix, `connectDb` cache, error classes. Essentially unchanged; it was always
+  framework-agnostic.
 - `userService.signup` / `verifyCredentials` — including the bcrypt-12 and username-enumeration fixes. Only
   the Auth.js `authorize()` wrapper is discarded.
 - `requireAuth` / `requireOwner` **logic and tests** — re-homed from `auth()` to `req.session`.
@@ -687,7 +699,7 @@ items, a Supertest integration test against the real route.
 
 **Build correctness**
 - [x] Production build and static serving work (the old `Dockerfile` had a Windows `WORKDIR` in a Linux image,
-      and `app.js:21` served `server/build` while CRA builds to `./build`) — `compose.e2e.yaml` (CI stage 4) + `static.test.ts`
+      and `app.js:21` served `server/build` while CRA builds to `./build`) — `infra/compose.e2e.yaml` (CI stage 4) + `static.test.ts`
 - [x] Middleware order is correct — the old `app.js:19` registered `cors()` *after* the routers, so it never
       applied. The new chain is asserted by an integration test (§3). — `app.test.ts`
 - [x] The SPA catch-all does not shadow `/api/*` (§3) — `static.test.ts`
