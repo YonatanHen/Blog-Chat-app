@@ -13,12 +13,15 @@ import type { ZodTypeAny } from 'zod'
 export const validate =
   (schema: ZodTypeAny): RequestHandler =>
   (req, _res, next) => {
+    console.log(`[VALIDATE] Validating ${req.method} ${req.path}`, req.body ?? {})
     const result = schema.safeParse(req.body ?? {})
     if (!result.success) {
+      console.error(`[VALIDATE] Validation failed:`, result.error.flatten())
       const fields = result.error.flatten().fieldErrors as Record<string, string[]>
       next(new ValidationError('Invalid input.', fields))
       return
     }
+    console.log(`[VALIDATE] Validation passed`)
     req.body = result.data
     next()
   }

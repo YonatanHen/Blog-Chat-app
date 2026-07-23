@@ -129,3 +129,6 @@ it, so there is nothing to find in DevTools. Gating in a component would be cosm
   directly — go through the typed wrappers in `apps/client/src/api/*`, which send `credentials: 'include'`.
   Mutations invalidate query keys rather than hand-patching a cache.
 - Never implement separate features in the same branch.
+- Never name a feature branch and PR by the task number.
+- Create feature branch from the `staging` branch. Never create a feature branch from another feature branch. Inform the developer if `staging` is not updated.
+- **Logging for diagnostics:** During development, add `console.log()`, `console.info()`, `console.warn()`, `console.error()` to API calls (client and server routers), service methods, and middleware to trace request flow. Include: request path/method, input payload, response status, errors. Gate with `DEBUG` env var where appropriate — use `if (process.env.DEBUG) console.log(...)` — to keep logs conditional and avoid noise in production.

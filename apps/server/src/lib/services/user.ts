@@ -23,6 +23,7 @@ function isDuplicateKeyError(err: unknown): err is { code: number; keyPattern?: 
 
 export const userService = {
   async signup(input: Signup): Promise<{ id: string; username: string }> {
+    console.log('[USER_SERVICE] signup start', { username: input.username, email: input.email })
     // A pre-check only to produce a precise message. It is NOT the guard —
     // two concurrent signups can both pass it. The unique index is the guard,
     // and the catch below turns its E11000 into the same ConflictError.
@@ -30,6 +31,7 @@ export const userService = {
       $or: [{ username: input.username }, { email: input.email }],
     })
     if (existing) {
+      console.warn('[USER_SERVICE] User already exists', { username: input.username, email: input.email })
       throw new ConflictError(
         existing.username === input.username
           ? 'That username is taken.'
@@ -37,11 +39,15 @@ export const userService = {
       )
     }
 
+    console.log('[USER_SERVICE] No duplicate found, hashing password')
     const password = await bcrypt.hash(input.password, BCRYPT_COST)
     try {
+      console.log('[USER_SERVICE] Creating user in database')
       const user = await UserModel.create({ ...input, password })
+      console.info('[USER_SERVICE] User created successfully', { id: user._id.toString(), username: user.username })
       return { id: user._id.toString(), username: user.username }
     } catch (err) {
+      console.error('[USER_SERVICE] Create error', err instanceof Error ? err.message : err)
       if (isDuplicateKeyError(err)) {
         throw new ConflictError(
           err.keyPattern?.username ? 'That username is taken.' : 'That email is already registered.',
@@ -55,11 +61,20 @@ export const userService = {
     username: string,
     password: string,
   ): Promise<{ id: string; username: string } | null> {
+    console.log('[USER_SERVICE] verifyCredentials start', { username })
     const user = await UserModel.findOne({ username })
     // Return null for BOTH "no such user" and "wrong password" so the two are
     // indistinguishable to an attacker enumerating usernames.
-    if (!user?.password) return null
-    if (!(await bcrypt.compare(password, user.password))) return null
+    if (!user?.password) {
+      console.log('[USER_SERVICE] User not found or no password')
+      return null
+    }
+    const passwordValid = await bcrypt.compare(password, user.password)
+    if (!passwordValid) {
+      console.log('[USER_SERVICE] Password mismatch')
+      return null
+    }
+    console.info('[USER_SERVICE] Credentials verified', { id: user._id.toString(), username: user.username })
     return { id: user._id.toString(), username: user.username }
   },
 
