@@ -129,3 +129,5 @@ it, so there is nothing to find in DevTools. Gating in a component would be cosm
   directly — go through the typed wrappers in `apps/client/src/api/*`, which send `credentials: 'include'`.
   Mutations invalidate query keys rather than hand-patching a cache.
 - Never implement separate features in the same branch.
+- Never name a feature branch and PR by the task number.
+- Create feature branch from the `staging` branch. Never create a feature branch from another feature branch. Inform the developer if `staging` is not updated. 
