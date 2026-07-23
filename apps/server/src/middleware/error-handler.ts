@@ -15,22 +15,27 @@ import {
  */
 export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
   if (err instanceof ValidationError) {
+    console.warn(`[ERROR_HANDLER] ValidationError on ${req.method} ${req.path}:`, err.message)
     res.status(400).json({ error: { message: err.message, fields: err.fields } })
     return
   }
   if (err instanceof UnauthorizedError) {
+    console.warn(`[ERROR_HANDLER] UnauthorizedError on ${req.method} ${req.path}:`, err.message)
     res.status(401).json({ error: { message: err.message } })
     return
   }
   if (err instanceof ForbiddenError) {
+    console.warn(`[ERROR_HANDLER] ForbiddenError on ${req.method} ${req.path}:`, err.message)
     res.status(403).json({ error: { message: err.message } })
     return
   }
   if (err instanceof NotFoundError) {
+    console.warn(`[ERROR_HANDLER] NotFoundError on ${req.method} ${req.path}:`, err.message)
     res.status(404).json({ error: { message: err.message } })
     return
   }
   if (err instanceof ConflictError) {
+    console.warn(`[ERROR_HANDLER] ConflictError on ${req.method} ${req.path}:`, err.message)
     res.status(409).json({ error: { message: err.message } })
     return
   }

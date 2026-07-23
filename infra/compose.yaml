@@ -37,6 +37,27 @@ services:
         - action: rebuild
           path: ./package-lock.json
 
+  client:
+    build:
+      context: .
+      dockerfile: apps/client/Dockerfile.dev
+    ports: ['5173:5173']
+    environment:
+      VITE_API_PROXY_TARGET: http://api:3000
+      VITE_DEBUG: 'true'
+    depends_on:
+      api: { condition: service_started }
+    develop:
+      watch:
+        - action: sync
+          path: ./apps/client
+          target: /app/apps/client
+          ignore: [node_modules/, dist/]
+        - action: rebuild
+          path: ./package.json
+        - action: rebuild
+          path: ./package-lock.json
+
   mongo:
     image: mongo:8
     # 127.0.0.1 ONLY. Mongo runs unauthenticated here; on 0.0.0.0 it would be an

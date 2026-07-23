@@ -1,0 +1,19 @@
+# syntax=docker/dockerfile:1
+FROM node:22-alpine
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+COPY packages/zod-shared/package.json ./packages/zod-shared/
+COPY apps/client/package.json ./apps/client/
+
+RUN --mount=type=secret,id=extra-ca,target=/tmp/extra-ca.pem \
+    --mount=type=cache,target=/root/.npm \
+    if [ -s /tmp/extra-ca.pem ]; then export NODE_EXTRA_CA_CERTS=/tmp/extra-ca.pem; fi \
+    && npm ci
+
+COPY . .
+
+EXPOSE 5173
+
+CMD ["npm", "run", "dev", "--workspace=@blog/client", "--", "--host"]
