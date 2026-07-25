@@ -22,26 +22,47 @@ export function useMe() {
   })
 }
 
-export function useLogin() {
+/**
+ * Every auth transition ends the same way, so it is written once here: record
+ * the new identity, then drop viewer-scoped data.
+ *
+ * That second step is not optional. Post payloads depend on who is asking —
+ * `gated` and the full body are decided per-viewer (spec §6) — so a change of
+ * identity invalidates every cached post. Without it, signing in leaves the feed
+ * showing "sign in to read" until staleTime expires.
+ *
+ * `resolveUser` maps the request's result to the new `me` value: login and
+ * signup return the user, logout has none.
+ */
+function useAuthTransition<TInput, TResult>(
+  mutationFn: (input: TInput) => Promise<TResult>,
+  resolveUser: (result: TResult) => AuthUser | null,
+) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (input: LoginInput) => authApi.login(input),
-    onSuccess: (user) => queryClient.setQueryData(queryKeys.me, user),
+    mutationFn,
+    onSuccess: (result) => {
+      queryClient.setQueryData(queryKeys.me, resolveUser(result))
+      // ['posts'] is a prefix of ['posts', slug], so detail queries go too.
+      return queryClient.invalidateQueries({ queryKey: queryKeys.posts.list })
+    },
   })
+}
+
+const signedIn = (user: AuthUser | undefined) => user ?? null
+
+export function useLogin() {
+  return useAuthTransition((input: LoginInput) => authApi.login(input), signedIn)
 }
 
 export function useSignup() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (input: SignupInput) => authApi.signup(input),
-    onSuccess: (user) => queryClient.setQueryData(queryKeys.me, user),
-  })
+  return useAuthTransition((input: SignupInput) => authApi.signup(input), signedIn)
 }
 
 export function useLogout() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: () => authApi.logout(),
-    onSuccess: () => queryClient.setQueryData(queryKeys.me, null),
-  })
+  // `_: void` keeps TInput inferable, so callers still write logout.mutate().
+  return useAuthTransition(
+    (_: void) => authApi.logout(),
+    () => null,
+  )
 }
