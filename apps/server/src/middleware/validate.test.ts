@@ -6,7 +6,7 @@ import { validate } from './validate.js'
 
 const Schema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters'),
-  premium: z.coerce.boolean().default(false),
+  draft: z.coerce.boolean().default(false),
 })
 
 function ctx(body: unknown) {
@@ -22,7 +22,7 @@ describe('validate', () => {
     const { req, res, next } = ctx({ title: 'A Good Title' })
     validate(Schema)(req, res, next)
     expect(next).toHaveBeenCalledWith()
-    expect(req.body).toEqual({ title: 'A Good Title', premium: false })
+    expect(req.body).toEqual({ title: 'A Good Title', draft: false })
   })
 
   it('passes a ValidationError carrying Zod field errors', () => {

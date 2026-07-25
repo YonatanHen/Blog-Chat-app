@@ -17,11 +17,11 @@ beforeEach(async () => {
   authorId = author._id.toString()
 })
 
-const create = (over: Partial<{ title: string; body: string; premium: boolean; tags: string[] }> = {}) =>
-  postService.create(
-    { title: 'A Fine Title', body: LONG_BODY, premium: false, tags: [], ...over },
-    authorId,
-  )
+const create = (over: Partial<{ title: string; body: string; tags: string[] }> = {}) =>
+  postService.create({ title: 'A Fine Title', body: LONG_BODY, tags: [], ...over }, authorId)
+
+const signUpReader = () =>
+  UserModel.create({ username: 'reader', email: 'r@example.com', password: 'x' })
 
 describe('postService.create', () => {
   it('derives the slug from the title', async () => {
@@ -45,15 +45,10 @@ describe('postService.create', () => {
 
 describe('postService.list', () => {
   it('returns teaser bodies only — a list endpoint never ships full bodies', async () => {
-    await create({ premium: false })
+    await create()
     const [post] = await postService.list()
     expect(post!.body).toBe('Para one.\n\nPara two.')
     expect(post!.body).not.toContain('Para three')
-  })
-
-  it('teases free posts too — the feed is a feed, not a paywall probe', async () => {
-    await create({ premium: false })
-    expect((await postService.list())[0]!.body).not.toContain('Para three')
   })
 
   it('includes the like count', async () => {
@@ -66,18 +61,33 @@ describe('postService.list', () => {
     await create()
     expect((await postService.list())[0]!.author.username).toBe('author')
   })
+
+  // `gated` answers "is this reader locked out of the full body", NOT "is this
+  // body a teaser" — the feed teases everyone, so the latter reading would flag
+  // signed-in readers too and the UI could not use it to prompt for a login.
+  it('marks every post gated for an anonymous reader', async () => {
+    await create()
+    expect((await postService.list())[0]!.gated).toBe(true)
+  })
+
+  it('marks nothing gated for a signed-in reader', async () => {
+    await create()
+    const reader = await signUpReader()
+    expect((await postService.list(reader._id.toString()))[0]!.gated).toBe(false)
+  })
+
+  it('still ships ONLY the teaser to a signed-in reader — ungating is not a licence to bulk-send bodies', async () => {
+    await create()
+    const reader = await signUpReader()
+    const [post] = await postService.list(reader._id.toString())
+    expect(post!.body).toBe('Para one.\n\nPara two.')
+    expect(JSON.stringify(post)).not.toContain('Para three')
+  })
 })
 
 describe('postService.getBySlug — THE gating rule (spec §6)', () => {
-  it('returns the full body of a FREE post to an anonymous reader', async () => {
-    const { slug } = await create({ premium: false })
-    const post = await postService.getBySlug(slug, undefined)
-    expect(post.body).toBe(LONG_BODY)
-    expect(post.gated).toBe(false)
-  })
-
-  it('OMITS the full body of a PREMIUM post for an anonymous reader', async () => {
-    const { slug } = await create({ premium: true })
+  it('OMITS the full body for an anonymous reader', async () => {
+    const { slug } = await create()
     const post = await postService.getBySlug(slug, undefined)
     expect(post.body).toBe('Para one.\n\nPara two.')
     expect(post.gated).toBe(true)
@@ -85,14 +95,14 @@ describe('postService.getBySlug — THE gating rule (spec §6)', () => {
 
   it('leaves the gated bytes nowhere in the serialized object', async () => {
     // The real assertion: not "hidden", ABSENT. Serialize the whole DTO and grep.
-    const { slug } = await create({ premium: true })
+    const { slug } = await create()
     const post = await postService.getBySlug(slug, undefined)
     expect(JSON.stringify(post)).not.toContain('Para three')
   })
 
-  it('returns the full body of a PREMIUM post to a signed-in reader', async () => {
-    const { slug } = await create({ premium: true })
-    const reader = await UserModel.create({ username: 'reader', email: 'r@example.com', password: 'x' })
+  it('returns the full body to a signed-in reader', async () => {
+    const { slug } = await create()
+    const reader = await signUpReader()
     const post = await postService.getBySlug(slug, reader._id.toString())
     expect(post.body).toBe(LONG_BODY)
     expect(post.gated).toBe(false)

@@ -16,8 +16,6 @@ export type PostDto = {
   title: string
   slug: string
   body: string
-  premium: boolean
-  /** true when `body` holds only the teaser because the reader is not signed in. */
   gated: boolean
   author: PostAuthor
   tags: string[]
@@ -40,16 +38,23 @@ function isPopulated(author: unknown): author is PopulatedAuthor {
  * `full: false` means the full body is never copied into the returned object,
  * so it cannot leak: there is nothing to find in DevTools because the API never
  * put it there. Gating in a route handler or a component would be cosmetic.
+ *
+ * `full` and `gated` are deliberately independent. Collapsing them (`gated:
+ * !full`) is only correct for a single-post read; the feed always teases, so
+ * deriving one from the other there would report every post as locked.
  */
-function toDto(post: HydratedDocument<Post>, likeCount: number, full: boolean): PostDto {
+function toDto(
+  post: HydratedDocument<Post>,
+  likeCount: number,
+  { full, gated }: { full: boolean; gated: boolean },
+): PostDto {
   const author = post.author
   return {
     id: post._id.toString(),
     title: post.title,
     slug: post.slug,
     body: full ? post.body : deriveTeaser(post.body),
-    premium: post.premium,
-    gated: !full,
+    gated,
     author: isPopulated(author)
       ? { id: author._id.toString(), username: author.username }
       : { id: String(author), username: '' },
@@ -80,20 +85,29 @@ async function countLikes(postId: Types.ObjectId): Promise<number> {
 }
 
 export const postService = {
-  /** The feed. Teaser bodies ALWAYS — a list endpoint never ships full bodies. */
-  async list(): Promise<PostDto[]> {
+  /**
+   * The feed. Teaser bodies ALWAYS — a list endpoint never ships full bodies,
+   * signed in or not. `viewerId` therefore changes only `gated`, i.e. whether
+   * the card invites the reader to sign in, never how much text is sent.
+   */
+  async list(viewerId?: string): Promise<PostDto[]> {
     const posts = await PostModel.find().sort({ createdAt: -1 }).populate('author', 'username')
-    return Promise.all(posts.map(async (p) => toDto(p, await countLikes(p._id), false)))
+    return Promise.all(
+      posts.map(async (p) =>
+        toDto(p, await countLikes(p._id), {
+          full: false,
+          gated: !viewerId,
+        }),
+      ),
+    )
   },
 
   async getBySlug(slug: string, viewerId?: string): Promise<PostDto> {
     const post = await PostModel.findOne({ slug }).populate('author', 'username')
     if (!post) throw new NotFoundError('Post not found.')
 
-    // The gating rule, stated once: a premium post shows its full body only to
-    // a signed-in reader. Everything else about the post stays public.
-    const full = !post.premium || Boolean(viewerId)
-    return toDto(post, await countLikes(post._id), full)
+    const full = Boolean(viewerId)
+    return toDto(post, await countLikes(post._id), { full, gated: !full })
   },
 
   async create(input: CreatePost, authorId: string): Promise<PostDto> {
@@ -105,7 +119,7 @@ export const postService = {
       author: new Types.ObjectId(authorId),
     })
     await post.populate('author', 'username')
-    return toDto(post, 0, true)
+    return toDto(post, 0, { full: true, gated: false })
   },
 
   async update(slug: string, input: UpdatePost): Promise<PostDto> {
@@ -117,13 +131,12 @@ export const postService = {
       post.slug = await uniqueSlug(input.title, post._id)
     }
     if (input.body !== undefined) post.body = input.body
-    if (input.premium !== undefined) post.premium = input.premium
     if (input.tags !== undefined) post.tags = input.tags
 
     await post.save()
     await post.populate('author', 'username')
     // The owner is the only caller who reaches here, so the full body is correct.
-    return toDto(post, await countLikes(post._id), true)
+    return toDto(post, await countLikes(post._id), { full: true, gated: false })
   },
 
   async remove(slug: string): Promise<void> {

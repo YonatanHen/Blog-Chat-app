@@ -11,7 +11,6 @@ export const CreatePostSchema = z.object({
     .trim()
     .min(1, 'Body cannot be empty')
     .max(50_000, 'Body must be at most 50,000 characters'),
-  premium: z.coerce.boolean().default(false),
   tags: z.array(z.string().trim().min(1)).max(5, 'A post can have at most 5 tags').default([]),
 })
 
@@ -32,6 +31,11 @@ export function slugify(title: string): string {
     .replace(/^-+|-+$/g, '')
 }
 
+/**
+ * The public preview of a post. Every post is teased for anonymous readers —
+ * there is no per-post opt-out, so this runs on the way out of the API for any
+ * request without a session (spec §6).
+ */
 export function deriveTeaser(body: string, paragraphs = 2): string {
   return body.split(/\n{2,}/).slice(0, paragraphs).join('\n\n')
 }

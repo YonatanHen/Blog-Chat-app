@@ -17,8 +17,8 @@ export const postsRouter = Router()
 const loadPostOwner = (req: Request<{ slug: string }>) =>
   postService.findBySlugForOwnerCheck(req.params.slug)
 
-postsRouter.get('/', async (_req, res) => {
-  res.json(await postService.list())
+postsRouter.get('/', async (req, res) => {
+  res.json(await postService.list(req.session?.userId))
 })
 
 postsRouter.post('/', requireAuth, validate(CreatePostSchema), async (req, res) => {
@@ -36,7 +36,7 @@ postsRouter.delete<{ slug: string }>('/:slug/likes', requireAuth, async (req, re
 
 postsRouter.get('/:slug', async (req, res) => {
   // The viewer id is passed to the service, which decides what to serialize.
-  // The handler does NOT branch on premium — gating belongs to one layer only.
+  // The handler does NOT branch on the session — gating belongs to one layer only.
   res.json(await postService.getBySlug(req.params.slug, req.session?.userId))
 })
 

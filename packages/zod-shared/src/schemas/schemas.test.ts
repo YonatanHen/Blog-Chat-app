@@ -54,14 +54,18 @@ describe('SignupSchema', () => {
 
 describe('CreatePostSchema', () => {
   it('rejects a title shorter than 3 characters', () => {
-    const result = CreatePostSchema.safeParse({ title: 'ab', body: 'hello', premium: false })
+    const result = CreatePostSchema.safeParse({ title: 'ab', body: 'hello' })
     expect(result.success).toBe(false)
   })
 
-  it('defaults premium to false and tags to an empty array', () => {
+  it('defaults tags to an empty array', () => {
     const result = CreatePostSchema.parse({ title: 'A good title', body: 'hello' })
-    expect(result.premium).toBe(false)
     expect(result.tags).toEqual([])
+  })
+
+  it('strips a premium field — gating is per-reader, not per-post', () => {
+    const result = CreatePostSchema.parse({ title: 'A good title', body: 'hello', premium: true })
+    expect(result).not.toHaveProperty('premium')
   })
 
   it('rejects an author field from client input', () => {

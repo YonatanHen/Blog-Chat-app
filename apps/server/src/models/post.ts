@@ -7,7 +7,6 @@ const postSchema = new Schema(
     title: { type: String, required: true, trim: true, minlength: 3, maxlength: 120 },
     slug: { type: String, required: true, unique: true },
     body: { type: String, required: true, minlength: 1, maxlength: 50_000 },
-    premium: { type: Boolean, required: true, default: false },
     coverImage: { type: String },
     author: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     tags: {

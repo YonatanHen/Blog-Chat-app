@@ -7,7 +7,7 @@ export type Post = {
   title: string
   slug: string
   body: string
-  premium: boolean
+  /** Server's verdict: this reader is anonymous, so `body` is only the teaser. */
   gated: boolean
   author: { id: string; username: string }
   tags: string[]

@@ -324,23 +324,35 @@ straight from the client payload, so anyone could speak as anyone.
 
 ## 6. Content Gating (the "Medium mechanism")
 
-Posts carry a `premium: boolean` flag.
+> **Revised 2026-07-25.** The original design put a `premium: boolean` on each post, so the wall was
+> *per-post*: free posts were fully public, premium ones needed a session. That flag is **removed**. The
+> wall is now *per-reader* — every post is teased for anonymous readers and full for any signed-in one.
+> There is no paid tier and there never was: `UserModel` has no plan field, so "premium" only ever meant
+> "login-walled". Dropping it removes a distinction that bought nothing and made `gated` ambiguous.
 
-| | Free post | Premium (anonymous) | Premium (logged in) |
-|---|---|---|---|
-| Title, author, tags, cover, like count | ✅ | ✅ | ✅ |
-| Body | ✅ full | ⚠️ **teaser only** (first ~2 paragraphs) | ✅ full |
-| Comments | ✅ | ❌ | ✅ |
-| Chat | — | ❌ | ✅ |
-| Like / comment / post | login required | ❌ | ✅ |
+The gate is **authentication, not payment**. Signing up is free; a session is the only key.
 
-**Enforcement lives in the service layer, not the UI.** `postService.getPost(slug, session)` returns an
-object that **does not contain** the full `body` when the post is premium and the session is null:
+| | Anonymous | Signed in |
+|---|---|---|
+| Title, author, tags, cover, like count | ✅ | ✅ |
+| Body | ⚠️ **teaser only** (first ~2 paragraphs) | ✅ full |
+| Comments | ❌ | ✅ |
+| Chat | ❌ | ✅ |
+| Like / comment / post | ❌ | ✅ |
+
+**Enforcement lives in the service layer, not the UI.** `postService.getBySlug(slug, viewerId)` returns an
+object that **does not contain** the full `body` when the session is null:
 
 ```ts
-// premium && !session  →  { ...post, body: teaser, gated: true }
+// !viewerId  →  { ...post, body: teaser, gated: true }
 // the full body is never serialized into the response
 ```
+
+**`gated` means "this reader is locked out", not "this body is truncated."** The two come apart in the
+feed: `postService.list(viewerId)` ships teasers to *everyone*, signed in or not — a list endpoint never
+sends full bodies — so a signed-in reader's feed is truncated but ungated. `toDto` therefore takes `full`
+and `gated` as independent arguments; deriving one from the other (`gated: !full`) would mark every feed
+item locked and the UI would prompt signed-in readers to sign in.
 
 The React component renders whatever it is handed; when `gated` is true it shows the teaser and a "Sign in to
 read" prompt. There is no full body in the JSON to open in DevTools, because the API never put it there.
@@ -427,8 +439,7 @@ nonexistent `Task` model — a five-year-old leftover from a to-do tutorial — 
 {
   title:       string
   slug:        string    // UNIQUE — enables /blog/:slug
-  body:        string    // Markdown
-  premium:     boolean   // default false — gated posts (§6)
+  body:        string    // Markdown — teased for anonymous readers (§6)
   coverImage?: string    // Cloudinary public ID
   author:      ObjectId → User
   tags:        string[]  // indexed
@@ -527,7 +538,7 @@ and the service-layer authorization rules.
 §14 regression checklist is enforced against **real routes through the real middleware chain**:
 - a non-owner gets 403 on `DELETE /api/v1/posts/:slug`
 - an anonymous request gets 401, not a redirect
-- `GET /api/v1/posts/:slug` for a premium post as an anonymous user contains no full body
+- `GET /api/v1/posts/:slug` as an anonymous user contains no full body
 - logout is `POST`-only; `GET /api/v1/auth/logout` is 404
 - middleware order is correct (a malformed body reaches the error handler, not a router)
 
@@ -634,7 +645,7 @@ parallel agents.
 |---|---|---|
 | **P1** | `dev/express-api-foundation` | Monorepo re-shape, `apps/server` (Express + TS; originally scaffolded as `apps/api`, renamed during the P2 restructure) session auth on Redis, `requireAuth`/`requireOwner`, posts CRUD with correct authorization, Supertest integration suite, Compose dev + e2e, seed script, CI, deployed to Render. **Demoable via curl/Postman — no UI needed.** |
 | **P2** | `dev/react-client` | Vite + React + React Router + TanStack Query, Tailwind + shadcn (`ui`/`patterns`/`layouts`), auth pages, blog feed/post/editor, likes with optimistic UI, Playwright E2E, served by `apps/server` in prod. |
-| **P3** | `dev/comments-markdown` | Threaded comments, Markdown editor + preview, `AutoForm`, `premium` flag + gating (no JSON-LD — SEO dropped). |
+| **P3** | `dev/comments-markdown` | Threaded comments, Markdown editor + preview, `AutoForm`. (Gating shipped in P2 and needs no flag — see §6.) |
 | **P4** | `dev/realtime-chat` | `apps/realtime` Socket.io service, signed handshake tickets, Redis message buffer, presence + typing indicators. |
 | **P5** | `dev/media-and-search` | Signed Cloudinary uploads, avatars + cover images, tags, MongoDB full-text search. |
 | **P6** | `dev/oauth-polish` | Google + Facebook OAuth via Passport, Redis rate limiting, README + architecture diagram, demo account, final visual polish. |
@@ -683,7 +694,7 @@ items, a Supertest integration test against the real route.
       (old `app.js:56` echoed `message.user` straight from the client payload) — **P4** (realtime, not built yet)
 - [x] Session token is not readable by JavaScript (httpOnly cookie, not `localStorage`) — `session.test.ts`
 - [x] Login does not reveal whether a username exists — `auth.test.ts`
-- [x] A premium post's full body is absent from the API response for an anonymous reader (§6) — `posts.test.ts`
+- [x] A post's full body is absent from the API response for an anonymous reader (§6) — `posts.test.ts`
 
 **Correctness**
 - [ ] Socket listeners are cleaned up (old `chat.jsx:51` added a listener per message received) — **P4**
