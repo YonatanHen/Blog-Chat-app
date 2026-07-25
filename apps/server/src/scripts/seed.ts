@@ -14,7 +14,6 @@ const DEMO_PASSWORD = 'demo-password-1234'
 const POSTS = [
   {
     title: 'Rebuilding a Five-Year-Old MERN App',
-    premium: false,
     tags: ['engineering', 'react'],
     body: [
       'This blog is a rebuild of a MERN app I wrote five years ago.',
@@ -24,7 +23,6 @@ const POSTS = [
   },
   {
     title: 'Why Identity Never Comes From The Request Body',
-    premium: false,
     tags: ['security'],
     body: [
       'The legacy app had an endpoint that took a user id and a new password, both from the request body, and applied them.',
@@ -34,11 +32,10 @@ const POSTS = [
   },
   {
     title: 'Gating Content At The Serialization Boundary',
-    premium: true,
     tags: ['engineering', 'security'],
     body: [
-      'A paywall implemented in a component is a suggestion. The body is still in the JSON, one DevTools tab away.',
-      'This post is premium, so if you are reading this paragraph you are signed in — the API never serialized it otherwise.',
+      'A registration wall implemented in a component is a suggestion. The body is still in the JSON, one DevTools tab away.',
+      'If you are reading this paragraph you are signed in — the API never serialized it otherwise.',
       'The rule lives in postService.getBySlug, which does not copy the body into its return value when the reader is anonymous. There is nothing to find in the response because it was never put there.',
     ].join('\n\n'),
   },
@@ -73,7 +70,7 @@ async function seed(): Promise<void> {
     })
     // One like from the reader, so likeCount is not uniformly zero in the demo.
     await LikeModel.create({ user: new mongoose.Types.ObjectId(reader.id), post: created._id })
-    console.log(`  ${created.slug}${post.premium ? ' (premium)' : ''}`)
+    console.log(`  ${created.slug}`)
   }
 
   await mongoose.disconnect()

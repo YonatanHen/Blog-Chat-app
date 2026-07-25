@@ -21,8 +21,8 @@ The API is on http://localhost:3000/api/v1. There is no UI yet — that is P2.
 ## Try the authorization model with curl
 
 ```bash
-# Anonymous: the premium post's body is a teaser. The full text is not in the
-# response at all — the API never serialized it.
+# Anonymous: the body is a teaser. The full text is not in the response at
+# all — the API never serialized it.
 curl -s localhost:3000/api/v1/posts/gating-content-at-the-serialization-boundary
 
 # Signed in: the full body.

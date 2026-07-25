@@ -23,6 +23,14 @@ components/hooks (unit layer), Playwright for E2E (spec §10).
 
 **Branch:** `dev/react-client`, off `staging` (P1 merged).
 
+> **Amendment 2026-07-25 — the `premium` flag is gone (branch `dev/simplify-gating`).** Gating is now
+> *per-reader*, not per-post: every post is teased for anonymous readers and full for any signed-in one.
+> `Post` has no `premium` field, `CreatePostSchema` has none either, and there is no Premium badge.
+> Wherever a snippet below still shows `premium`, ignore that line — the rest of the snippet stands.
+> Affects Task 3's `Post` type, Task 6's `PostCard`, Task 8's `AutoForm` demo schema, Task 10's fixture,
+> and Task 12's E2E. `PostDto.gated` now means **"this reader is locked out"**, never "this body is
+> truncated" — the feed teases everyone, so those two came apart. See spec §6.
+
 ---
 
 ## Global Constraints
@@ -516,7 +524,7 @@ git commit -m "feat(client): ui primitives (Button, Input, Label, Textarea, Card
 - Produces:
   - `class ApiError extends Error { status: number; fields: Record<string, string[]> }`
   - `request<T>(path: string, init?: RequestInit): Promise<T>` — throws `ApiError` on a non-2xx response
-  - `type Post = { id: string; title: string; slug: string; body: string; premium: boolean; gated: boolean; author: { id: string; username: string }; tags: string[]; likeCount: number; coverImage?: string; createdAt: string; updatedAt: string }`
+  - `type Post = { id: string; title: string; slug: string; body: string; gated: boolean; author: { id: string; username: string }; tags: string[]; likeCount: number; coverImage?: string; createdAt: string; updatedAt: string }`
     (mirrors `apps/server/src/lib/services/post.ts`'s `PostDto`, with dates as ISO strings over JSON)
   - `authApi.signup/login/logout/me`, `postsApi.list/get/create/update/remove/like/unlike`,
     `usersApi.get/update/remove`
@@ -624,7 +632,6 @@ export type Post = {
   title: string
   slug: string
   body: string
-  premium: boolean
   gated: boolean
   author: PostAuthor
   tags: string[]
@@ -634,7 +641,7 @@ export type Post = {
   updatedAt: string
 }
 
-export type CreatePostInput = { title: string; body: string; premium?: boolean; tags?: string[] }
+export type CreatePostInput = { title: string; body: string; tags?: string[] }
 export type UpdatePostInput = Partial<CreatePostInput>
 
 export const postsApi = {
@@ -1151,7 +1158,6 @@ const basePost: Post = {
   title: 'Gating at the boundary',
   slug: 'gating-at-the-boundary',
   body: 'Full text here.',
-  premium: true,
   gated: true,
   author: { id: 'u1', username: 'demo' },
   tags: ['express'],
@@ -1161,13 +1167,12 @@ const basePost: Post = {
 }
 
 describe('PostCard', () => {
-  it('shows a premium badge and a sign-in prompt when gated', () => {
+  it('prompts an anonymous reader to sign in', () => {
     render(<PostCard post={basePost} />, { wrapper: MemoryRouter })
-    expect(screen.getByText(/premium/i)).toBeInTheDocument()
-    expect(screen.getByText(/sign in to read/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /sign in to read/i })).toHaveAttribute('href', '/login')
   })
 
-  it('does not show the sign-in prompt for a free or unlocked post', () => {
+  it('drops the prompt once the reader is signed in', () => {
     render(<PostCard post={{ ...basePost, gated: false }} />, { wrapper: MemoryRouter })
     expect(screen.queryByText(/sign in to read/i)).not.toBeInTheDocument()
   })
@@ -1193,11 +1198,15 @@ export function PostCard({ post }: { post: Post }) {
       <Link to={`/blog/${post.slug}`} className="text-lg font-semibold hover:underline">
         {post.title}
       </Link>
-      {post.premium && (
-        <span className="ml-2 rounded bg-[var(--muted)] px-2 py-0.5 text-xs">Premium</span>
-      )}
       <p className="mt-2 text-sm text-[var(--muted-foreground)]">{post.body}</p>
-      {post.gated && <p className="mt-2 text-sm text-[var(--primary)]">Sign in to read the full post</p>}
+      {post.gated && (
+        <p className="mt-2 text-sm">
+          <Link to="/login" className="text-[var(--primary)] hover:underline">
+            Sign in to read
+          </Link>{' '}
+          the full post.
+        </p>
+      )}
       <p className="mt-3 text-xs text-[var(--muted-foreground)]">
         by {post.author.username} · {post.likeCount} likes
       </p>
@@ -1381,7 +1390,7 @@ import { AutoForm } from './AutoForm.js'
 
 const schema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters'),
-  premium: z.coerce.boolean().default(false),
+  draft: z.coerce.boolean().default(false),
   tags: z.array(z.string()).default([]),
 })
 
@@ -1389,7 +1398,7 @@ describe('AutoForm', () => {
   it('renders one labeled field per schema key', () => {
     render(<AutoForm schema={schema} onSubmit={vi.fn()} />)
     expect(screen.getByLabelText('title')).toBeInTheDocument()
-    expect(screen.getByLabelText('premium')).toBeInTheDocument()
+    expect(screen.getByLabelText('draft')).toBeInTheDocument()
     expect(screen.getByLabelText('tags')).toBeInTheDocument()
   })
 
@@ -1748,7 +1757,6 @@ const post: Post = {
   title: 't',
   slug: 's',
   body: 'b',
-  premium: false,
   gated: false,
   author: { id: 'u1', username: 'demo' },
   tags: [],
@@ -2055,8 +2063,9 @@ level per spec §10 ("asserting on raw response bytes, not the DOM").
 // e2e/gating.spec.ts
 import { expect, test } from '@playwright/test'
 
-test('an anonymous reader never receives a premium post\'s full body over the wire', async ({ page, request }) => {
-  // Seeded by apps/server/src/scripts/seed.ts — a known premium post slug.
+test('an anonymous reader never receives a full body over the wire', async ({ page, request }) => {
+  // Seeded by apps/server/src/scripts/seed.ts — any seeded slug works now that
+  // gating is per-reader; this one's body names the mechanism.
   const res = await request.get('/api/v1/posts/gating-content-at-the-serialization-boundary')
   const body = await res.json()
   expect(body.gated).toBe(true)
@@ -2067,7 +2076,7 @@ test('an anonymous reader never receives a premium post\'s full body over the wi
 })
 ```
 
-> **Depends on seed data:** this test assumes the seeded premium post's non-teaser paragraph contains the
+> **Depends on seed data:** this test assumes the seeded post's non-teaser paragraph contains the
 > literal string asserted against. Check `apps/server/src/scripts/seed.ts`'s actual post body when implementing
 > this step and adjust the string to match — do not invent a slug or sentence that doesn't exist in the seed.
 

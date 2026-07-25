@@ -100,9 +100,15 @@ the SPA is same-origin — if the client ever moves to its own origin, CSRF toke
 `helmet → json → session → routers → 404 → error handler`. The legacy app registered `cors()` *after* its
 routers, so it never applied. The error handler is always last.
 
-**Content gating lives in the service layer, not the UI.** `postService.getPost(slug, session)` omits the
-full `body` from its return value when a post is premium and there's no session — the API never serializes
-it, so there is nothing to find in DevTools. Gating in a component would be cosmetic. See spec §6.
+**Content gating lives in the service layer, not the UI.** `postService.getBySlug(slug, viewerId)` omits the
+full `body` from its return value when there's no session — the API never serializes it, so there is nothing
+to find in DevTools. Gating in a component would be cosmetic. See spec §6.
+
+The wall is **per-reader, not per-post**: there is no `premium` flag and no paid tier. Every post is teased
+for anonymous readers and full for any signed-in one, so signing up (free) is what unlocks content. The
+feed (`postService.list`) is teasers for *everyone* — a list endpoint never ships full bodies — which is why
+`PostDto.gated` means "this reader is locked out", **not** "this body is truncated". Those two are separate
+arguments to `toDto` on purpose; collapsing them reports every feed item as locked.
 
 ## Project constraints
 
