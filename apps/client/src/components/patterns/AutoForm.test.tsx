@@ -13,6 +13,12 @@ const schema = z.object({
   tags: z.array(z.string()).default([]),
 })
 
+function addTag(tag: string) {
+  const input = screen.getByLabelText('tags')
+  fireEvent.change(input, { target: { value: tag } })
+  fireEvent.keyDown(input, { key: 'Enter' })
+}
+
 describe('AutoForm', () => {
   afterEach(() => cleanup())
 
@@ -31,13 +37,14 @@ describe('AutoForm', () => {
 
   // `.partial()` wraps every field in ZodOptional *outside* the ZodDefault that
   // `z.array(...).default([])` already added, so a single-level unwrap reports
-  // `tags` as a plain string field and the comma-split never runs.
+  // `tags` as a plain string field and it renders as a bare text box.
   it('still derives field kinds through a .partial() schema', () => {
     const onSubmit = vi.fn()
     render(<AutoForm schema={schema.partial()} onSubmit={onSubmit} />)
     expect(screen.getByLabelText('draft')).toHaveAttribute('type', 'checkbox')
 
-    fireEvent.change(screen.getByLabelText('tags'), { target: { value: 'express, testing' } })
+    addTag('express')
+    addTag('testing')
     fireEvent.change(screen.getByLabelText('title'), { target: { value: 'A valid title' } })
     fireEvent.click(screen.getByText('Save'))
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ tags: ['express', 'testing'] }))
@@ -52,15 +59,28 @@ describe('AutoForm', () => {
     expect(onSubmit).not.toHaveBeenCalled()
   })
 
-  it('parses a comma-separated tags input into a string array on submit', () => {
+  it('submits the tags added one at a time as a string array', () => {
     const onSubmit = vi.fn()
     render(<AutoForm schema={schema} onSubmit={onSubmit} />)
     fireEvent.change(screen.getByLabelText('title'), { target: { value: 'A valid title' } })
-    fireEvent.change(screen.getByLabelText('tags'), { target: { value: 'express, testing' } })
+    addTag('express')
+    addTag('testing')
+    expect(screen.getByText('express')).toBeInTheDocument()
     fireEvent.click(screen.getByText('Save'))
     expect(onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({ title: 'A valid title', tags: ['express', 'testing'] }),
     )
+  })
+
+  it('drops a tag removed with its × button', () => {
+    const onSubmit = vi.fn()
+    render(<AutoForm schema={schema} onSubmit={onSubmit} />)
+    fireEvent.change(screen.getByLabelText('title'), { target: { value: 'A valid title' } })
+    addTag('keep')
+    addTag('drop')
+    fireEvent.click(screen.getByLabelText('Remove tag drop'))
+    fireEvent.click(screen.getByText('Save'))
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ tags: ['keep'] }))
   })
 
   it('seeds the form from initialValues', () => {
@@ -74,7 +94,9 @@ describe('AutoForm', () => {
     )
     expect(screen.getByLabelText('title')).toHaveValue('Seeded')
     expect(screen.getByLabelText('draft')).toBeChecked()
-    expect(screen.getByLabelText('tags')).toHaveValue('a, b')
+    expect(screen.getByText('a')).toBeInTheDocument()
+    expect(screen.getByText('b')).toBeInTheDocument()
+    expect(screen.getByLabelText('tags')).toHaveValue('')
     expect(screen.getByText('Save changes')).toBeInTheDocument()
   })
 })

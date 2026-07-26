@@ -4,6 +4,7 @@ import { Button } from '../ui/button.js'
 import { Input } from '../ui/input.js'
 import { Label } from '../ui/label.js'
 import { Textarea } from '../ui/textarea.js'
+import { TagsInput } from './TagsInput.js'
 
 type FieldKind = 'checkbox' | 'textarea' | 'tags' | 'text'
 
@@ -73,7 +74,7 @@ export function AutoForm<S extends ZodObject<ZodRawShape>>({
     ([key, fieldSchema]) => ({ key, kind: fieldKind(key, fieldSchema) }),
   )
 
-  const [values, setValues] = useState<Record<string, string | boolean>>(() => {
+  const [values, setValues] = useState<Record<string, string | boolean | string[]>>(() => {
     const initial = (initialValues ?? {}) as Record<string, unknown>
     return Object.fromEntries(
       fields.map(({ key, kind }) => {
@@ -82,7 +83,7 @@ export function AutoForm<S extends ZodObject<ZodRawShape>>({
           case 'checkbox':
             return [key, Boolean(seed ?? false)]
           case 'tags':
-            return [key, Array.isArray(seed) ? seed.join(', ') : '']
+            return [key, Array.isArray(seed) ? seed.map(String) : []]
           default:
             return [key, typeof seed === 'string' ? seed : '']
         }
@@ -91,25 +92,15 @@ export function AutoForm<S extends ZodObject<ZodRawShape>>({
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  function parsedValue(key: string, kind: FieldKind): unknown {
-    if (kind === 'checkbox') return values[key]
-    if (kind === 'tags') {
-      const raw = values[key]
-      return typeof raw === 'string'
-        ? raw
-            .split(',')
-            .map((tag) => tag.trim())
-            .filter(Boolean)
-        : []
-    }
+  // `tags` is already held as an array by TagsInput, so nothing is parsed out of
+  // a raw string here — the state shape per field kind is the parsed shape.
+  function parsedValue(key: string): unknown {
     return values[key]
   }
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    const candidate = Object.fromEntries(
-      fields.map(({ key, kind }) => [key, parsedValue(key, kind)]),
-    )
+    const candidate = Object.fromEntries(fields.map(({ key }) => [key, parsedValue(key)]))
     const result = schema.safeParse(candidate)
     if (!result.success) {
       setErrors(
@@ -133,6 +124,12 @@ export function AutoForm<S extends ZodObject<ZodRawShape>>({
                 type="checkbox"
                 checked={Boolean(values[key])}
                 onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.checked }))}
+              />
+            ) : kind === 'tags' ? (
+              <TagsInput
+                id={key}
+                value={Array.isArray(values[key]) ? (values[key] as string[]) : []}
+                onChange={(tags) => setValues((v) => ({ ...v, [key]: tags }))}
               />
             ) : kind === 'textarea' ? (
               <Textarea
