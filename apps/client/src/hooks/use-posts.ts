@@ -18,5 +18,9 @@ export function usePosts() {
  * which is a prefix of this key.
  */
 export function usePost(slug: string) {
-  return useQuery({ queryKey: queryKeys.posts.detail(slug), queryFn: () => postsApi.get(slug) })
+  return useQuery({
+    queryKey: queryKeys.posts.detail(slug),
+    queryFn: () => postsApi.get(slug),
+    enabled: Boolean(slug),
+  })
 }
