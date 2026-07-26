@@ -6,6 +6,7 @@ FROM base AS deps
 COPY package.json package-lock.json ./
 COPY packages/zod-shared/package.json ./packages/zod-shared/
 COPY apps/server/package.json ./apps/server/
+COPY apps/client/package.json ./apps/client/
 # The optional extra-ca build secret lets machines behind a TLS-intercepting
 # proxy/AV supply their interception root CA (via gitignored
 # compose.override.yaml) without it ever entering the image or the repo.
@@ -22,7 +23,7 @@ CMD ["npm", "run", "dev", "--workspace=@blog/server"]
 
 FROM deps AS builder
 COPY . .
-RUN npm run build --workspace=@blog/server
+RUN npm run build --workspace=@blog/server --workspace=@blog/client
 
 # A separate production-only install: `deps` installs devDependencies too
 # (tsx/tsup/vitest/etc, needed by `dev` and `builder`), which `runner` has no
@@ -31,6 +32,7 @@ FROM base AS prod-deps
 COPY package.json package-lock.json ./
 COPY packages/zod-shared/package.json ./packages/zod-shared/
 COPY apps/server/package.json ./apps/server/
+COPY apps/client/package.json ./apps/client/
 RUN --mount=type=secret,id=extra-ca,target=/tmp/extra-ca.pem \
     --mount=type=cache,target=/root/.npm \
     if [ -s /tmp/extra-ca.pem ]; then export NODE_EXTRA_CA_CERTS=/tmp/extra-ca.pem; fi \
@@ -47,6 +49,10 @@ RUN addgroup -g 1001 nodejs && adduser -S -u 1001 -G nodejs server
 COPY --from=prod-deps --chown=server:nodejs /app /app
 # Inject the built production code.
 COPY --from=builder --chown=server:nodejs /app/apps/server/dist ./apps/server/dist
+# The SPA ships inside this image — no separate client service in prod.
+COPY --from=builder --chown=server:nodejs /app/apps/client/dist ./apps/client/dist
+# Relative to WORKDIR (/app), matching the path above.
+ENV CLIENT_DIST=apps/client/dist
 USER server
 EXPOSE 3000
 CMD ["node", "apps/server/dist/index.js"]

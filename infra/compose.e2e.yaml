@@ -18,6 +18,9 @@ services:
       MONGODB_URI: mongodb://mongo:27017/blogchat
       REDIS_URL: redis://redis:6379
       SESSION_SECRET_FILE: /run/secrets/session_secret
+      # Redundant with the runner image's ENV default, but every other var here
+      # is explicit — keep it that way.
+      CLIENT_DIST: apps/client/dist
     secrets:
       - session_secret
     depends_on:
