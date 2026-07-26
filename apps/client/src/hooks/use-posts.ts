@@ -34,6 +34,14 @@ export function useCreatePost() {
   })
 }
 
+export function useDeletePost() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (slug: string) => postsApi.remove(slug),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.posts.list }),
+  })
+}
+
 export function useUpdatePost(slug: string) {
   const queryClient = useQueryClient()
   return useMutation({
