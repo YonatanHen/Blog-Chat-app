@@ -1,8 +1,13 @@
 {
   "name": "blog-chat-app",
   "private": true,
-  "workspaces": ["packages/*", "apps/*"],
-  "engines": { "node": ">=22" },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "docker compose -f infra/compose.yaml --project-directory . watch",
     "build": "npm run build --workspaces --if-present",
@@ -13,6 +18,7 @@
     "seed": "npm run seed --workspace=@blog/server"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.0",
     "@types/node": "^22.10.0",
     "eslint": "^9.17.0",
     "typescript": "^5.7.0",

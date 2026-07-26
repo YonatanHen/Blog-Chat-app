@@ -59,6 +59,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
       # infra/secrets/e2e/*.txt is gitignored (never commit a secret file, even a
       # throwaway one) — CI has no other source for it, so materialize it here.
       - run: cp infra/secrets/e2e/session_secret.txt.example infra/secrets/e2e/session_secret.txt
@@ -71,6 +76,17 @@ jobs:
           status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/v1/health)
           echo "GET /api/v1/health -> $status"
           test "$status" = "200"
+      # playwright.config.ts reuses this already-running stack rather than
+      # starting a second one on the same port.
+      - name: Playwright E2E
+        run: npx playwright install --with-deps chromium && npm run test:e2e
+      - name: Upload the Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
       - name: Show logs on failure
         if: failure()
         run: docker compose -f infra/compose.e2e.yaml --project-directory . logs
