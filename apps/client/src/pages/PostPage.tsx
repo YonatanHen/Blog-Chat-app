@@ -1,7 +1,10 @@
-import { Link, useParams } from 'react-router'
-import { usePost } from '../hooks/use-posts.js'
+import { Link, useNavigate, useParams } from 'react-router'
+import { toast } from 'sonner'
+import { ApiError } from '../api/client.js'
+import { usePost, useDeletePost } from '../hooks/use-posts.js'
 import { useMe } from '../hooks/use-auth.js'
 import { EmptyState } from '../components/patterns/EmptyState.js'
+import { Button } from '../components/ui/button.js'
 import { Skeleton } from '../components/ui/skeleton.js'
 
 /**
@@ -14,6 +17,8 @@ export function PostPage() {
   const { slug } = useParams<{ slug: string }>()
   const { data: post, isPending, isError } = usePost(slug ?? '')
   const { data: me } = useMe()
+  const deletePost = useDeletePost()
+  const navigate = useNavigate()
 
   if (isPending) return <Skeleton className="h-64" />
   if (isError) return <EmptyState message="Could not load this post. Please try again." />
@@ -58,9 +63,25 @@ export function PostPage() {
           {post.likeCount} {post.likeCount === 1 ? 'like' : 'likes'}
         </span>
         {isOwner && (
-          <Link to={`/blog/${post.slug}/edit`} className="underline">
-            Edit
-          </Link>
+          <>
+            <Link to={`/blog/${post.slug}/edit`} className="underline">
+              Edit
+            </Link>
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={deletePost.isPending}
+              onClick={() =>
+                deletePost.mutate(post.slug, {
+                  onSuccess: () => navigate('/'),
+                  onError: (err) =>
+                    toast.error(err instanceof ApiError ? err.message : 'Could not delete the post.'),
+                })
+              }
+            >
+              Delete
+            </Button>
+          </>
         )}
       </div>
     </article>
