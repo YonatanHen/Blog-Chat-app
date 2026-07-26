@@ -1,9 +1,10 @@
 import { Link, useNavigate } from 'react-router'
-import { useMe } from '../../hooks/use-auth.js'
+import { useLogout, useMe } from '../../hooks/use-auth.js'
 
 export function PageShell({ children }: { children: React.ReactNode }) {
   const { data: me } = useMe()
   const navigate = useNavigate()
+  const logout = useLogout()
 
   return (
     <div className="flex min-h-screen flex-col bg-[var(--background)] text-[var(--foreground)]">
@@ -19,8 +20,11 @@ export function PageShell({ children }: { children: React.ReactNode }) {
                 <Link to="/blog/new" className="text-sm hover:underline">
                   New Post
                 </Link>
+                {/* There is no /logout route — logging out is a POST, not a
+                    page. Navigating there rendered a dead end. */}
                 <button
-                  onClick={() => navigate('/logout')}
+                  onClick={() => logout.mutate(undefined, { onSuccess: () => navigate('/') })}
+                  disabled={logout.isPending}
                   className="text-sm hover:underline"
                 >
                   Logout
