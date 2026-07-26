@@ -1434,7 +1434,7 @@ Expected: FAIL — `./AutoForm.js` does not exist.
 ```tsx
 // apps/client/src/components/patterns/AutoForm.tsx
 import { useState, type FormEvent } from 'react'
-import type { z, ZodObject, ZodRawShape } from 'zod'
+import { ZodFirstPartyTypeKind, type z, type ZodObject, type ZodRawShape, type ZodTypeAny } from 'zod'
 import { Button } from '../ui/button.js'
 import { Input } from '../ui/input.js'
 import { Label } from '../ui/label.js'
@@ -1442,12 +1442,47 @@ import { Textarea } from '../ui/textarea.js'
 
 type FieldKind = 'checkbox' | 'textarea' | 'tags' | 'text'
 
-function fieldKind(key: string, def: z.ZodTypeAny): FieldKind {
-  // z.coerce.boolean().default(false) / z.array(...).default([]) wrap the real
-  // type in ZodDefault — it has no .unwrap(), only .removeDefault() (_def.innerType).
-  const inner = def._def.typeName === 'ZodDefault' ? def._def.innerType : def
-  if (inner._def.typeName === 'ZodBoolean') return 'checkbox'
-  if (inner._def.typeName === 'ZodArray') return 'tags'
+/**
+ * `ZodTypeDef` is the public (near-empty) shape of `_def`; the discriminant and
+ * the wrapped schema live on the first-party subtypes. This is the one narrow
+ * place where we look at zod's internals, so the cast is kept here.
+ */
+type ZodDefInternals = { typeName?: string; innerType?: ZodTypeAny; schema?: ZodTypeAny }
+
+function internals(schema: ZodTypeAny): ZodDefInternals {
+  return schema._def as ZodDefInternals
+}
+
+/**
+ * Peel every wrapper off a field until the type that decides the control shows
+ * through. One level is not enough: `UpdatePostSchema` is `CreatePostSchema.partial()`,
+ * so `tags` arrives as `ZodOptional<ZodDefault<ZodArray>>`. Unwrapping only
+ * `ZodDefault` (or only `ZodOptional`) reports it as a plain string field, the
+ * comma-split never runs, and the edit form PATCHes `tags: "a, b"` — a string
+ * where the API expects an array. None of these wrappers expose `.unwrap()`
+ * uniformly, hence `_def`.
+ */
+function unwrap(schema: ZodTypeAny): ZodTypeAny {
+  let current = schema
+  for (;;) {
+    const def = internals(current)
+    const next =
+      def.typeName === ZodFirstPartyTypeKind.ZodDefault ||
+      def.typeName === ZodFirstPartyTypeKind.ZodOptional ||
+      def.typeName === ZodFirstPartyTypeKind.ZodNullable
+        ? def.innerType
+        : def.typeName === ZodFirstPartyTypeKind.ZodEffects
+          ? def.schema
+          : undefined
+    if (!next) return current
+    current = next
+  }
+}
+
+function fieldKind(key: string, schema: ZodTypeAny): FieldKind {
+  const typeName = internals(unwrap(schema)).typeName
+  if (typeName === ZodFirstPartyTypeKind.ZodBoolean) return 'checkbox'
+  if (typeName === ZodFirstPartyTypeKind.ZodArray) return 'tags'
   if (key === 'body') return 'textarea'
   return 'text'
 }
@@ -1604,6 +1639,13 @@ export function NewPostPage() {
   )
 }
 ```
+
+**The edit page stays on `UpdatePostSchema` — editing is an update, not a recreate.** When `tags`
+mis-derives, the quick fix that suggests itself is to hand `AutoForm` the `CreatePostSchema` here so the
+field is a bare `ZodArray` again. Don't. `CreatePostSchema` makes every field required, which turns a PATCH
+of one changed field into a full-object replace and re-imposes create-time validation on fields the user
+never touched. The partial schema is the correct contract for `PATCH /api/v1/posts/:slug`; `unwrap()` above
+is what makes it derive correctly.
 
 ```tsx
 // apps/client/src/pages/EditPostPage.tsx
@@ -2154,6 +2196,586 @@ git commit -m "docs: P2 client quick start, architecture status, spec checklist"
 Report to the user: P2 is complete on `dev/react-client`, N commits, full gate green including Playwright.
 **Ask** whether to push and open a PR into `staging`. Do not merge to `master` or deploy without explicit
 per-time approval, same as every prior phase.
+
+---
+
+## Task 14: Demo caps, rate limiting, and DB hardening (pre-promotion gate)
+
+> **Design:** `docs/superpowers/specs/2026-07-26-demo-caps-and-db-hardening-design.md`. Read it first —
+> it records *why* each control exists and which trade-offs were accepted deliberately.
+
+**Runs after Task 13.** Task 13 closes P2 feature work; this task is the gate before `staging` is promoted
+to `master`. Promoting without it exposes an uncapped, unthrottled, unhardened public deployment.
+
+**Split into three independently committable phases.** Each has its own test cycle and could be rejected by
+a reviewer without rejecting its neighbours. Do them in order.
+
+**Correction to the design doc:** spec §5 names `POST /api/v1/users` as the signup route. That is wrong —
+signup is `POST /api/v1/auth/signup` (`routes/v1/auth.ts:11`). The routes below are authoritative.
+
+**Files:**
+- Create: `apps/server/src/lib/services/demo-limits.ts`, `demo-limits.test.ts`
+- Create: `apps/server/src/lib/notify.ts`, `notify.test.ts`
+- Create: `apps/server/src/middleware/rate-limit.ts`
+- Create: `.github/workflows/demo-reset.yml`
+- Modify: `apps/server/src/lib/errors.ts`, `lib/env.ts`, `middleware/error-handler.ts`
+- Modify: `apps/server/src/lib/services/user.ts:25` (signup), `lib/services/post.ts:113` (create)
+- Modify: `apps/server/src/app.ts`, `apps/server/src/index.ts`
+- Modify: `infra/render.yaml`, `apps/server/.env.example`
+
+**Interfaces:**
+- Consumes: `getRedis(url)` from `lib/redis.ts`, `loadEnv()` from `lib/env.ts`, the `UserModel`/`PostModel`
+  Mongoose models, and the existing `errorHandler` translation table.
+- Produces: `DemoLimitError`; `assertUserCapacity()`, `assertPostCapacity()`, `DEMO_LIMIT_MESSAGE` from
+  `lib/services/demo-limits.ts`; `notifyCapReached(kind, count, max)` from `lib/notify.ts`;
+  `buildRateLimiters(store?)` from `middleware/rate-limit.ts`.
+
+---
+
+### Phase 14.1 — Caps and the 403 contract
+
+- [ ] **Step 1: Add the typed error**
+
+```ts
+// apps/server/src/lib/errors.ts — append
+/** 403 — the demo deployment has reached its fixed capacity. */
+export class DemoLimitError extends Error {
+  constructor(message = 'Demo capacity reached.') {
+    super(message)
+    this.name = 'DemoLimitError'
+  }
+}
+```
+
+- [ ] **Step 2: Map it in the error handler**
+
+Add this block alongside the existing ones in `apps/server/src/middleware/error-handler.ts`, before the
+`SyntaxError` check. 403 rather than 503: 503 reads as *broken* to a visitor and trips uptime monitors,
+while this is a policy refusal of a well-formed request.
+
+```ts
+  if (err instanceof DemoLimitError) {
+    console.warn(`[ERROR_HANDLER] DemoLimitError on ${req.method} ${req.path}:`, err.message)
+    res.status(403).json({ error: { message: err.message } })
+    return
+  }
+```
+
+Add `DemoLimitError` to the existing import from `../lib/errors.js`.
+
+- [ ] **Step 3: Add the limits to the env schema**
+
+```ts
+// apps/server/src/lib/env.ts — inside EnvSchema
+  DEMO_MAX_USERS: z.coerce.number().int().positive().default(15),
+  DEMO_MAX_POSTS: z.coerce.number().int().positive().default(30),
+```
+
+Defaults mean dev and test boot without new configuration; env-driven means tests can raise the ceiling
+instead of fighting it.
+
+- [ ] **Step 4: Write the failing test for the capacity guards**
+
+```ts
+// apps/server/src/lib/services/demo-limits.test.ts
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { DemoLimitError } from '../errors.js'
+import { UserModel } from '../../models/user.js'
+import { PostModel } from '../../models/post.js'
+import { assertUserCapacity, assertPostCapacity } from './demo-limits.js'
+
+describe('demo capacity guards', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    process.env.DEMO_MAX_USERS = '15'
+    process.env.DEMO_MAX_POSTS = '30'
+  })
+
+  it('allows a signup below the user cap', async () => {
+    vi.spyOn(UserModel, 'countDocuments').mockResolvedValue(14 as never)
+    await expect(assertUserCapacity()).resolves.toBeUndefined()
+  })
+
+  it('throws DemoLimitError at the user cap', async () => {
+    vi.spyOn(UserModel, 'countDocuments').mockResolvedValue(15 as never)
+    await expect(assertUserCapacity()).rejects.toBeInstanceOf(DemoLimitError)
+  })
+
+  it('throws DemoLimitError above the post cap', async () => {
+    vi.spyOn(PostModel, 'countDocuments').mockResolvedValue(31 as never)
+    await expect(assertPostCapacity()).rejects.toBeInstanceOf(DemoLimitError)
+  })
+
+  it('names the GitHub contact in the message a visitor sees', async () => {
+    vi.spyOn(PostModel, 'countDocuments').mockResolvedValue(30 as never)
+    await expect(assertPostCapacity()).rejects.toThrow(/github\.com\/YonatanHen/)
+  })
+})
+```
+
+- [ ] **Step 5: Run it and confirm it fails**
+
+Run: `npm run test -- apps/server/src/lib/services/demo-limits.test.ts`
+Expected: FAIL — `./demo-limits.js` does not exist.
+
+- [ ] **Step 6: Implement the guards**
+
+```ts
+// apps/server/src/lib/services/demo-limits.ts
+import { loadEnv } from '../env.js'
+import { DemoLimitError } from '../errors.js'
+import { PostModel } from '../../models/post.js'
+import { UserModel } from '../../models/user.js'
+
+export const DEMO_LIMIT_MESSAGE =
+  "This is a portfolio demo app and it's reached its visitor limit. " +
+  'For any questions, contact the creator directly on GitHub: github.com/YonatanHen'
+
+/**
+ * Caps are GLOBAL — the owner account is capped like any visitor. New portfolio
+ * content is added by editing seed.ts and reseeding, which is consistent with the
+ * weekly reset in Phase 14.3 wiping anything authored through the live UI.
+ *
+ * Accepted race: two concurrent creates at (max - 1) can both pass and overshoot
+ * by the concurrency level. Bounded, not unbounded growth, and not worth a
+ * transaction at demo traffic. See spec §3.
+ */
+async function assertCapacity(count: number, max: number): Promise<void> {
+  if (count < max) return
+  throw new DemoLimitError(DEMO_LIMIT_MESSAGE)
+}
+
+export async function assertUserCapacity(): Promise<void> {
+  const { DEMO_MAX_USERS } = loadEnv()
+  await assertCapacity(await UserModel.countDocuments(), DEMO_MAX_USERS)
+}
+
+export async function assertPostCapacity(): Promise<void> {
+  const { DEMO_MAX_POSTS } = loadEnv()
+  await assertCapacity(await PostModel.countDocuments(), DEMO_MAX_POSTS)
+}
+```
+
+> **Deliberately no notification yet.** `lib/notify.ts` does not exist until Phase 14.3, and importing it
+> here would make this phase's `typecheck` gate fail. Phase 14.3 Step 6 adds the `kind` parameter and the
+> notifier call. Each phase must be independently green.
+
+- [ ] **Step 7: Run it and confirm it passes**
+
+Run: `npm run test -- apps/server/src/lib/services/demo-limits.test.ts`
+Expected: PASS, 4 tests.
+
+- [ ] **Step 8: Wire the guards into the two services**
+
+The guard is the first statement in each, so a blocked request never hashes a password or allocates a slug.
+
+```ts
+// apps/server/src/lib/services/user.ts — first line of signup(), before the duplicate pre-check
+    await assertUserCapacity()
+```
+
+```ts
+// apps/server/src/lib/services/post.ts — first line of create(), before PostModel.create
+    await assertPostCapacity()
+```
+
+Add `import { assertUserCapacity } from './demo-limits.js'` to `user.ts` and
+`import { assertPostCapacity } from './demo-limits.js'` to `post.ts`.
+
+- [ ] **Step 9: Add the integration assertion on the response contract**
+
+Append to `apps/server/src/routes/v1/auth.test.ts`, matching that file's existing app-building helper:
+
+```ts
+  it('returns 403 with the demo message once the user cap is reached', async () => {
+    vi.spyOn(UserModel, 'countDocuments').mockResolvedValue(15 as never)
+    const res = await request(app)
+      .post('/api/v1/auth/signup')
+      .send({ username: 'capped', email: 'capped@example.com', password: 'a-valid-password' })
+
+    expect(res.status).toBe(403)
+    expect(res.body.error.message).toMatch(/github\.com\/YonatanHen/)
+    // `fields` is 400-only in this API's fixed error shape.
+    expect(res.body.error.fields).toBeUndefined()
+  })
+```
+
+- [ ] **Step 10: Gate and commit**
+
+Run: `npm run typecheck && npm run lint && npm run test`
+Expected: all pass.
+
+```bash
+git add apps/server/src/lib apps/server/src/middleware/error-handler.ts apps/server/src/routes
+git commit -m "feat(api): cap demo users and posts with a 403 contact message"
+```
+
+---
+
+### Phase 14.2 — Rate limiting
+
+Without this, Phase 14.1 is self-defeating: 13 scripted requests exhaust the demo in seconds.
+
+- [ ] **Step 1: Install the dependencies**
+
+```bash
+npm install express-rate-limit rate-limit-redis --workspace=@blog/server
+```
+
+- [ ] **Step 2: Write the limiter factory**
+
+`rate-limit-redis` speaks node-redis v4 through `sendCommand`, which is the client `lib/redis.ts` already
+returns. The store is optional so tests and dev fall back to in-memory.
+
+```ts
+// apps/server/src/middleware/rate-limit.ts
+import rateLimit, { type Store } from 'express-rate-limit'
+import type { Request, Response } from 'express'
+
+const ONE_HOUR_MS = 60 * 60 * 1000
+
+/** Only POST consumes budget — a GET on the same path must not spend it. */
+function common(store: Store | undefined) {
+  return {
+    store,
+    windowMs: ONE_HOUR_MS,
+    standardHeaders: 'draft-7' as const,
+    legacyHeaders: false,
+    skip: (req: Request) => req.method !== 'POST',
+    // 429, deliberately distinct from the 403 cap message: "too fast" and
+    // "the demo is full" are different conditions and must not be conflated.
+    handler: (_req: Request, res: Response) => {
+      res.status(429).json({ error: { message: 'Too many requests. Please wait and try again.' } })
+    },
+  }
+}
+
+export function buildRateLimiters(store?: Store) {
+  return {
+    signup: rateLimit({ ...common(store), limit: 5 }),
+    login: rateLimit({ ...common(store), limit: 10 }),
+    createPost: rateLimit({ ...common(store), limit: 10 }),
+  }
+}
+```
+
+> **Beyond the spec:** the `login` limiter is an addition — spec §5 covers only signup and post-create.
+> Login brute-forcing is a real threat against a public demo and the limiter costs one line. Drop it if
+> unwanted; nothing else depends on it.
+
+- [ ] **Step 3: Accept the limiters in `buildApp`**
+
+```ts
+// apps/server/src/app.ts — add to BuildAppOptions
+  /** Absent in most tests: rate limiting is wired by the real entry point. */
+  rateLimiters?: ReturnType<typeof buildRateLimiters>
+```
+
+Mount them after the session middleware and before `v1Router`, so an over-limit request is rejected before
+any handler runs:
+
+```ts
+  if (opts.rateLimiters) {
+    app.use('/api/v1/auth/signup', opts.rateLimiters.signup)
+    app.use('/api/v1/auth/login', opts.rateLimiters.login)
+    app.use('/api/v1/posts', opts.rateLimiters.createPost)
+  }
+
+  app.use('/api/v1', v1Router)
+```
+
+Update the order comment above `buildApp` to
+`helmet → json → session → rate limiters → routers → 404 → error handler`.
+
+- [ ] **Step 4: Wire the real store in the entry point**
+
+```ts
+// apps/server/src/index.ts — imports
+import RedisRateStore from 'rate-limit-redis'
+import { buildRateLimiters } from './middleware/rate-limit.js'
+```
+
+```ts
+// inside main(), in the buildApp({ ... }) options object
+    rateLimiters: buildRateLimiters(
+      new RedisRateStore({
+        prefix: 'rl:',
+        sendCommand: (...args: string[]) => redis.sendCommand(args),
+      }),
+    ),
+```
+
+`app.set('trust proxy', 1)` is already set in production, so the limiter keys on the real client IP rather
+than Render's proxy. Without it every visitor would share one bucket.
+
+- [ ] **Step 5: Confirm the middleware-order test still passes**
+
+Run: `npm run test -- apps/server/src/app.test.ts`
+Expected: PASS. `app.test.ts` asserts helmet runs before the routers; the limiters sit between them and
+must not disturb it. If it fails, the limiters were mounted in the wrong position — fix the order, not the test.
+
+- [ ] **Step 6: Gate and commit**
+
+Run: `npm run typecheck && npm run lint && npm run test`
+Expected: all pass.
+
+```bash
+git add apps/server/src/middleware/rate-limit.ts apps/server/src/app.ts apps/server/src/index.ts package.json package-lock.json
+git commit -m "feat(api): rate limit signup, login and post creation"
+```
+
+---
+
+### Phase 14.3 — Notification, weekly reset, and hardening
+
+- [ ] **Step 1: Add the notification secrets to the env schema**
+
+Optional, so the app boots without them and notification silently no-ops in dev and CI.
+
+```ts
+// apps/server/src/lib/env.ts — inside EnvSchema
+  NOTIFY_EMAIL: z.string().email().optional(),
+  RESEND_API_KEY: z.string().min(1).optional(),
+```
+
+- [ ] **Step 2: Write the failing test for dedupe and failure isolation**
+
+```ts
+// apps/server/src/lib/notify.test.ts
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { notifyCapReached } from './notify.js'
+
+const set = vi.fn()
+vi.mock('./redis.js', () => ({ getRedis: async () => ({ set: (...a: unknown[]) => set(...a) }) }))
+
+describe('notifyCapReached', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    set.mockReset()
+    process.env.NOTIFY_EMAIL = 'owner@example.com'
+    process.env.RESEND_API_KEY = 'test-key'
+  })
+
+  it('sends when the dedupe key was not already set', async () => {
+    set.mockResolvedValue('OK')
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}'))
+    await notifyCapReached('users', 15, 15)
+    expect(fetchSpy).toHaveBeenCalledOnce()
+  })
+
+  it('stays silent when the dedupe key already exists', async () => {
+    set.mockResolvedValue(null)
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}'))
+    await notifyCapReached('users', 15, 15)
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('never throws when the mail provider fails', async () => {
+    set.mockResolvedValue('OK')
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('resend is down'))
+    await expect(notifyCapReached('users', 15, 15)).resolves.toBeUndefined()
+  })
+
+  it('never includes visitor identities in the email body', async () => {
+    set.mockResolvedValue('OK')
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}'))
+    await notifyCapReached('users', 15, 15)
+    const body = String((fetchSpy.mock.calls[0]?.[1] as RequestInit).body)
+    expect(body).not.toMatch(/@example\.com/)
+  })
+})
+```
+
+- [ ] **Step 3: Run it and confirm it fails**
+
+Run: `npm run test -- apps/server/src/lib/notify.test.ts`
+Expected: FAIL — `./notify.js` does not exist.
+
+- [ ] **Step 4: Implement the notifier**
+
+```ts
+// apps/server/src/lib/notify.ts
+import { loadEnv } from './env.js'
+import { getRedis } from './redis.js'
+
+const DEDUPE_TTL_SECONDS = 86_400
+
+/**
+ * Emails the owner the first time a cap is hit. NEVER throws and NEVER blocks the
+ * request: a mail outage must not become a user-facing error. The Redis NX guard
+ * is what stops a bot hammering a full endpoint from sending hundreds of emails.
+ */
+export async function notifyCapReached(
+  kind: 'users' | 'posts',
+  count: number,
+  max: number,
+): Promise<void> {
+  try {
+    const env = loadEnv()
+    if (!env.NOTIFY_EMAIL || !env.RESEND_API_KEY) return
+
+    const redis = await getRedis(env.REDIS_URL)
+    // NX: only the first caller within the TTL wins.
+    const fresh = await redis.set(`notify:cap:${kind}`, '1', { EX: DEDUPE_TTL_SECONDS, NX: true })
+    if (fresh !== 'OK') return
+
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'onboarding@resend.dev',
+        to: env.NOTIFY_EMAIL,
+        subject: `[blog-chat demo] ${kind} cap reached (${count}/${max})`,
+        // Counts only — never the usernames or addresses of people who signed up.
+        text: [
+          `The demo hit its ${kind} limit at ${new Date().toISOString()}.`,
+          `${count} of ${max} used.`,
+          'The weekly reseed will clear it.',
+        ].join('\n\n'),
+      }),
+    })
+  } catch (err) {
+    console.error('[NOTIFY] cap notification failed', err instanceof Error ? err.message : err)
+  }
+}
+```
+
+- [ ] **Step 5: Run it and confirm it passes**
+
+Run: `npm run test -- apps/server/src/lib/notify.test.ts`
+Expected: PASS, 4 tests.
+
+- [ ] **Step 6: Wire the notifier into the capacity guards**
+
+`notify.ts` now exists, so Phase 14.1's deliberate omission can be closed. Restore the `kind` parameter and
+call the notifier in `apps/server/src/lib/services/demo-limits.ts`:
+
+```ts
+import { notifyCapReached } from '../notify.js'
+
+async function assertCapacity(kind: 'users' | 'posts', count: number, max: number): Promise<void> {
+  if (count < max) return
+  // Never throws — see notify.ts. A mail outage must not become a 500.
+  await notifyCapReached(kind, count, max)
+  throw new DemoLimitError(DEMO_LIMIT_MESSAGE)
+}
+```
+
+Update both call sites to pass the discriminant:
+
+```ts
+  await assertCapacity('users', await UserModel.countDocuments(), DEMO_MAX_USERS)
+  await assertCapacity('posts', await PostModel.countDocuments(), DEMO_MAX_POSTS)
+```
+
+Then add this mock to the top of `demo-limits.test.ts` so its four tests stay isolated from the notifier:
+
+```ts
+vi.mock('../notify.js', () => ({ notifyCapReached: vi.fn().mockResolvedValue(undefined) }))
+```
+
+Run: `npm run test -- apps/server/src/lib/services/demo-limits.test.ts`
+Expected: PASS, 4 tests, unchanged from Phase 14.1.
+
+- [ ] **Step 7: Add the weekly reset workflow**
+
+Render Cron Jobs are a paid feature; GitHub Actions scheduled workflows are free. This also writes to Atlas
+weekly, which prevents an M0 cluster auto-pausing while the portfolio sits idle between visits.
+
+```yaml
+# .github/workflows/demo-reset.yml
+name: Weekly demo reset
+
+on:
+  schedule:
+    - cron: '0 3 * * 0' # Sundays 03:00 UTC
+  workflow_dispatch: # so it can be run by hand after a burst of traffic
+
+jobs:
+  reseed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run seed
+        env:
+          MONGODB_URI: ${{ secrets.DEMO_MONGODB_URI }}
+```
+
+`seed.ts` is already idempotent and destructive, so it needs no changes. Add `DEMO_MONGODB_URI` as a
+repository secret holding the least-privilege application user from Step 8 — never an admin credential.
+
+- [ ] **Step 8: Declare the new configuration**
+
+```yaml
+# infra/render.yaml — append to the blogchat-api envVars list
+      - key: DEMO_MAX_USERS
+        value: 15
+      - key: DEMO_MAX_POSTS
+        value: 30
+      # Set in the dashboard. NEVER committed.
+      - key: NOTIFY_EMAIL
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+```
+
+Add all four to `apps/server/.env.example` as documented placeholders with empty values.
+
+- [ ] **Step 9: Work the hardening checklist**
+
+Not code — verify each against the live provider consoles and tick it off:
+
+- Atlas: application user has `readWrite` on the single app database only, never `atlasAdmin`.
+- Atlas: confirm the credential rotated on 2026-07-16 is **deleted**, not merely rotated — rotation and
+  removal are different operations.
+- Atlas: password is long and generated, never hand-chosen. It is the primary control, because the next
+  item makes the network control weak.
+- Atlas: allowlist is `0.0.0.0/0` because Render's free tier has no static egress IP. Record that
+  justification in `docs/architecture/deployment-architecture.md` so it reads as a constraint, not sloppiness.
+- Atlas: connection string does not disable TLS.
+- Atlas: wipe and reseed before go-live (already planned in `deployment-architecture.md`).
+- App: grep for payload logging that could reach production —
+  `grep -rn "console\.\(log\|info\|debug\)" apps/server/src | grep -i "req.body\|password\|input)"`.
+  `user.ts:26` currently logs `{ username, email }` on signup, which is PII but not a credential; confirm no
+  handler logs a whole request body, since a signup body carries a plaintext password.
+- App: confirm the bcrypt cost factor in `user.ts` is still adequate.
+- Key Value: `ipAllowList: []` and `SESSION_SECRET: generateValue` — already correct in `render.yaml`,
+  re-verify they survived any edits.
+- Re-verify the free-tier limits cited in the spec against current Render, Atlas and Resend docs. They move,
+  and the standing constraint is free-tier-only.
+
+- [ ] **Step 10: Full gate**
+
+Run: `npm ci && npm run typecheck && npm run lint && npm run build && npm run test && npm run test:e2e`
+Expected: all pass, no skips.
+
+- [ ] **Step 11: Commit**
+
+```bash
+git add apps/server/src/lib .github/workflows/demo-reset.yml infra/render.yaml apps/server/.env.example docs/
+git commit -m "feat(api): cap-reached notification, weekly demo reset, DB hardening"
+```
+
+- [ ] **Step 12: STOP — do not merge to master or deploy**
+
+Report: Task 14 complete, caps and rate limiting green, hardening checklist worked. Then **ask** before
+promoting `staging` to `master`. That merge *is* the production deploy — Render auto-deploys from `master` —
+and it needs explicit per-time approval.
+
+**Two blockers to raise at that point, both recorded in spec §12:**
+1. A Render service predating `infra/render.yaml` still watches `master` and auto-deploys the legacy app.
+   Applying this Blueprint **creates a parallel set of services rather than updating that one** — the same
+   mechanism that took the site down on 2026-07-16. Settle it before promoting.
+2. `NOTIFY_EMAIL`, `RESEND_API_KEY` and the Atlas URI must be set in the Render dashboard before the deploy,
+   or the notifier silently no-ops and the API fails to boot on a missing `MONGODB_URI`.
 
 ---
 
