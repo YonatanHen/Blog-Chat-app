@@ -4,6 +4,7 @@ import { ApiError } from '../api/client.js'
 import { usePost, useDeletePost } from '../hooks/use-posts.js'
 import { useMe } from '../hooks/use-auth.js'
 import { EmptyState } from '../components/patterns/EmptyState.js'
+import { LikeButton } from '../components/patterns/LikeButton.js'
 import { Button } from '../components/ui/button.js'
 import { Skeleton } from '../components/ui/skeleton.js'
 
@@ -58,10 +59,7 @@ export function PostPage() {
       )}
 
       <div className="flex items-center gap-4 text-sm text-[var(--muted-foreground)]">
-        {/* Read-only until Task 10 swaps this for the interactive LikeButton. */}
-        <span>
-          {post.likeCount} {post.likeCount === 1 ? 'like' : 'likes'}
-        </span>
+        <LikeButton slug={post.slug} likeCount={post.likeCount} />
         {isOwner && (
           <>
             <Link to={`/blog/${post.slug}/edit`} className="underline">
