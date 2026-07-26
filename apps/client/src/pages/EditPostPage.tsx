@@ -1,29 +1,16 @@
 import { UpdatePostSchema } from '@blog/zod-shared'
-import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
 import { ApiError } from '../api/client.js'
-import { postsApi } from '../api/posts.js'
 import { AutoForm } from '../components/patterns/AutoForm.js'
 import { EmptyState } from '../components/patterns/EmptyState.js'
 import { RequireAuth } from '../components/patterns/RequireAuth.js'
 import { Skeleton } from '../components/ui/skeleton.js'
-import { useUpdatePost } from '../hooks/use-posts.js'
-import { queryKeys } from '../lib/query-client.js'
+import { usePost, useUpdatePost } from '../hooks/use-posts.js'
 
 export function EditPostPage() {
   const { slug = '' } = useParams<{ slug: string }>()
-  // Inlined rather than the shared `usePost` hook, which lands with the post
-  // detail page; swap this for `usePost(slug)` once that exists.
-  const {
-    data: post,
-    isPending,
-    isError,
-  } = useQuery({
-    queryKey: queryKeys.posts.detail(slug),
-    queryFn: () => postsApi.get(slug),
-    enabled: slug !== '',
-  })
+  const { data: post, isPending, isError } = usePost(slug)
   const updatePost = useUpdatePost(slug)
   const navigate = useNavigate()
 
