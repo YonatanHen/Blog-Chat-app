@@ -699,13 +699,13 @@ items, a Supertest integration test against the real route.
 **Correctness**
 - [ ] Socket listeners are cleaned up (old `chat.jsx:51` added a listener per message received) — **P4**
 - [ ] Chat does not emit `disconnect` on every render (`chat.jsx:57`) — **P4**
-- [x] A failed delete does not remove the post from the UI (`store/actions/posts.js:44`) — **P2**, `use-posts.ts`'s `useDeletePost` (invalidate-not-optimistic, so a failed mutation never touched the cache)
+- [x] A failed delete does not remove the post from the UI (`store/actions/posts.js:44`) — **P2**, `use-posts.ts`'s `useDeletePost` (invalidate-not-optimistic, so a failed mutation never touched the cache); structural guarantee, not yet exercised by a written test
 - [ ] Password confirmation is validated *before* the request, not after (`updateUser.jsx:58`) — **P2, known gap**: no signup confirm-password field was built in this round; not silently dropped, tracked here for a future pass
 - [x] Password is not silently reset on every profile update (`user.js:79` compares plaintext to a hash) — `users.test.ts`
 - [x] Double-click cannot double-like (enforced by the DB unique index) — `likes.test.ts` + `models.test.ts`
 - [ ] Search does not crash on a post with no body (`postsList.jsx:12`) — **P5**
 - [x] Unique username/email enforced by index, not a racy `findOne` check — `user.test.ts`
-- [x] The loading state actually renders (`blog.jsx:22` set it true and false synchronously) — **P2**, `BlogFeedPage`/`PostPage`'s `isPending` branch (TanStack Query owns the state, can't be set synchronously true-then-false)
+- [x] The loading state actually renders (`blog.jsx:22` set it true and false synchronously) — **P2**, `BlogFeedPage`/`PostPage`'s `isPending` branch (TanStack Query owns the state, can't be set synchronously true-then-false); structural guarantee, not yet exercised by a written test
 - [x] Logout is not fired before the delete request resolves (`navbar.jsx:33` invoked the callback immediately) — **P2, N/A by design**: this rebuild's logout has no dependent request racing it, so the old bug shape doesn't exist here; noted rather than force-fitting a test to it
 
 **Build correctness**
