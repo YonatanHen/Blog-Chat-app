@@ -1,5 +1,6 @@
 import { CreatePostSchema, UpdatePostSchema } from '@blog/zod-shared'
 import { Router, type Request } from 'express'
+import { commentsRouter } from './comments.js'
 import { likeService } from '../../lib/services/like.js'
 import { postService } from '../../lib/services/post.js'
 import { requireAuth } from '../../middleware/require-auth.js'
@@ -46,6 +47,12 @@ postsRouter.put<{ slug: string }>('/:slug/likes', requireAuth, async (req, res) 
 postsRouter.delete<{ slug: string }>('/:slug/likes', requireAuth, async (req, res) => {
   res.json(await likeService.unlike(req.params.slug, req.session.userId!))
 })
+
+// Registered with the other sub-resources, above the bare /:slug handlers.
+// Express matches in registration order, and unlike a route path a `use` mount
+// matches by PREFIX — so this must never end up behind a handler that could
+// claim the same prefix first.
+postsRouter.use('/:slug/comments', commentsRouter)
 
 postsRouter.get('/:slug', async (req, res) => {
   // The viewer id is passed to the service, which decides what to serialize.

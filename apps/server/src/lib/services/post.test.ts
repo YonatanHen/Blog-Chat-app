@@ -1,4 +1,6 @@
 import { NotFoundError } from '../errors.js'
+import { commentService } from './comment.js'
+import { CommentModel } from '../../models/comment.js'
 import { LikeModel } from '../../models/like.js'
 import { PostModel } from '../../models/post.js'
 import { UserModel } from '../../models/user.js'
@@ -260,6 +262,15 @@ describe('postService.remove', () => {
     await LikeModel.create({ user: new Types.ObjectId(), post: new Types.ObjectId(post.id) })
     await postService.remove(post.slug)
     expect(await LikeModel.countDocuments()).toBe(0)
+  })
+
+  it('deletes the post comments too, at every depth', async () => {
+    const post = await create()
+    const root = await commentService.create(post.slug, { body: 'Root.' }, authorId)
+    await commentService.create(post.slug, { body: 'Reply.', parent: root.id }, authorId)
+
+    await postService.remove(post.slug)
+    expect(await CommentModel.countDocuments()).toBe(0)
   })
 
   it('throws NotFoundError for an unknown slug', async () => {
