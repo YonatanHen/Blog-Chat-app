@@ -33,6 +33,27 @@ curl -s -c jar -X POST localhost:3000/api/v1/auth/login \
 curl -s -b jar localhost:3000/api/v1/posts/gating-content-at-the-serialization-boundary
 ```
 
+## Search semantics
+
+The feed's search box runs on MongoDB's native `$text` index over `{ title, body }`
+(`apps/server/src/models/post.ts`) — the database does the matching, not a client-side
+`Array.filter` over an already-downloaded page (which is all the legacy app ever did).
+
+`$text` matches **whole, stemmed words — never substrings**. Two consequences worth knowing
+before assuming a search result is wrong:
+
+- A single letter like `e` matches nothing. It isn't a real standalone word anywhere in the
+  text — `$text` only indexes and matches whole words, so a letter that merely appears
+  *inside* words like "the" or "serialize" doesn't count as a match. The same reason a
+  half-typed word like `mongo` won't find `MongoDB`: matching resumes once the word is
+  finished, not before.
+- A short, common word like `API` can legitimately return every post in the demo dataset —
+  that isn't the filter falling through to "no filter," it's a real match: the seeded posts
+  are about this project's own API rebuild, so each one's body genuinely contains the word.
+
+An empty or whitespace-only search is dropped before it reaches Mongo (`$text: { $search: '' }`
+is a query error) and degrades to the unfiltered feed instead.
+
 ## Scripts
 
 | Command | What it does |
