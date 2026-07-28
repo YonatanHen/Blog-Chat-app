@@ -5,7 +5,7 @@ Living reference doc — update as the rebuild progresses. Unlike `docs/superpow
 
 **Status legend:** ✅ live today · 🚧 in progress · 📋 planned, not built yet
 
-**Last verified against reality:** 2026-07-22, P1 (Express API foundation) complete on `staging`.
+**Last verified against reality:** 2026-07-28, P2 (React client) complete on `staging`.
 
 ---
 
@@ -97,7 +97,7 @@ flowchart TB
 | Component | Status | Notes |
 |---|---|---|
 | `apps/server` Render service | 🚧 built, not yet deployed | P1. Serves the REST API **and** the built SPA from one origin — no CORS, no cross-origin cookie problem |
-| `apps/client` | 📋 planned | P2. Vite build; static assets baked into the `apps/server` image, not a separate service |
+| `apps/client` | 🚧 built, baked into the `apps/server` image | P2, complete on `staging`. Vite build; not a separate Render service — this was always the design, see "Why one service for API + client" below |
 | `apps/realtime` Render service | 📋 planned | P4 — Socket.io, separate service, cold starts accepted |
 | Render Key Value (Redis) | 🚧 declared in `infra/render.yaml`, not yet provisioned | P1 (sessions) → P4 (chat buffer, presence) → P6 (rate limiting). Ephemeral by design |
 | MongoDB Atlas M0 | ✅ exists, 🚧 being re-secured | Credential was leaked and rotated on 2026-07-16; cluster will be wiped and reseeded before go-live |
