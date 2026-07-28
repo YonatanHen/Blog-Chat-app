@@ -137,6 +137,39 @@ describe('postService.list — search and tag filters', () => {
   })
 })
 
+describe('postService.list — ordering', () => {
+  /** Pins createdAt through the driver: Mongoose's timestamps plugin owns the field otherwise. */
+  const backdate = (slug: string, iso: string) =>
+    PostModel.collection.updateOne({ slug }, { $set: { createdAt: new Date(iso) } })
+
+  // Three posts whose insertion order, date order and relevance order are all
+  // DIFFERENT. That is the point: with two, "most relevant" and "newest" can
+  // coincide with the order the driver happens to return, and both assertions
+  // below would pass with the sort deleted entirely.
+  //
+  //   insertion : Deep, Passing, Middling
+  //   newest    : Passing, Middling, Deep
+  //   relevance : Deep, Middling, Passing
+  beforeEach(async () => {
+    await create({ title: 'Mongo Mongo Mongo Deep', body: 'Mongo mongo mongo mongo mongo.' })
+    await create({ title: 'An Essay Passing By', body: `${LONG_BODY}\n\nOne aside about mongo.` })
+    await create({ title: 'Mongo Middling', body: `${LONG_BODY}\n\nTwo asides: mongo, mongo.` })
+    await backdate('mongo-mongo-mongo-deep', '2020-01-01')
+    await backdate('mongo-middling', '2023-01-01')
+    await backdate('an-essay-passing-by', '2026-01-01')
+  })
+
+  it('sorts an unfiltered feed newest-first', async () => {
+    const titles = (await postService.list()).map((p) => p.title)
+    expect(titles).toEqual(['An Essay Passing By', 'Mongo Middling', 'Mongo Mongo Mongo Deep'])
+  })
+
+  it('sorts a search by relevance, not by date', async () => {
+    const titles = (await postService.list(undefined, { q: 'mongo' })).map((p) => p.title)
+    expect(titles).toEqual(['Mongo Mongo Mongo Deep', 'Mongo Middling', 'An Essay Passing By'])
+  })
+})
+
 // The legacy feed read `post.body` unguarded (postsList.jsx:12) and threw on the
 // first document that had none. Such a document should not exist — so it is
 // inserted through the driver, past the Mongoose validator, on purpose.

@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import { Input } from '../ui/input.js'
 
 /**
@@ -12,7 +13,7 @@ import { Input } from '../ui/input.js'
 export function SearchBar({
   value,
   onChange,
-  id = 'search',
+  id,
   label = 'Search posts',
   placeholder = 'Search posts…',
 }: {
@@ -22,13 +23,18 @@ export function SearchBar({
   label?: string
   placeholder?: string
 }) {
+  // Two search bars on one page must not share an id, or the second label
+  // points at the first input. A caller can still pin the id if it needs to.
+  const generatedId = useId()
+  const inputId = id ?? generatedId
+
   return (
     <div>
-      <label htmlFor={id} className="sr-only">
+      <label htmlFor={inputId} className="sr-only">
         {label}
       </label>
       <Input
-        id={id}
+        id={inputId}
         type="search"
         value={value}
         placeholder={placeholder}

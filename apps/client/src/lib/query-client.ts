@@ -20,9 +20,14 @@ export const queryKeys = {
      */
     all: ['posts'] as const,
     list: (params: PostListParams = {}) => ['posts', 'list', params] as const,
-    detail: (slug: string) => ['posts', slug] as const,
+    /**
+     * Namespaced under 'detail' rather than sitting directly on the slug: with
+     * `['posts', slug]`, a post slugged "list" produces `['posts', 'list']`,
+     * which prefix-matches — and so invalidates — every filtered feed.
+     */
+    detail: (slug: string) => ['posts', 'detail', slug] as const,
     likes: {
-      detail: (slug: string) => ['posts', slug, 'likes'] as const,
+      detail: (slug: string) => ['posts', 'detail', slug, 'likes'] as const,
     },
   },
   users: {

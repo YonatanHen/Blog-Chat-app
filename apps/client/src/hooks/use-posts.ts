@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { CreatePost, UpdatePost } from '@blog/zod-shared'
-import { postsApi, type PostListParams } from '../api/posts.js'
+import { normalizeListParams, postsApi, type PostListParams } from '../api/posts.js'
 import { queryKeys } from '../lib/query-client.js'
 
 /**
@@ -13,11 +13,15 @@ import { queryKeys } from '../lib/query-client.js'
  * `keepPreviousData` keeps the previous results on screen while the next term
  * loads. Without it every keystroke that survives the debounce is a brand new
  * key, so `isPending` flips back to true and the feed blinks to skeletons.
+ *
+ * Normalizing before both the key and the request is what keeps them in step:
+ * a cleared box (`{ q: '' }`) must hit the same cache entry as no filters at all.
  */
 export function usePosts(params: PostListParams = {}) {
+  const filters = normalizeListParams(params)
   return useQuery({
-    queryKey: queryKeys.posts.list(params),
-    queryFn: () => postsApi.list(params),
+    queryKey: queryKeys.posts.list(filters),
+    queryFn: () => postsApi.list(filters),
     placeholderData: keepPreviousData,
   })
 }

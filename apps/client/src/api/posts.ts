@@ -21,14 +21,26 @@ export type Post = {
 export type PostListParams = { q?: string; tag?: string }
 
 /**
- * Builds `/api/v1/posts` with only the filters that carry a value. A
- * whitespace-only term is dropped rather than sent: an empty box is not a
- * search, and `$text: { $search: '' }` is an error on the server side.
+ * Drops the filters that carry no value and trims the rest. A whitespace-only
+ * term is not a search — and `$text: { $search: '' }` is an error on the server.
+ *
+ * Exported because the cache key has to be built from the SAME normalized
+ * object the URL is. Normalizing in only one of the two places would cache
+ * `{ q: 'mongo ' }`, `{ q: 'mongo' }` and `{}` vs `{ q: '' }` as distinct
+ * entries that all fetch one identical URL.
  */
-function listPath({ q, tag }: PostListParams): string {
+export function normalizeListParams({ q, tag }: PostListParams): PostListParams {
+  const normalized: PostListParams = {}
+  if (q?.trim()) normalized.q = q.trim()
+  if (tag?.trim()) normalized.tag = tag.trim()
+  return normalized
+}
+
+function listPath(params: PostListParams): string {
+  const { q, tag } = normalizeListParams(params)
   const search = new URLSearchParams()
-  if (q?.trim()) search.set('q', q.trim())
-  if (tag?.trim()) search.set('tag', tag.trim())
+  if (q) search.set('q', q)
+  if (tag) search.set('tag', tag)
   const query = search.toString()
   return query ? `/api/v1/posts?${query}` : '/api/v1/posts'
 }

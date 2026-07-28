@@ -105,6 +105,19 @@ export const postService = {
    * Both filters are trimmed and an empty one is dropped: Mongo rejects `$text:
    * { $search: '' }`, so `?q=` must degrade to an unfiltered feed rather than a
    * 500, and `?tag=` must not match the posts that happen to have no tags.
+   *
+   * Two consequences of using `$text`, both accepted deliberately:
+   *
+   * 1. It matches whole stemmed words, NOT substrings — "mongo" does not find
+   *    "MongoDB", and a half-typed word finds nothing until it is finished. A
+   *    substring search cannot use an index at all, and an unindexed scan of
+   *    every body is the thing this change exists to stop doing.
+   * 2. The index spans `body`, so an anonymous reader can learn whether a word
+   *    occurs in text they cannot read. That is a presence oracle, not a leak —
+   *    no gated byte is ever serialized (see `toDto`). It is tolerable here only
+   *    because the wall is a free signup rather than a paid tier; narrowing it
+   *    would mean a second, title-only index, since a `$text` query cannot pick
+   *    a subset of the fields its index covers.
    */
   async list(viewerId?: string, params: PostListParams = {}): Promise<PostDto[]> {
     const term = params.q?.trim()
@@ -117,7 +130,9 @@ export const postService = {
 
     const query = PostModel.find(filter).populate('author', 'username')
     // Relevance when there is a term to be relevant to, newest-first otherwise.
-    query.sort(term ? { score: { $meta: 'textScore' } } : { createdAt: -1 })
+    // `createdAt` breaks relevance ties too, so equally-scoring posts come back
+    // in a stable, meaningful order rather than whatever the index yields.
+    query.sort(term ? { score: { $meta: 'textScore' }, createdAt: -1 } : { createdAt: -1 })
     const posts = await query
 
     return Promise.all(

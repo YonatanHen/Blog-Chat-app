@@ -14,14 +14,27 @@ export function BlogFeedPage() {
   const term = searchParams.get('q') ?? ''
   // The box tracks every keystroke; the query does not. Debouncing between the
   // two is what makes this one request per pause instead of one per character.
-  const debouncedTerm = useDebouncedValue(term)
+  // Trimmed for the same reason the API drops a blank filter: "   " is not a
+  // search, so it must not colour the empty state either.
+  const debouncedTerm = useDebouncedValue(term).trim()
 
   const { data: posts, isPending, isError } = usePosts({ q: debouncedTerm })
 
-  // `replace` so typing does not push one history entry per keystroke — back
-  // should leave the feed, not replay the search character by character.
+  // Edits `q` in place instead of replacing the whole search string: passing an
+  // object would drop every other param, and `tag` is already plumbed through
+  // the API — a keystroke silently clearing a tag filter would be a confusing
+  // bug to trace back here. `replace` so typing does not push one history entry
+  // per keystroke; back should leave the feed, not replay the search.
   const handleSearch = (next: string) =>
-    setSearchParams(next ? { q: next } : {}, { replace: true })
+    setSearchParams(
+      (prev) => {
+        const params = new URLSearchParams(prev)
+        if (next) params.set('q', next)
+        else params.delete('q')
+        return params
+      },
+      { replace: true },
+    )
 
   let content: ReactNode
   if (isPending) {
