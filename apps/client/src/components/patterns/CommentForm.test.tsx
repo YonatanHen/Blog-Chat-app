@@ -2,7 +2,7 @@
 // never runs — every client test file wires jest-dom and cleanup itself, as
 // apps/client/src/components/patterns/AutoForm.test.tsx does.
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CommentForm } from './CommentForm.js'
 
@@ -60,18 +60,32 @@ describe('CommentForm', () => {
     expect(container.querySelector('script')).toBeNull()
   })
 
-  it('clears a fresh box after a successful submit', () => {
-    render(<CommentForm onSubmit={vi.fn()} />)
+  it('clears a fresh box once the submit has resolved', async () => {
+    render(<CommentForm onSubmit={vi.fn().mockResolvedValue(undefined)} />)
     type('Posted.')
     fireEvent.click(screen.getByText('Comment', { selector: 'button' }))
 
-    expect(screen.getByLabelText('Comment')).toHaveValue('')
+    await waitFor(() => expect(screen.getByLabelText('Comment')).toHaveValue(''))
   })
 
-  it('keeps the text when editing an existing comment — clearing would look like data loss', () => {
-    render(<CommentForm onSubmit={vi.fn()} initialValue="Original." submitLabel="Save" />)
+  // The box is the only copy of what the reader typed. Emptying it before the
+  // server answers destroys it on any 500, network drop, or expired session.
+  it('KEEPS the draft when the submit fails', async () => {
+    const onSubmit = vi.fn().mockRejectedValue(new Error('boom'))
+    render(<CommentForm onSubmit={onSubmit} />)
+    type('Hard-won paragraphs.')
+    fireEvent.click(screen.getByText('Comment', { selector: 'button' }))
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+    expect(screen.getByLabelText('Comment')).toHaveValue('Hard-won paragraphs.')
+  })
+
+  it('keeps the text when editing an existing comment — clearing would look like data loss', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    render(<CommentForm onSubmit={onSubmit} initialValue="Original." submitLabel="Save" />)
     fireEvent.click(screen.getByText('Save'))
 
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
     expect(screen.getByLabelText('Comment')).toHaveValue('Original.')
   })
 

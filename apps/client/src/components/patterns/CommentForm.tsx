@@ -23,7 +23,7 @@ export function CommentForm({
   onCancel,
   autoFocus = false,
 }: {
-  onSubmit: (body: string) => void
+  onSubmit: (body: string) => void | Promise<unknown>
   initialValue?: string
   submitLabel?: string
   isPending?: boolean
@@ -44,10 +44,21 @@ export function CommentForm({
       return
     }
     setError(null)
-    onSubmit(result.data)
-    // A fresh box after a successful submit — but only when this form is not
-    // seeded with existing text, where clearing would look like data loss.
-    if (!initialValue) setBody('')
+
+    // Emptied only once the submit has actually SUCCEEDED. `onSubmit` fires a
+    // mutation, so clearing synchronously would throw away paragraphs of the
+    // reader's text the moment the request 500s or the session has expired —
+    // and the toast that follows offers no way to get them back.
+    // The rejection is swallowed on purpose: the caller already reports it, and
+    // all this handler needs to know is "do not clear".
+    void Promise.resolve(onSubmit(result.data)).then(
+      () => {
+        // Not when the form is seeded with existing text: on an edit, an empty
+        // box would read as data loss rather than as a fresh composer.
+        if (!initialValue) setBody('')
+      },
+      () => {},
+    )
   }
 
   return (

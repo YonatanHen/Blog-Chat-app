@@ -61,6 +61,36 @@ async function findById(commentId: string): Promise<HydratedDocument<Comment> | 
   return CommentModel.findById(commentId)
 }
 
+/**
+ * How deep a reply may sit under a root comment.
+ *
+ * A cap is required, not cosmetic: without one a scripted client can chain
+ * replies indefinitely, and every later reader pays for it — CommentThread
+ * renders one nested component per level, so a long enough chain overflows the
+ * stack of everyone who opens the post. The client indents to match.
+ */
+const MAX_DEPTH = 10
+
+/** Ancestor count of a comment: 0 for a root, 1 for a direct reply, and so on. */
+async function depthOf(comment: HydratedDocument<Comment>): Promise<number> {
+  if (!comment.parent) return 0
+  const [result] = await CommentModel.aggregate<{ depth: number }>([
+    { $match: { _id: comment._id } },
+    {
+      // The mirror of the cascade's walk: up the chain via `parent`, not down.
+      $graphLookup: {
+        from: CommentModel.collection.name,
+        startWith: '$parent',
+        connectFromField: 'parent',
+        connectToField: '_id',
+        as: 'ancestors',
+      },
+    },
+    { $project: { depth: { $size: '$ancestors' } } },
+  ])
+  return result?.depth ?? 0
+}
+
 export const commentService = {
   /**
    * The whole thread for a post, oldest first. Flat on the wire on purpose —
@@ -91,6 +121,13 @@ export const commentService = {
           console.warn('[COMMENT_SERVICE] rejected parent', { slug, parent: input.parent })
         throw new ValidationError('Invalid input.', {
           parent: ['Parent comment does not belong to this post'],
+        })
+      }
+      if ((await depthOf(parent)) + 1 > MAX_DEPTH) {
+        if (process.env.DEBUG)
+          console.warn('[COMMENT_SERVICE] rejected parent: too deep', { parent: input.parent })
+        throw new ValidationError('Invalid input.', {
+          parent: [`Replies can only be nested ${MAX_DEPTH} levels deep`],
         })
       }
     }
@@ -136,7 +173,10 @@ export const commentService = {
       { $match: { _id: root._id } },
       {
         $graphLookup: {
-          from: 'comments',
+          // Read off the model rather than hardcoded: a wrong collection name
+          // here fails SILENTLY — the pipeline returns no descendants and the
+          // cascade quietly degrades to deleting only the root.
+          from: CommentModel.collection.name,
           startWith: '$_id',
           connectFromField: '_id',
           connectToField: 'parent',
@@ -162,10 +202,23 @@ export const commentService = {
     await CommentModel.deleteMany({ post: postId })
   },
 
-  /** Loader for requireOwner. Returns only what the ownership check needs. */
-  async findByIdForOwnerCheck(commentId: string): Promise<{ author: Types.ObjectId } | null> {
+  /**
+   * Loader for requireOwner. Returns only what the ownership check needs.
+   *
+   * Scoped by slug as well as id, so a comment reached through the WRONG post's
+   * URL is a 404 rather than an edit or delete that silently succeeds. The URL
+   * claims a hierarchy; a nested resource that ignores its parent is lying, and
+   * the client would then invalidate the thread of a post that never changed.
+   */
+  async findForOwnerCheck(
+    slug: string,
+    commentId: string,
+  ): Promise<{ author: Types.ObjectId } | null> {
     if (!Types.ObjectId.isValid(commentId)) return null
-    const comment = await CommentModel.findById(commentId).select('author')
+    const post = await PostModel.findOne({ slug }).select('_id')
+    if (!post) return null
+
+    const comment = await CommentModel.findOne({ _id: commentId, post: post._id }).select('author')
     return comment ? { author: comment.author } : null
   },
 }

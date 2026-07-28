@@ -64,7 +64,7 @@ function CommentItem({ slug, node, depth }: { slug: string; node: CommentNode; d
             isPending={updateComment.isPending}
             onCancel={() => setEditing(false)}
             onSubmit={(body) =>
-              updateComment.mutate(
+              updateComment.mutateAsync(
                 { id: node.id, body },
                 {
                   onSuccess: () => setEditing(false),
@@ -114,8 +114,10 @@ function CommentItem({ slug, node, depth }: { slug: string; node: CommentNode; d
           submitLabel="Reply"
           isPending={createComment.isPending}
           onCancel={() => setReplying(false)}
+          // mutateAsync, not mutate: the form keeps the draft unless the promise
+          // resolves, so a rejected reply is not silently thrown away.
           onSubmit={(body) =>
-            createComment.mutate(
+            createComment.mutateAsync(
               { body, parent: node.id },
               {
                 onSuccess: () => setReplying(false),

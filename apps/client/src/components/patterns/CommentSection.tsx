@@ -29,8 +29,10 @@ export function CommentSection({ slug }: { slug: string }) {
       {me ? (
         <CommentForm
           isPending={createComment.isPending}
+          // mutateAsync, not mutate: the form clears its box only when the
+          // returned promise resolves, so a failed post keeps the draft.
           onSubmit={(body) =>
-            createComment.mutate(
+            createComment.mutateAsync(
               { body },
               {
                 onError: (err) =>

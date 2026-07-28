@@ -63,6 +63,17 @@ describe('commentService.create', () => {
       commentService.create(slug, { body: 'Reply.', parent: ghost }, authorId),
     ).rejects.toThrow(ValidationError)
   })
+
+  // Without a cap a scripted client can chain replies without limit, and every
+  // later reader pays: the thread renders one nested component per level.
+  it('accepts a chain up to the depth limit and rejects the level past it', async () => {
+    let node = await comment('Root.')
+    for (let depth = 1; depth <= 10; depth++) {
+      node = await comment(`Level ${depth}.`, node.id)
+    }
+    await expect(commentService.create(slug, { body: 'Too deep.', parent: node.id }, authorId))
+      .rejects.toThrow(ValidationError)
+  })
 })
 
 describe('commentService.list', () => {
@@ -149,18 +160,35 @@ describe('commentService.removeAllForPost', () => {
   })
 })
 
-describe('commentService.findByIdForOwnerCheck', () => {
+describe('commentService.findForOwnerCheck', () => {
   it('returns the author id for requireOwner', async () => {
     const created = await comment('Mine.')
-    const found = await commentService.findByIdForOwnerCheck(created.id)
+    const found = await commentService.findForOwnerCheck(slug, created.id)
     expect(found!.author.toString()).toBe(authorId)
   })
 
   it('returns null for an unknown id so requireOwner can 404', async () => {
-    expect(await commentService.findByIdForOwnerCheck(new Types.ObjectId().toString())).toBeNull()
+    const ghost = new Types.ObjectId().toString()
+    expect(await commentService.findForOwnerCheck(slug, ghost)).toBeNull()
   })
 
   it('returns null for a malformed id rather than throwing a CastError', async () => {
-    expect(await commentService.findByIdForOwnerCheck('not-an-id')).toBeNull()
+    expect(await commentService.findForOwnerCheck(slug, 'not-an-id')).toBeNull()
+  })
+
+  // The URL claims the comment hangs off this post. A loader that ignored the
+  // slug would let an edit or a delete succeed through any post's URL.
+  it('returns null when the comment belongs to a DIFFERENT post', async () => {
+    const other = await postService.create(
+      { title: 'Another Title', body: 'Body.', tags: [] },
+      authorId,
+    )
+    const created = await comment('Mine.')
+    expect(await commentService.findForOwnerCheck(other.slug, created.id)).toBeNull()
+  })
+
+  it('returns null for an unknown post slug', async () => {
+    const created = await comment('Mine.')
+    expect(await commentService.findForOwnerCheck('nope', created.id)).toBeNull()
   })
 })

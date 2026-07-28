@@ -14,9 +14,13 @@ export const commentsRouter = Router({ mergeParams: true })
 
 type CommentParams = { slug: string; commentId: string }
 
-/** Loader for requireOwner: resolves :commentId to the comment's author. */
+/**
+ * Loader for requireOwner: resolves :slug + :commentId to the comment's author.
+ * Both params, not just the id — a comment addressed through another post's URL
+ * must 404, the way likeService resolves :slug before touching a like.
+ */
 const loadCommentOwner = (req: Request<CommentParams>) =>
-  commentService.findByIdForOwnerCheck(req.params.commentId)
+  commentService.findForOwnerCheck(req.params.slug, req.params.commentId)
 
 // Public, and deliberately ungated: the wall is on post bodies, not on the
 // discussion around them, so no viewer id is passed and none is consulted.

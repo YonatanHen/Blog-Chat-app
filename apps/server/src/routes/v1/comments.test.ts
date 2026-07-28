@@ -158,6 +158,37 @@ describe('DELETE /api/v1/posts/:slug/comments/:commentId', () => {
   })
 })
 
+// The URL advertises a hierarchy. A nested resource that ignores its parent
+// would let a client edit or delete a comment through any post's URL, and then
+// invalidate the thread of a post that never changed.
+describe('resource scoping', () => {
+  async function withTwoPosts() {
+    const { a, author } = await withPost()
+    await author.post('/api/v1/posts').send({ title: 'Another Title', body: 'Body.' })
+    const created = await author.post(COMMENTS).send({ body: 'Mine.' })
+    return { a, author, id: created.body.id }
+  }
+
+  it('404s a PATCH addressed through the wrong post', async () => {
+    const { author, id } = await withTwoPosts()
+    const res = await author
+      .patch(`/api/v1/posts/another-title/comments/${id}`)
+      .send({ body: 'Moved.' })
+    expect(res.status).toBe(404)
+  })
+
+  it('404s a DELETE addressed through the wrong post, and the comment survives', async () => {
+    const { a, author, id } = await withTwoPosts()
+    expect((await author.delete(`/api/v1/posts/another-title/comments/${id}`)).status).toBe(404)
+    expect((await request(a).get(COMMENTS)).body).toHaveLength(1)
+  })
+
+  it('404s a DELETE addressed through an unknown post', async () => {
+    const { author, id } = await withTwoPosts()
+    expect((await author.delete(`/api/v1/posts/nope/comments/${id}`)).status).toBe(404)
+  })
+})
+
 describe('deleting a post', () => {
   it('takes its comments with it', async () => {
     const { a, author } = await withPost()
