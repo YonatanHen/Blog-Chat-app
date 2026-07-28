@@ -5,6 +5,7 @@ import {
   type UpdatePost,
 } from '@blog/zod-shared'
 import { NotFoundError } from '../errors.js'
+import { commentService } from './comment.js'
 import { LikeModel } from '../../models/like.js'
 import { PostModel, type Post } from '../../models/post.js'
 import { Types, type HydratedDocument } from 'mongoose'
@@ -145,6 +146,9 @@ export const postService = {
     // Delete the likes first: a like pointing at a missing post is an orphan
     // that would inflate no count but would never be collected either.
     await LikeModel.deleteMany({ post: post._id })
+    // Same reasoning for the thread — and it can be flat here, because every
+    // comment on the post goes regardless of where it sat in the tree.
+    await commentService.removeAllForPost(post._id)
     await post.deleteOne()
   },
 

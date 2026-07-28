@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { SignupSchema, CreatePostSchema, UpdatePostSchema, slugify, deriveTeaser } from './index.js'
+import {
+  SignupSchema,
+  CreatePostSchema,
+  UpdatePostSchema,
+  CreateCommentSchema,
+  UpdateCommentSchema,
+  slugify,
+  deriveTeaser,
+} from './index.js'
 
 describe('SignupSchema', () => {
   it('accepts a valid signup', () => {
@@ -101,6 +109,69 @@ describe('UpdatePostSchema', () => {
       postId: 'attacker-supplied',
     } as never)
     expect(parsed).not.toHaveProperty('postId')
+  })
+})
+
+describe('CreateCommentSchema', () => {
+  const OID = '507f1f77bcf86cd799439011'
+
+  it('accepts a root comment with no parent', () => {
+    const result = CreateCommentSchema.safeParse({ body: 'Nice post.' })
+    expect(result.success).toBe(true)
+    expect(result.data!.parent).toBeUndefined()
+  })
+
+  it('accepts a reply carrying a parent id', () => {
+    expect(CreateCommentSchema.parse({ body: 'Agreed.', parent: OID }).parent).toBe(OID)
+  })
+
+  it('trims the body', () => {
+    expect(CreateCommentSchema.parse({ body: '  spaced  ' }).body).toBe('spaced')
+  })
+
+  it('rejects a body that is empty once trimmed', () => {
+    const result = CreateCommentSchema.safeParse({ body: '   ' })
+    expect(result.success).toBe(false)
+    expect(result.error!.flatten().fieldErrors.body).toEqual(['Comment cannot be empty'])
+  })
+
+  it('rejects a body longer than 5,000 characters', () => {
+    expect(CreateCommentSchema.safeParse({ body: 'a'.repeat(5001) }).success).toBe(false)
+  })
+
+  it('rejects a parent that is not a 24-char hex id', () => {
+    // Without this the value reaches Mongoose and a CastError surfaces as a 500.
+    const result = CreateCommentSchema.safeParse({ body: 'hi', parent: 'not-an-id' })
+    expect(result.success).toBe(false)
+    expect(result.error!.flatten().fieldErrors.parent).toBeDefined()
+  })
+
+  it('strips an author field — identity comes from the session only', () => {
+    const result = CreateCommentSchema.parse({ body: 'hi', author: 'attacker' } as never)
+    expect('author' in result).toBe(false)
+  })
+
+  it('strips a post field — the slug in the URL identifies the post', () => {
+    const result = CreateCommentSchema.parse({ body: 'hi', post: 'attacker' } as never)
+    expect('post' in result).toBe(false)
+  })
+})
+
+describe('UpdateCommentSchema', () => {
+  it('accepts a body-only edit', () => {
+    expect(UpdateCommentSchema.safeParse({ body: 'Edited.' }).success).toBe(true)
+  })
+
+  it('still requires a body — an edit to nothing is not an edit', () => {
+    expect(UpdateCommentSchema.safeParse({}).success).toBe(false)
+  })
+
+  it('strips parent — a comment is never re-parented after creation', () => {
+    const parsed = UpdateCommentSchema.parse({
+      body: 'Edited.',
+      parent: '507f1f77bcf86cd799439011',
+    } as never)
+    expect(parsed).not.toHaveProperty('parent')
   })
 })
 

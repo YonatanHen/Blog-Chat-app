@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { ApiError } from '../api/client.js'
 import { usePost, useDeletePost } from '../hooks/use-posts.js'
 import { useMe } from '../hooks/use-auth.js'
+import { CommentSection } from '../components/patterns/CommentSection.js'
 import { EmptyState } from '../components/patterns/EmptyState.js'
 import { LikeButton } from '../components/patterns/LikeButton.js'
 import { Button } from '../components/ui/button.js'
@@ -82,6 +83,8 @@ export function PostPage() {
           </>
         )}
       </div>
+
+      <CommentSection slug={post.slug} />
     </article>
   )
 }

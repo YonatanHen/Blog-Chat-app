@@ -16,6 +16,12 @@ export const queryKeys = {
       detail: (slug: string) => ['posts', slug, 'likes'] as const,
     },
   },
+  // Deliberately NOT nested under ['posts', slug]: a comment payload does not
+  // depend on the viewer the way a post body does, so the auth transitions that
+  // invalidate ['posts'] have no reason to drop the thread as well.
+  comments: {
+    list: (slug: string) => ['comments', slug] as const,
+  },
   users: {
     detail: (id: string) => ['users', id] as const,
   },
