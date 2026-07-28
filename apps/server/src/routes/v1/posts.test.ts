@@ -44,6 +44,61 @@ describe('GET /api/v1/posts', () => {
   })
 })
 
+describe('GET /api/v1/posts?q= — search over the text index', () => {
+  /** Two posts, distinguishable by title and by tag. */
+  async function seed(a: ReturnType<typeof buildTestApp>) {
+    const author = await signedInAgent(a, 'author')
+    await author.post('/api/v1/posts').send({ title: 'Indexing Mongo Text', body: BODY, tags: ['db'] })
+    await author.post('/api/v1/posts').send({ title: 'An Unrelated Essay', body: BODY, tags: ['prose'] })
+  }
+
+  it('returns only the matching posts', async () => {
+    const a = app()
+    await seed(a)
+    const res = await request(a).get('/api/v1/posts').query({ q: 'Mongo' })
+    expect(res.status).toBe(200)
+    expect(res.body.map((p: { title: string }) => p.title)).toEqual(['Indexing Mongo Text'])
+  })
+
+  it('returns 200 with an empty array when nothing matches', async () => {
+    const a = app()
+    await seed(a)
+    const res = await request(a).get('/api/v1/posts').query({ q: 'zzzznotaword' })
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual([])
+  })
+
+  // Mongo rejects `$text: { $search: '' }` — an empty box must not 500 the feed.
+  it('treats ?q= as no filter at all rather than erroring', async () => {
+    const a = app()
+    await seed(a)
+    const res = await request(a).get('/api/v1/posts?q=')
+    expect(res.status).toBe(200)
+    expect(res.body).toHaveLength(2)
+  })
+
+  it('filters by ?tag=, and combines it with ?q=', async () => {
+    const a = app()
+    await seed(a)
+    expect((await request(a).get('/api/v1/posts').query({ tag: 'db' })).body).toHaveLength(1)
+    expect((await request(a).get('/api/v1/posts').query({ q: 'Mongo', tag: 'prose' })).body).toEqual([])
+  })
+
+  it('keeps search results teased and gated exactly as the unfiltered feed is', async () => {
+    const a = app()
+    await seed(a)
+
+    const anon = await request(a).get('/api/v1/posts').query({ q: 'Mongo' })
+    expect(anon.body[0].gated).toBe(true)
+    expect(anon.text).not.toContain('Para three')
+
+    const reader = await signedInAgent(a, 'reader')
+    const signedIn = await reader.get('/api/v1/posts').query({ q: 'Mongo' })
+    expect(signedIn.body[0].gated).toBe(false)
+    expect(signedIn.text).not.toContain('Para three')
+  })
+})
+
 describe('POST /api/v1/posts', () => {
   it('creates a post for a signed-in user', async () => {
     const author = await signedInAgent(app(), 'author')

@@ -18,8 +18,21 @@ export const postsRouter = Router()
 const loadPostOwner = (req: Request<{ slug: string }>) =>
   postService.findBySlugForOwnerCheck(req.params.slug)
 
+/**
+ * Query params arrive as `string | string[] | ParsedQs`, so each filter is
+ * narrowed to a plain string and anything else dropped. Trimming, the
+ * empty-term guard and the matching itself all belong to the service.
+ */
+const stringParam = (value: Request['query'][string]) =>
+  typeof value === 'string' ? value : undefined
+
 postsRouter.get('/', async (req, res) => {
-  res.json(await postService.list(req.session?.userId))
+  res.json(
+    await postService.list(req.session?.userId, {
+      q: stringParam(req.query.q),
+      tag: stringParam(req.query.tag),
+    }),
+  )
 })
 
 postsRouter.post('/', requireAuth, validate(CreatePostSchema), async (req, res) => {
