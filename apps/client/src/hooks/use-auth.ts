@@ -44,7 +44,7 @@ function useAuthTransition<TInput, TResult>(
     onSuccess: (result) => {
       queryClient.setQueryData(queryKeys.me, resolveUser(result))
       // ['posts'] is a prefix of ['posts', slug], so detail queries go too.
-      return queryClient.invalidateQueries({ queryKey: queryKeys.posts.list })
+      return queryClient.invalidateQueries({ queryKey: queryKeys.posts.all })
     },
   })
 }

@@ -1,15 +1,25 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { CreatePost, UpdatePost } from '@blog/zod-shared'
-import { postsApi } from '../api/posts.js'
+import { postsApi, type PostListParams } from '../api/posts.js'
 import { queryKeys } from '../lib/query-client.js'
 
 /**
- * The feed. Deliberately not keyed by the viewer: the session cookie rides on
- * the request, and `useLogin`/`useLogout` invalidate this key, so signing in
- * refetches and the teasers come back ungated.
+ * The feed, optionally filtered. Keyed by the filters so each search term
+ * caches on its own, but deliberately NOT keyed by the viewer: the session
+ * cookie rides on the request, and `useLogin`/`useLogout` invalidate `posts.all`
+ * — a prefix of every key here — so signing in refetches and the teasers come
+ * back ungated.
+ *
+ * `keepPreviousData` keeps the previous results on screen while the next term
+ * loads. Without it every keystroke that survives the debounce is a brand new
+ * key, so `isPending` flips back to true and the feed blinks to skeletons.
  */
-export function usePosts() {
-  return useQuery({ queryKey: queryKeys.posts.list, queryFn: postsApi.list })
+export function usePosts(params: PostListParams = {}) {
+  return useQuery({
+    queryKey: queryKeys.posts.list(params),
+    queryFn: () => postsApi.list(params),
+    placeholderData: keepPreviousData,
+  })
 }
 
 /**
@@ -30,7 +40,7 @@ export function useCreatePost() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (input: CreatePost) => postsApi.create(input),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.posts.list }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.posts.all }),
   })
 }
 
@@ -38,7 +48,7 @@ export function useDeletePost() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (slug: string) => postsApi.remove(slug),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.posts.list }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.posts.all }),
   })
 }
 
@@ -50,7 +60,7 @@ export function useUpdatePost(slug: string) {
       // ['posts'] is a prefix of ['posts', slug], so one invalidation would do —
       // but the slug changes when the title does, and the old detail key is the
       // one the editor is still mounted on.
-      queryClient.invalidateQueries({ queryKey: queryKeys.posts.list })
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.posts.detail(slug) })
     },
   })

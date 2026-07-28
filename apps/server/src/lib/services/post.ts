@@ -7,9 +7,12 @@ import {
 import { NotFoundError } from '../errors.js'
 import { LikeModel } from '../../models/like.js'
 import { PostModel, type Post } from '../../models/post.js'
-import { Types, type HydratedDocument } from 'mongoose'
+import { Types, type FilterQuery, type HydratedDocument } from 'mongoose'
 
 export type PostAuthor = { id: string; username: string }
+
+/** Feed filters. Both are optional and combine with AND when both are given. */
+export type PostListParams = { q?: string; tag?: string }
 
 export type PostDto = {
   id: string
@@ -49,11 +52,16 @@ function toDto(
   { full, gated }: { full: boolean; gated: boolean },
 ): PostDto {
   const author = post.author
+  // REGRESSION GUARD (legacy postsList.jsx:12): `body` is required by the schema,
+  // but a document written around the validator still reaches this function, and
+  // `deriveTeaser(undefined)` threw a TypeError that took the whole feed down.
+  // One bad row must not 500 the list.
+  const body = post.body ?? ''
   return {
     id: post._id.toString(),
     title: post.title,
     slug: post.slug,
-    body: full ? post.body : deriveTeaser(post.body),
+    body: full ? body : deriveTeaser(body),
     gated,
     author: isPopulated(author)
       ? { id: author._id.toString(), username: author.username }
@@ -89,9 +97,29 @@ export const postService = {
    * The feed. Teaser bodies ALWAYS — a list endpoint never ships full bodies,
    * signed in or not. `viewerId` therefore changes only `gated`, i.e. whether
    * the card invites the reader to sign in, never how much text is sent.
+   *
+   * Search runs on the `{ title, body }` text index declared on the model, so the
+   * database does the matching — the legacy client filtered an already-downloaded
+   * array, which only ever searched the page it had.
+   *
+   * Both filters are trimmed and an empty one is dropped: Mongo rejects `$text:
+   * { $search: '' }`, so `?q=` must degrade to an unfiltered feed rather than a
+   * 500, and `?tag=` must not match the posts that happen to have no tags.
    */
-  async list(viewerId?: string): Promise<PostDto[]> {
-    const posts = await PostModel.find().sort({ createdAt: -1 }).populate('author', 'username')
+  async list(viewerId?: string, params: PostListParams = {}): Promise<PostDto[]> {
+    const term = params.q?.trim()
+    const tag = params.tag?.trim()
+    const filter: FilterQuery<Post> = {}
+    if (term) filter.$text = { $search: term }
+    if (tag) filter.tags = tag
+
+    if (process.env.DEBUG) console.log('[postService.list]', { term, tag, viewerId })
+
+    const query = PostModel.find(filter).populate('author', 'username')
+    // Relevance when there is a term to be relevant to, newest-first otherwise.
+    query.sort(term ? { score: { $meta: 'textScore' } } : { createdAt: -1 })
+    const posts = await query
+
     return Promise.all(
       posts.map(async (p) =>
         toDto(p, await countLikes(p._id), {
