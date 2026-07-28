@@ -12,13 +12,14 @@ The Blog-Chat app was built with MERN stack and socket.io.
 ```bash
 cp .env.example .env       # then fill in SESSION_SECRET
 npm install
-npm run dev                # docker compose watch — api, mongo, redis
+npm run dev                # docker compose watch — api, client, mongo, redis
 npm run seed               # demo data + a demo account
 ```
 
-The API is on http://localhost:3000/api/v1. There is no UI yet — that is P2.
+The client is on http://localhost:5173, proxying `/api` to the API on http://localhost:3000/api/v1 —
+same origin as prod, so the session cookie behaves identically in dev.
 
-## Try the authorization model with curl
+## The API, if you want to bypass the UI
 
 ```bash
 # Anonymous: the body is a teaser. The full text is not in the response at
