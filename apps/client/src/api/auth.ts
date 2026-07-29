@@ -7,7 +7,10 @@ export type User = { id: string; username: string; email: string }
 
 export const authApi = {
   signup: (input: z.infer<typeof SignupSchema>) => {
-    if (DEBUG) console.log('[AUTH_API] signup called with:', input)
+    // Never spread `input` into a log: it carries the plaintext password, and
+    // the hardening pass forbids a credential reaching any log sink. Trace the
+    // identifying fields only.
+    if (DEBUG) console.log('[AUTH_API] signup called for:', input.username, input.email)
     return request<User>('/api/v1/auth/signup', { method: 'POST', body: JSON.stringify(input) })
   },
 
