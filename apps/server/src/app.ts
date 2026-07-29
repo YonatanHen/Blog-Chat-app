@@ -1,7 +1,9 @@
 import express from 'express'
 import helmet from 'helmet'
+import type { ChatService } from './lib/services/chat.js'
 import { errorHandler } from './middleware/error-handler.js'
 import { notFound } from './middleware/not-found.js'
+import { createChatRouter } from './routes/v1/chat.js'
 import { v1Router } from './routes/v1/index.js'
 import { mountStatic } from './static.js'
 
@@ -12,6 +14,8 @@ export type BuildAppOptions = {
   trustProxy?: boolean
   /** Directory holding the built SPA. Absent in P1 — there is no client yet. */
   clientDist?: string
+  /** Absent in tests that do not exercise chat. */
+  chatService?: ChatService
 }
 
 /**
@@ -34,6 +38,9 @@ export function buildApp(opts: BuildAppOptions): express.Express {
     app.use(opts.sessionMiddleware)
   }
 
+  // On the app, not on v1Router: that router is a module singleton, and
+  // mounting per-buildApp would leak one test's service into the next.
+  if (opts.chatService) app.use('/api/v1/chat', createChatRouter(opts.chatService))
   app.use('/api/v1', v1Router)
   if (opts.clientDist) mountStatic(app, opts.clientDist)
   app.use(notFound)

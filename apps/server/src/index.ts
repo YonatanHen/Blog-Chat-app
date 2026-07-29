@@ -2,6 +2,7 @@ import { connectDb } from './lib/db.js'
 import { RedisStore } from 'connect-redis' // NAMED export in v9 — there is no default
 import { loadEnv } from './lib/env.js'
 import { getRedis } from './lib/redis.js'
+import { createChatService } from './lib/services/chat.js'
 import { buildSessionMiddleware } from './lib/session.js'
 import { buildApp } from './app.js'
 
@@ -19,10 +20,13 @@ async function main(): Promise<void> {
     secure: isProd, // a Secure cookie over plain http:// is silently dropped
   })
 
+  const chatService = createChatService(redis)
+
   const app = buildApp({
     sessionMiddleware,
     trustProxy: isProd, // Render terminates TLS at a proxy
     clientDist: env.CLIENT_DIST,
+    chatService,
   })
 
   app.listen(env.PORT, () => {
