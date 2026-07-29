@@ -1,3 +1,4 @@
+import { createServer } from 'node:http'
 import { connectDb } from './lib/db.js'
 import { RedisStore } from 'connect-redis' // NAMED export in v9 — there is no default
 import { loadEnv } from './lib/env.js'
@@ -5,6 +6,7 @@ import { getRedis } from './lib/redis.js'
 import { createChatService } from './lib/services/chat.js'
 import { buildSessionMiddleware } from './lib/session.js'
 import { buildApp } from './app.js'
+import { createRealtime } from './realtime/index.js'
 
 async function main(): Promise<void> {
   // Validate the environment FIRST: fail before opening any connection.
@@ -29,7 +31,10 @@ async function main(): Promise<void> {
     chatService,
   })
 
-  app.listen(env.PORT, () => {
+  const server = createServer(app)
+  createRealtime({ server, sessionMiddleware, chatService })
+
+  server.listen(env.PORT, () => {
     console.log(`API listening on :${env.PORT} (${env.NODE_ENV})`)
   })
 }
