@@ -60,7 +60,7 @@ preserving the project's identity: a MERN blog with real-time chat.
 | Theme | **Light only. White primary, blue secondary.** | Editorial aesthetic; blue is the accent (actions, links, focus), body text stays near-black. **No dark-mode toggle.** |
 | Images | **Cloudinary** | Free forever tier. Replaces the S3 + CloudFront plan. |
 | Likes | **Toggle (like / unlike)** | Not up/down voting. Count never goes below zero. |
-| Repo | **Monorepo** (npm workspaces) | Services share models, Zod schemas, and ticket verification. |
+| Repo | **Monorepo** (npm workspaces) | Server and client share Zod schemas and inferred types via `packages/zod-shared`. |
 | Testing | **Vitest (unit) + Supertest (API integration) + Playwright (E2E)** | Regression tests for the authorization bugs; E2E on critical paths. |
 
 ### Standing constraints
