@@ -5,6 +5,7 @@ import {
   UpdatePostSchema,
   CreateCommentSchema,
   UpdateCommentSchema,
+  ChatMessageSchema,
   slugify,
   deriveTeaser,
 } from './index.js'
@@ -197,5 +198,27 @@ describe('deriveTeaser', () => {
 
   it('returns the whole body when it is shorter than the limit', () => {
     expect(deriveTeaser('Only one.')).toBe('Only one.')
+  })
+})
+
+describe('ChatMessageSchema', () => {
+  it('trims and accepts a normal message', () => {
+    const result = ChatMessageSchema.parse({ body: '  hello  ' })
+    expect(result.body).toBe('hello')
+  })
+
+  it('rejects a whitespace-only message', () => {
+    expect(ChatMessageSchema.safeParse({ body: '   ' }).success).toBe(false)
+  })
+
+  it('rejects a message over 1,000 characters', () => {
+    expect(ChatMessageSchema.safeParse({ body: 'a'.repeat(1001) }).success).toBe(false)
+  })
+
+  // The author is server-derived. A payload claiming one must not survive
+  // parsing, or the socket handler could be tempted to trust it.
+  it('strips an author supplied by the client', () => {
+    const result = ChatMessageSchema.parse({ body: 'hi', author: { id: 'x', username: 'admin' } })
+    expect(result).not.toHaveProperty('author')
   })
 })
