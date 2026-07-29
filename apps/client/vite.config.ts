@@ -14,6 +14,13 @@ export default defineConfig({
         target: process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:3000',
         changeOrigin: false,
       },
+      // Socket.io's own endpoint, not under /api. `ws: true` proxies the
+      // upgrade; without it the handshake polls forever and never upgrades.
+      '/socket.io': {
+        target: process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:3000',
+        changeOrigin: false,
+        ws: true,
+      },
     },
   },
 })
