@@ -10,5 +10,7 @@ test-results/
 playwright-report/
 .DS_Store
 .local
-.claude
+.claude/settings.local.json
+.claude/*.local.md
+.claude/worktrees/
 infra/secrets/**/*.txt
