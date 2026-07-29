@@ -327,7 +327,7 @@ which is the one window where the two disagree:
 | Main spec §12 | Cost table: one web service, not two; correct the cold-start note |
 | Main spec §13 | P4 row: no separate service |
 | `CLAUDE.md` | The `apps/realtime` architecture bullet and the "realtime is the exception" CORS paragraph — CORS is now genuinely never needed anywhere |
-| `README.md` | Move chat out of "Not yet built"; the architecture diagram gains the socket on the existing service |
+| `README.md` | Correct the two `apps/realtime` references. Chat **stays** in "Not yet built" — it is designed, not built, and moving it now would be false. It moves out, and the architecture diagram gains the socket, when the implementation lands |
 
 ---
 

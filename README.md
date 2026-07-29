@@ -35,9 +35,11 @@ flowchart TB
 **One origin, one deployed service.** `apps/server` serves both the REST API and the built client SPA —
 no separate frontend service, no CORS anywhere, and the httpOnly session cookie behaves identically in
 dev, CI, and prod. `packages/zod-shared` is the cross-app package: the same Zod schema validates a
-request on the server and drives the matching form on the client. Full rationale, including why
-`apps/realtime` (P4, not built yet) will need a different auth handshake:
-`docs/superpowers/specs/2026-07-16-express-react-rebuild-design.md`.
+request on the server and drives the matching form on the client. Realtime chat (P4, designed but not
+built) will run in this same process rather than as a separate service, so it inherits the same origin and
+the same session instead of needing an auth handshake of its own. Full rationale:
+`docs/superpowers/specs/2026-07-16-express-react-rebuild-design.md` and
+`docs/superpowers/specs/2026-07-29-realtime-chat-design.md`.
 
 ## Core flows, in a nutshell
 
@@ -98,9 +100,10 @@ client-side `Array.filter`. See "Search semantics" below for the word-matching b
 - **Threaded comments** — Markdown editor with a live preview, cascade-delete of reply subtrees.
 - **Search** — full-text search plus tag filtering over the feed, debounced, bookmarkable via the URL.
 
-**Not yet built (by design, not oversight):** realtime chat (`apps/realtime`, planned P4), OAuth login
-(planned P6), and media/avatar uploads. See the phase table in
-`docs/superpowers/specs/2026-07-16-express-react-rebuild-design.md` §13 for what's next.
+**Not yet built (by design, not oversight):** realtime chat (P4 — designed, see
+`docs/superpowers/specs/2026-07-29-realtime-chat-design.md`), OAuth login (planned P6), and media/avatar
+uploads. See the phase table in `docs/superpowers/specs/2026-07-16-express-react-rebuild-design.md` §13
+for what's next.
 
 ## Quick start
 

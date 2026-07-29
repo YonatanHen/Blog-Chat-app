@@ -61,19 +61,24 @@ so a broken prod build is caught before Render is; `render.yaml` is the prod inf
 
 ```
 apps/
-  server/      # Express REST API; also serves the built SPA in prod → Render web service
+  server/      # Express REST API + Socket.io (P4); also serves the built SPA in prod → Render web service
   client/      # React + Vite SPA → static bundle, served by apps/server
-  realtime/    # Socket.io service (P4) → separate Render web service
 packages/
   zod-shared/  # Zod schemas only — the cross-app package (server validates and client forms both use it)
 ```
 
-**One origin, one service.** `apps/server` serves both `/api/v1/*` and the built SPA (catch-all →
-`index.html`). In dev, Vite's `server.proxy` forwards `/api` to the API container, reproducing the same
-origin. This is load-bearing: the httpOnly session cookie works identically in dev, CI, and prod, and **CORS
-is never needed anywhere**. `apps/realtime` is the exception — it's a separate origin, which is exactly why
-it needs a signed handshake ticket instead of the cookie (Render subdomains are on the Public Suffix List
-and cannot share cookies).
+**One origin, one service — with no exceptions.** `apps/server` serves `/api/v1/*`, the built SPA
+(catch-all → `index.html`), and the Socket.io server, all from one process. In dev, Vite's `server.proxy`
+forwards `/api` to the API container, reproducing the same origin. This is load-bearing: the httpOnly
+session cookie works identically in dev, CI, and prod, and **CORS is never needed anywhere**.
+
+There is **no `apps/realtime`** (decided 2026-07-29). It was designed as a separate service, which forced a
+signed handshake ticket — a separate origin cannot receive the session cookie, and Render subdomains are on
+the Public Suffix List so widening the cookie's domain is refused by the browser, not merely unwise.
+Running Socket.io in the same process removes the ticket, the shared sign/verify package it needed, and
+CORS. The socket reads the session directly via `io.engine.use(sessionMiddleware)`; identity always comes
+from `socket.data.user`, never from a message payload. Rationale:
+`docs/superpowers/specs/2026-07-29-realtime-chat-design.md`.
 
 **Zod is the single source of truth for validation.** Schemas live in `packages/zod-shared/src/schemas/`;
 types are inferred (`z.infer<...>`), never hand-declared. The same schema validates the request on the
