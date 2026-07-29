@@ -733,15 +733,18 @@ items, a Supertest integration test against the real route.
 - [x] User cannot delete another user's account (`server/routers/user.js:60`) — `users.test.ts`
 - [x] Logout requires authentication **and is POST-only** (`server/routers/user.js:45` — unauthenticated GET) — `auth.test.ts`
 - [x] Like requires authentication and uses session identity, not a body field — `likes.test.ts`
-- [ ] Chat messages use server-derived identity — a client cannot speak as another user
-      (old `app.js:56` echoed `message.user` straight from the client payload) — **P4** (realtime, not built yet)
+- [x] Chat messages use server-derived identity — a client cannot speak as another user
+      (old `app.js:56` echoed `message.user` straight from the client payload) — `realtime.test.ts`'s "stamps
+      the session identity and ignores an author in the payload"
 - [x] Session token is not readable by JavaScript (httpOnly cookie, not `localStorage`) — `session.test.ts`
 - [x] Login does not reveal whether a username exists — `auth.test.ts`
 - [x] A post's full body is absent from the API response for an anonymous reader (§6) — `posts.test.ts`
 
 **Correctness**
-- [ ] Socket listeners are cleaned up (old `chat.jsx:51` added a listener per message received) — **P4**
-- [ ] Chat does not emit `disconnect` on every render (`chat.jsx:57`) — **P4**
+- [x] Socket listeners are cleaned up (old `chat.jsx:51` added a listener per message received) —
+      `use-chat.test.tsx`'s "removes every listener it registered on unmount"
+- [x] Chat does not emit `disconnect` on every render (`chat.jsx:57`) — `use-chat.test.tsx`'s "does not
+      reconnect or disconnect on re-render"
 - [x] A failed delete does not remove the post from the UI (`store/actions/posts.js:44`) — **P2**, `use-posts.ts`'s `useDeletePost` (invalidate-not-optimistic, so a failed mutation never touched the cache); structural guarantee, not yet exercised by a written test
 - [ ] Password confirmation is validated *before* the request, not after (`updateUser.jsx:58`) — **P2, known gap**: no signup confirm-password field was built in this round; not silently dropped, tracked here for a future pass
 - [x] Password is not silently reset on every profile update (`user.js:79` compares plaintext to a hash) — `users.test.ts`

@@ -5,7 +5,8 @@ Living reference doc — update as the rebuild progresses. Unlike `docs/superpow
 
 **Status legend:** ✅ live today · 🚧 in progress · 📋 planned, not built yet
 
-**Last verified against reality:** 2026-07-28, P2 (React client) complete on `staging`.
+**Last verified against reality:** 2026-07-29, P2 (React client) complete on `staging`; P4 (realtime chat)
+built on `dev/realtime-chat`, not yet merged or deployed.
 
 ---
 
@@ -73,22 +74,17 @@ reviewer) and to make the pipeline stage explicit.
 
 ```mermaid
 flowchart TB
-    Users(("End Users")) -->|"HTTPS — SPA + /api/v1/*, one origin"| ApiSvc
-    Users -->|WebSocket, signed ticket| RealtimeSvc
+    Users(("End Users")) -->|"HTTPS + WebSocket — SPA + /api/v1/* + chat, one origin"| ApiSvc
 
     Master(["master branch"]) -->|auto-deploy webhook| ApiSvc
-    Master -->|auto-deploy webhook| RealtimeSvc
 
     subgraph RenderCloud["Render (free tier)"]
-        ApiSvc["apps/server<br/>Express REST API<br/>+ serves apps/client build"]
-        RealtimeSvc["apps/realtime<br/>Socket.io service"]
+        ApiSvc["apps/server<br/>Express REST API + Socket.io chat<br/>+ serves apps/client build"]
         Redis[("Render Key Value — Redis<br/>sessions, chat buffer, rate limit")]
         ApiSvc <-->|internal network| Redis
-        RealtimeSvc <-->|internal network| Redis
     end
 
     ApiSvc -->|MONGODB_URI| Atlas[("MongoDB Atlas M0<br/>production cluster")]
-    RealtimeSvc -->|MONGODB_URI| Atlas
 
     ApiSvc -->|signed upload params| Cloudinary[("Cloudinary<br/>free-forever tier")]
     Users -->|"direct upload / image GET"| Cloudinary
@@ -96,18 +92,22 @@ flowchart TB
 
 | Component | Status | Notes |
 |---|---|---|
-| `apps/server` Render service | 🚧 built, not yet deployed | P1. Serves the REST API **and** the built SPA from one origin — no CORS, no cross-origin cookie problem |
+| `apps/server` Render service | 🚧 built, not yet deployed | P1–P4. Serves the REST API, the built SPA, **and** the Socket.io realtime chat server from one origin — no CORS, no cross-origin cookie problem |
 | `apps/client` | 🚧 built, baked into the `apps/server` image | P2, complete on `staging`. Vite build; not a separate Render service — this was always the design, see "Why one service for API + client" below |
-| `apps/realtime` Render service | 📋 planned | P4 — Socket.io, separate service, cold starts accepted |
+| Realtime chat | 🚧 built, not yet deployed | P4 — runs **inside** `apps/server`, not as its own Render service (see below); no separate handshake needed because it shares the session cookie |
 | Render Key Value (Redis) | 🚧 declared in `infra/render.yaml`, not yet provisioned | P1 (sessions) → P4 (chat buffer, presence) → P6 (rate limiting). Ephemeral by design |
 | MongoDB Atlas M0 | ✅ exists, 🚧 being re-secured | Credential was leaked and rotated on 2026-07-16; cluster will be wiped and reseeded before go-live |
 | Cloudinary | 📋 planned | P5 — replaces the S3 + CloudFront plan; free forever, no shared-AWS-account hazard |
-| Socket auth across origins | 📋 planned | P4 — short-lived signed JWT ticket. Render subdomains are on the Public Suffix List, so the two services **cannot** share a session cookie |
 
-**Why one service for API + client:** the session cookie is httpOnly and same-origin. Splitting the SPA
-onto a Render Static Site would put it on a different `*.onrender.com` origin, forcing CORS plus
-`SameSite=None` cookies — and would consume a second slice of the 750-hour free pool. `apps/realtime`
-pays exactly that cost, which is why it needs the signed-ticket handshake instead of the cookie.
+**Why one service for API + client (and chat):** the session cookie is httpOnly and same-origin. Splitting
+the SPA onto a Render Static Site would put it on a different `*.onrender.com` origin, forcing CORS plus
+`SameSite=None` cookies — and would consume a second slice of the 750-hour free pool. A separate
+`apps/realtime` service was designed the same way during P4 planning and would have paid the identical
+cost, needing a short-lived signed JWT ticket to authenticate a socket across origins (Render subdomains
+are on the Public Suffix List, so two services can't share a session cookie). That design was dropped
+before implementation (2026-07-29): Socket.io runs inside `apps/server` instead, reads the session
+directly via `io.engine.use(sessionMiddleware)`, and never had a ticket to build. See
+`docs/superpowers/specs/2026-07-29-realtime-chat-design.md`.
 
 ---
 
@@ -118,24 +118,22 @@ flowchart LR
     Browser(("Browser")) -->|":5173"| Vite
     subgraph Laptop["Developer machine — docker compose watch"]
         Vite["client container<br/>Vite dev server, HMR"]
-        Vite -->|"proxy /api → :3000"| ApiDev
-        ApiDev["api container<br/>dev target, hot reload"]
-        RealtimeDev["realtime container<br/>dev target, hot reload"]
+        Vite -->|"proxy /api + socket.io upgrade → :3000"| ApiDev
+        ApiDev["api container<br/>dev target, hot reload<br/>REST API + Socket.io chat"]
         MongoDev[("mongo container<br/>named volume<br/>127.0.0.1 only")]
         RedisDev[("redis container<br/>127.0.0.1 only")]
         ApiDev <--> MongoDev
         ApiDev <--> RedisDev
-        RealtimeDev <--> MongoDev
-        RealtimeDev <--> RedisDev
     end
 ```
 
 `compose watch` syncs changed source files into the containers (not a bind mount) — avoids the
 Windows `node_modules`/inotify problems a plain bind mount would hit.
 
-**Vite's `server.proxy` forwards `/api` to the api container**, so the browser sees a single origin in
-dev exactly as it will in prod. The auth model is therefore identical across dev, CI, and prod — a cookie
-bug cannot hide until deploy.
+**Vite's `server.proxy` forwards `/api` and the Socket.io upgrade to the api container**, so the browser
+sees a single origin in dev exactly as it will in prod. The auth model is therefore identical across dev,
+CI, and prod — a cookie bug cannot hide until deploy. There is no separate realtime container: chat runs
+in the same api container as the REST API (see "Target production topology" above).
 
 **Mongo and Redis bind to `127.0.0.1`, never `0.0.0.0`** — they run unauthenticated locally, and
 publishing them on all interfaces would expose an unauthenticated database to the LAN.
@@ -145,8 +143,7 @@ publishing them on all interfaces would expose an unauthenticated database to th
 ```mermaid
 flowchart LR
     subgraph Runner["GitHub Actions runner — ephemeral, torn down after"]
-        Compose["docker compose -f infra/compose.e2e.yaml --project-directory . up --wait"] --> ApiE2E["api container<br/>prod/runner target<br/>serves the built SPA"]
-        Compose --> RealtimeE2E["realtime container<br/>prod target"]
+        Compose["docker compose -f infra/compose.e2e.yaml --project-directory . up --wait"] --> ApiE2E["api container<br/>prod/runner target<br/>serves the built SPA + Socket.io chat"]
         ApiE2E <--> MongoE2E[("mongo container")]
         ApiE2E <--> RedisE2E[("redis container")]
         ApiE2E --> PW["Playwright E2E tests"]

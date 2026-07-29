@@ -12,32 +12,33 @@ A from-scratch rebuild of a five-year-old MERN blog + chat app, built as a portf
 fullstack/backend roles. It reimplements every real feature of the legacy app — session auth, posts,
 likes, threaded comments, search — while fixing five documented authorization holes the original had,
 and adds genuine upgrades (server-side session auth instead of a client-stored JWT, per-reader content
-gating, MongoDB-backed full-text search) the legacy app never had. Realtime chat and OAuth are designed
-but intentionally not built yet.
+gating, MongoDB-backed full-text search, realtime chat over Socket.io) the legacy app never had. OAuth
+login is designed but intentionally not built yet.
 
 ## Architecture
 
 ```mermaid
 flowchart TB
-    Browser(("Browser")) -->|"HTTPS — SPA + /api/v1/*, one origin"| Server
+    Browser(("Browser")) -->|"HTTPS + WebSocket — SPA + /api/v1/* + chat, one origin"| Server
 
     subgraph Server["apps/server (Express)"]
         API["REST API<br/>/api/v1/*"]
+        Chat["Socket.io<br/>realtime chat"]
         SPA["Built client SPA<br/>catch-all → index.html"]
     end
 
-    Server -->|session store| Redis[("Redis")]
+    Server -->|session store + chat buffer/presence| Redis[("Redis")]
     Server -->|Mongoose| Mongo[("MongoDB")]
     Shared["packages/zod-shared<br/>Zod schemas"] -.validates + types.-> Server
     Shared -.forms + types.-> ClientSrc["apps/client source<br/>(built into the Server's image)"]
 ```
 
-**One origin, one deployed service.** `apps/server` serves both the REST API and the built client SPA —
-no separate frontend service, no CORS anywhere, and the httpOnly session cookie behaves identically in
-dev, CI, and prod. `packages/zod-shared` is the cross-app package: the same Zod schema validates a
-request on the server and drives the matching form on the client. Realtime chat (P4, designed but not
-built) will run in this same process rather than as a separate service, so it inherits the same origin and
-the same session instead of needing an auth handshake of its own. Full rationale:
+**One origin, one deployed service.** `apps/server` serves the REST API, the built client SPA, and the
+Socket.io realtime chat server — no separate frontend or realtime service, no CORS anywhere, and the
+httpOnly session cookie behaves identically in dev, CI, and prod. `packages/zod-shared` is the cross-app
+package: the same Zod schema validates a request on the server and drives the matching form on the
+client. Realtime chat (P4) runs in this same process rather than as a separate service, so it inherits the
+same origin and the same session instead of needing an auth handshake of its own. Full rationale:
 `docs/superpowers/specs/2026-07-16-express-react-rebuild-design.md` and
 `docs/superpowers/specs/2026-07-29-realtime-chat-design.md`.
 
@@ -86,7 +87,7 @@ client-side `Array.filter`. See "Search semantics" below for the word-matching b
 
 | Layer | What's used |
 |---|---|
-| Server | Express 5 · Mongoose 8 (MongoDB) · `express-session` + `connect-redis` (Redis-backed sessions) · bcryptjs · Helmet · Zod |
+| Server | Express 5 · Socket.io (realtime chat) · Mongoose 8 (MongoDB) · `express-session` + `connect-redis` (Redis-backed sessions) · bcryptjs · Helmet · Zod |
 | Client | React 19 · Vite · TanStack Query · React Router 8 · Tailwind CSS 4 · `react-markdown` + `remark-gfm` |
 | Shared | Zod schemas in `packages/zod-shared`, the single source of truth for both server validation and client forms |
 | Testing | Vitest · Supertest · `mongodb-memory-server` · Testing Library · Playwright (e2e) |
@@ -99,11 +100,11 @@ client-side `Array.filter`. See "Search semantics" below for the word-matching b
 - **Likes** — idempotent (`PUT`/`DELETE`, not a toggle endpoint), optimistic UI with rollback on failure.
 - **Threaded comments** — Markdown editor with a live preview, cascade-delete of reply subtrees.
 - **Search** — full-text search plus tag filtering over the feed, debounced, bookmarkable via the URL.
+- **Realtime chat** — one room, signed-in only, with presence and typing indicators; recent history is
+  loaded from Redis on join, and messages live only in Redis, never in MongoDB.
 
-**Not yet built (by design, not oversight):** realtime chat (P4 — designed, see
-`docs/superpowers/specs/2026-07-29-realtime-chat-design.md`), OAuth login (planned P6), and media/avatar
-uploads. See the phase table in `docs/superpowers/specs/2026-07-16-express-react-rebuild-design.md` §13
-for what's next.
+**Not yet built (by design, not oversight):** OAuth login (planned P6) and media/avatar uploads. See the
+phase table in `docs/superpowers/specs/2026-07-16-express-react-rebuild-design.md` §13 for what's next.
 
 ## Quick start
 
