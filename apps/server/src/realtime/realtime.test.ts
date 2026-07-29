@@ -105,4 +105,57 @@ describe('realtime', () => {
     expect((await failure).message).toMatch(/empty/i)
     expect(chatService.appended).toHaveLength(0)
   })
+
+  // Regression guard for the process-killing bug: Socket.io does not await or
+  // catch handler promises, so an uncaught rejection from chatService.append
+  // (e.g. a Redis blip) would become an unhandled rejection and, under
+  // Node's default flags, terminate the process — every other socket and all
+  // REST traffic with it. This asserts the three properties the try/catch
+  // fix guarantees, not just that "something" happened.
+  it('recovers from a failed append: errors the sender, never broadcasts, and stays connected', async () => {
+    const socket = connect(await signedInCookie())
+    await new Promise<void>((resolve) => socket.on('connect', resolve))
+
+    // Same chatService instance the running realtime already closed over —
+    // reassigning append simulates a persistence failure (e.g. Redis down)
+    // for this one message, without touching the stub used by every passing
+    // test above.
+    chatService.append = async () => {
+      throw new Error('redis unavailable')
+    }
+
+    let broadcast = false
+    socket.on('message', () => {
+      broadcast = true
+    })
+
+    const failure = new Promise<{ message: string }>((resolve) => socket.on('error', resolve))
+    socket.emit('message', { body: 'this will fail to persist' })
+
+    // Property 1: the sender gets an error event, not silence.
+    expect((await failure).message).toMatch(/could not send|try again/i)
+
+    // Give a wrongly-scheduled broadcast a chance to arrive before asserting
+    // its absence — the assertion above only proves the catch branch ran,
+    // not that the emit branch was skipped.
+    await new Promise((resolve) => setTimeout(resolve, 100))
+
+    // Property 2: a message that was never persisted must never reach
+    // anyone's room. This is the property most likely to rot under a future
+    // refactor, so it is asserted directly rather than inferred from the
+    // error event alone.
+    expect(broadcast).toBe(false)
+    expect(chatService.appended).toHaveLength(0)
+
+    // Property 3: the rejection was actually caught, not merely deferred —
+    // the socket is still connected and the server keeps working afterward.
+    expect(socket.connected).toBe(true)
+
+    chatService.append = async (m) => void chatService.appended.push(m)
+    const received = new Promise<ChatMessage>((resolve) => socket.on('message', resolve))
+    socket.emit('message', { body: 'still works' })
+    const message = await received
+    expect(message.body).toBe('still works')
+    expect(chatService.appended).toHaveLength(1)
+  })
 })
