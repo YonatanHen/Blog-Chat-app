@@ -20,7 +20,13 @@ export type ChatMessageInput = z.infer<typeof ChatMessageSchema>
 export type ChatMessage = {
   id: string
   body: string
-  author: { id: string; username: string }
+  /**
+   * `username` is optional, honestly: it reflects whatever the session held
+   * at handshake time. Every real login sets it, but nothing in the type
+   * system should pretend a session can't lack one — inventing a placeholder
+   * here would hide that case instead of representing it.
+   */
+  author: { id: string; username?: string }
   /** ISO 8601, server clock. */
   sentAt: string
 }

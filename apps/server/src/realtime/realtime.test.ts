@@ -90,6 +90,9 @@ describe('realtime', () => {
     expect(message.author.username).not.toBe('admin')
     expect(message.body).toBe('hello')
     expect(chatService.appended).toHaveLength(1)
+    // The broadcast and the persisted record must carry the same identity —
+    // not just the same length of stored messages.
+    expect(chatService.appended[0]!.author.id).toBe('user-123')
   })
 
   it('rejects an empty message without broadcasting it', async () => {

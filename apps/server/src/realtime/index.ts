@@ -2,10 +2,27 @@ import { randomUUID } from 'node:crypto'
 import type { IncomingMessage, Server as HttpServer } from 'node:http'
 import { ChatMessageSchema, type ChatMessage } from '@blog/zod-shared'
 import type { RequestHandler } from 'express'
-import { Server, type Socket } from 'socket.io'
+import { Server, type DefaultEventsMap, type Socket } from 'socket.io'
 import type { ChatService } from '../lib/services/chat.js'
 
-export type RealtimeUser = { userId: string; username: string }
+/**
+ * `username` is optional here, honestly: the handshake guard below only
+ * requires `userId`, and the `session-test` helper route (and, in principle,
+ * any future session path) can produce a session with no username. Typing
+ * this as a required `string` would be a lie the compiler can't catch.
+ */
+export type RealtimeUser = { userId: string; username?: string }
+
+/**
+ * `socket.data`'s shape. Socket.io declares `Socket<..., SocketData = any>` —
+ * a non-generic `interface Socket { data: {...} }` augmentation does NOT
+ * override that generic default (verified: it silently resolves to `any`
+ * and no cast off it is visible to `no-explicit-any`). Parameterising the
+ * `Server`/`Socket` generics is the only way to type `socket.data` for real.
+ */
+type RealtimeSocketData = { user: RealtimeUser }
+type RealtimeServer = Server<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, RealtimeSocketData>
+type RealtimeSocket = Socket<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, RealtimeSocketData>
 
 /**
  * `socket.request` is the raw Node `IncomingMessage` from the handshake, after
@@ -20,7 +37,7 @@ type SessionRequest = IncomingMessage & {
 }
 
 export type Realtime = {
-  io: Server
+  io: RealtimeServer
   /** Ends every socket held by this user — used on logout. */
   disconnectUser(userId: string): void
   close(): Promise<void>
@@ -43,7 +60,9 @@ export function createRealtime({
   sessionMiddleware,
   chatService,
 }: CreateRealtimeOptions): Realtime {
-  const io = new Server(server)
+  const io = new Server<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, RealtimeSocketData>(
+    server,
+  )
 
   // Runs the session middleware on the handshake request, so socket.request
   // carries the same session object a REST handler would see.
@@ -62,8 +81,8 @@ export function createRealtime({
     next()
   })
 
-  io.on('connection', (socket: Socket) => {
-    const user = socket.data.user as RealtimeUser
+  io.on('connection', (socket: RealtimeSocket) => {
+    const user = socket.data.user
     if (process.env.DEBUG) console.log('[REALTIME] connected', { userId: user.userId })
 
     socket.on('message', async (payload: unknown) => {
@@ -84,7 +103,19 @@ export function createRealtime({
         sentAt: new Date().toISOString(),
       }
 
-      await chatService.append(message)
+      // Socket.io does not await or catch handler promises — an uncaught
+      // rejection here (e.g. a Redis blip) becomes an unhandled rejection
+      // that, under Node's default flags, kills the whole process. Caught
+      // here and reported to the sender instead; the room never sees a
+      // message that was not actually persisted.
+      try {
+        await chatService.append(message)
+      } catch {
+        if (process.env.DEBUG) console.error('[REALTIME] append failed', { id: message.id })
+        socket.emit('error', { message: 'Could not send message. Please try again.' })
+        return
+      }
+
       io.emit('message', message)
       if (process.env.DEBUG) console.log('[REALTIME] broadcast', { id: message.id })
     })
