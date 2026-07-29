@@ -1,11 +1,106 @@
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+# Blog-Chat
 
-The Blog-Chat app was built with MERN stack and socket.io.
+> **Two codebases live in this repo.** `master` is the original 2021 MERN (CRA + Redux + Express +
+> Socket.io) app, still live in production. Everything below describes the from-scratch rebuild on
+> `staging` — Express + React (Vite) + TypeScript — which is what you get from a fresh clone. See
+> `CLAUDE.md` and `docs/superpowers/specs/2026-07-16-express-react-rebuild-design.md` for the full
+> design rationale and phase history.
 
-> **Rebuild in progress:** the description and screenshots below describe the legacy app currently live
-> on `master`. A from-scratch Express + React (Vite) + TypeScript rebuild is under way on `staging` — see
-> `CLAUDE.md` and `docs/superpowers/specs/2026-07-16-express-react-rebuild-design.md`. The quick start
-> below is for the rebuild.
+## About
+
+A from-scratch rebuild of a five-year-old MERN blog + chat app, built as a portfolio piece targeting
+fullstack/backend roles. It reimplements every real feature of the legacy app — session auth, posts,
+likes, threaded comments, search — while fixing five documented authorization holes the original had,
+and adds genuine upgrades (server-side session auth instead of a client-stored JWT, per-reader content
+gating, MongoDB-backed full-text search) the legacy app never had. Realtime chat and OAuth are designed
+but intentionally not built yet.
+
+## Architecture
+
+```mermaid
+flowchart TB
+    Browser(("Browser")) -->|"HTTPS — SPA + /api/v1/*, one origin"| Server
+
+    subgraph Server["apps/server (Express)"]
+        API["REST API<br/>/api/v1/*"]
+        SPA["Built client SPA<br/>catch-all → index.html"]
+    end
+
+    Server -->|session store| Redis[("Redis")]
+    Server -->|Mongoose| Mongo[("MongoDB")]
+    Shared["packages/zod-shared<br/>Zod schemas"] -.validates + types.-> Server
+    Shared -.forms + types.-> ClientSrc["apps/client source<br/>(built into the Server's image)"]
+```
+
+**One origin, one deployed service.** `apps/server` serves both the REST API and the built client SPA —
+no separate frontend service, no CORS anywhere, and the httpOnly session cookie behaves identically in
+dev, CI, and prod. `packages/zod-shared` is the cross-app package: the same Zod schema validates a
+request on the server and drives the matching form on the client. Full rationale, including why
+`apps/realtime` (P4, not built yet) will need a different auth handshake:
+`docs/superpowers/specs/2026-07-16-express-react-rebuild-design.md`.
+
+## Core flows, in a nutshell
+
+**Auth & session** — login/signup regenerate the session *before* writing identity (blocks session
+fixation), and the client only ever holds an httpOnly cookie, never a token:
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+    participant R as Redis
+    C->>S: POST /api/v1/auth/login
+    S->>S: verify credentials (bcrypt)
+    S->>R: regenerate session, store userId
+    S-->>C: Set-Cookie sid (httpOnly, Secure, SameSite=Lax)
+    C->>S: GET /api/v1/posts/:slug (cookie rides along)
+    S->>S: session present? → full body : teaser
+```
+
+**Content gating** — every post is teased for anonymous readers and full for any signed-in one (no paid
+tier — signing up, which is free, is what unlocks content). Gating happens once, at serialization, so
+there is nothing to find in DevTools for a body the server never sent:
+
+```mermaid
+flowchart LR
+    Req["GET /posts/:slug"] --> Session{"Signed in?"}
+    Session -->|No| Teaser["deriveTeaser(body)<br/>full body never leaves the server"]
+    Session -->|Yes| Full["full body"]
+```
+
+**Comments** — threaded and Markdown-rendered, never gated (only a post's own body is):
+
+```mermaid
+flowchart LR
+    Post["Post"] -->|has many| Comment["Comment<br/>body · author · parent"]
+    Comment -->|parent| Comment
+    DeleteOp["Delete a comment"] -->|"$graphLookup cascade"| Subtree["removes the whole reply subtree"]
+```
+
+**Search** — MongoDB's native `$text` index over `{ title, body }`, run by the database, not a
+client-side `Array.filter`. See "Search semantics" below for the word-matching behavior this implies.
+
+## Tech stack
+
+| Layer | What's used |
+|---|---|
+| Server | Express 5 · Mongoose 8 (MongoDB) · `express-session` + `connect-redis` (Redis-backed sessions) · bcryptjs · Helmet · Zod |
+| Client | React 19 · Vite · TanStack Query · React Router 8 · Tailwind CSS 4 · `react-markdown` + `remark-gfm` |
+| Shared | Zod schemas in `packages/zod-shared`, the single source of truth for both server validation and client forms |
+| Testing | Vitest · Supertest · `mongodb-memory-server` · Testing Library · Playwright (e2e) |
+| Tooling / infra | TypeScript · ESLint (flat config) · Docker (multi-stage) · Docker Compose · GitHub Actions · Render (target host — see Deploying below) |
+
+## Core features
+
+- **Auth** — signup/login/logout on server-side sessions; self-service profile update and account deletion.
+- **Posts** — create/edit/delete, tags, per-reader content gating on every read.
+- **Likes** — idempotent (`PUT`/`DELETE`, not a toggle endpoint), optimistic UI with rollback on failure.
+- **Threaded comments** — Markdown editor with a live preview, cascade-delete of reply subtrees.
+- **Search** — full-text search plus tag filtering over the feed, debounced, bookmarkable via the URL.
+
+**Not yet built (by design, not oversight):** realtime chat (`apps/realtime`, planned P4), OAuth login
+(planned P6), and media/avatar uploads. See the phase table in
+`docs/superpowers/specs/2026-07-16-express-react-rebuild-design.md` §13 for what's next.
 
 ## Quick start
 
@@ -18,6 +113,10 @@ npm run seed               # demo data + a demo account
 
 The client is on http://localhost:5173, proxying `/api` to the API on http://localhost:3000/api/v1 —
 same origin as prod, so the session cookie behaves identically in dev.
+
+**Deploying:** `infra/render.yaml` declares this rebuild's target Render service, but it has not been
+promoted to `master`/deployed yet — there is no live URL for it. (`master`'s legacy app is separately
+live on Render today; that deployment predates this rebuild and is unrelated to it.)
 
 ## The API, if you want to bypass the UI
 
@@ -63,32 +162,5 @@ is a query error) and degrades to the unfiltered feed instead.
 | `npm run typecheck` | Per-workspace `tsc --noEmit` |
 | `npm run lint` | ESLint (flat config) |
 | `npm run test` | Vitest unit + Supertest integration |
-| `npm run build` | tsup bundle for production |
-
-### General
-The app implements CRUD operations of users and posts in a server-client architecture. Those operations are based on HTTP requests between the server (Express server) and the client (which built with React.js).
-In addition, There is a chat feature that based on WebSocket API implemented with Socket.io.
-
-### Main Technologies:
-- React.js + Hooks
-- Redux
-- React Bootstrap
-- NPM
-- Node.js
-- Express.js
-- MongoDB & Mongoose
-- Socket.io
-- JWT
-
-### Screens:
-#### Log-in:
-![image](https://user-images.githubusercontent.com/57364867/151522312-c629b79b-a275-45ca-8b75-5dfaa086ce5c.png)
-
-#### Sign-In:
-![image](https://user-images.githubusercontent.com/57364867/151522360-3507b840-77cb-4185-bc38-3441f680b2b6.png)
-
-#### Blog:
-![image](https://user-images.githubusercontent.com/57364867/151522845-6525101e-f11c-48fc-bad8-7e3b8084ea66.png)
-
-#### Chat:
-![image](https://user-images.githubusercontent.com/57364867/151523003-5264d95c-d4cc-4106-9b51-7ce49bf3ca35.png)
+| `npm run test:e2e` | Playwright, against the production Docker image |
+| `npm run build` | Production build (client Vite bundle + server tsup bundle) |
