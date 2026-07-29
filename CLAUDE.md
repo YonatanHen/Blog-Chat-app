@@ -124,6 +124,13 @@ arguments to `toDto` on purpose; collapsing them reports every feed item as lock
   `staging` is not up to date.
 - Never commit a feature directly to `master` or `staging`.
 - **Never merge without a PR.** No fast-forwards, no direct pushes to a shared branch.
+- **Exception: `README.md`-only changes may be pushed directly to `staging`** — no branch, no PR, no
+  CI. This is the one deliberate carve-out from the rule above (decided 2026-07-29). `staging`'s GitHub
+  branch protection was relaxed to allow it (`required_status_checks` and `required_pull_request_reviews`
+  removed; `allow_force_pushes`/`allow_deletions` stay off). Because GitHub can't scope a bypass to one
+  path, this technically opens direct pushes of *any* file to `staging`, not just the README — never use
+  that opening for anything beyond `README.md`; every other change still goes through the full
+  branch → PR → review → CI → merge flow.
 - Never name a branch or PR by its task number — name it for the feature.
 - Never merge to `master` or deploy to production without explicit approval, mid-project or not.
 - Never add Claude attribution or `Co-Authored-By` trailers to commits.
