@@ -14,3 +14,4 @@ playwright-report/
 .claude/*.local.md
 .claude/worktrees/
 infra/secrets/**/*.txt
+.playwright-mcp
