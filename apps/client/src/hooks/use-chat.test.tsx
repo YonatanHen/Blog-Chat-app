@@ -176,29 +176,62 @@ describe('useChat', () => {
   // The buffer is a one-time, mount-time snapshot: the endpoint always
   // returns only the *current* last 50, and the merge treats the fetched
   // data as the whole buffered portion on every render rather than
-  // accumulating across refetches. A background refetch (window focus,
-  // reconnect, or the app's 5-minute staleTime elapsing) would silently
-  // swap history out from under a user mid-conversation — messages they
-  // already saw would vanish from the transcript with no error. Assert the
-  // observable outcome (fetch called once) rather than the query's
-  // configuration, so a future change to the global defaults can't silently
-  // reintroduce the bug while this test stays green.
-  it('does not refetch the buffer on window focus or reconnect', async () => {
-    const fetchMock = stubFetch(() => jsonResponse([message('1', 'first')]))
-    const { result } = renderHook(() => useChat(), { wrapper: makeWrapper() })
-
-    await waitFor(() => expect(result.current.messages).toHaveLength(1))
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-
-    act(() => {
-      window.dispatchEvent(new Event('visibilitychange'))
-      window.dispatchEvent(new Event('focus'))
-      window.dispatchEvent(new Event('online'))
+  // accumulating across refetches. Left to the app's global defaults
+  // (staleTime 5min, refetchOnWindowFocus true), a tab-away-and-back after
+  // 5+ minutes would silently swap history out from under a user mid-
+  // conversation. This wrapper mirrors those global defaults (see
+  // apps/client/src/lib/query-client.ts) rather than reusing `makeWrapper`'s
+  // bare client (staleTime 0) — the point of the test is to prove the
+  // per-query override in use-chat.ts beats a client that would otherwise
+  // refetch, so the client has to actually behave like the real one.
+  function makeProdDefaultsWrapper() {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 5 * 60 * 1000 } },
     })
+    return ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    )
+  }
 
-    // Let any refetch triggered by those events actually run before asserting.
-    await new Promise((resolve) => setTimeout(resolve, 0))
+  // Verified against the installed @tanstack/query-core@5.101.4 source
+  // (node_modules/@tanstack/query-core/build/modern/{focusManager,
+  // onlineManager,queryObserver}.js) before writing this: focusManager's
+  // default setup listens only for `visibilitychange` on `window` — there is
+  // no `focus` listener in this version, so dispatching a `focus` event is
+  // inert. onlineManager gates its listeners on a `true !== newValue`
+  // transition and starts `_online: true`, so dispatching `online` again is
+  // a no-op. And `shouldFetchOn` short-circuits on `isStale(query, options)`
+  // — a `visibilitychange` dispatched immediately after the fetch resolves
+  // hits a fresh query and refetches nothing regardless of any staleTime or
+  // refetch flag. So the only way to exercise the real path is: advance past
+  // the (mirrored) 5-minute staleTime with fake timers, then dispatch
+  // `visibilitychange`.
+  it('does not refetch the buffer once the global staleTime has elapsed and the tab regains focus', async () => {
+    vi.useFakeTimers()
+    try {
+      const fetchMock = stubFetch(() => jsonResponse([message('1', 'first')]))
+      const { result } = renderHook(() => useChat(), { wrapper: makeProdDefaultsWrapper() })
 
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+      expect(result.current.messages).toHaveLength(1)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+
+      // Past the global 5-minute staleTime this query would otherwise have
+      // inherited.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(6 * 60 * 1000)
+      })
+
+      await act(async () => {
+        window.dispatchEvent(new Event('visibilitychange'))
+        await vi.advanceTimersByTimeAsync(0)
+      })
+
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
