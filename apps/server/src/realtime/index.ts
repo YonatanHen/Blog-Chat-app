@@ -81,9 +81,40 @@ export function createRealtime({
     next()
   })
 
+  /**
+   * Derived from the live socket set, never stored. One process with no Redis
+   * adapter means io.sockets already is the authoritative answer, and
+   * Socket.io's ping/pong timeout already fires `disconnect` for a dead client —
+   * so a Redis set plus application heartbeats would reimplement, worse, two
+   * things that already work (design §4).
+   *
+   * Deduplicated by userId: two tabs are one person online.
+   */
+  function broadcastPresence(): void {
+    const byId = new Map<string, { id: string; username?: string }>()
+    for (const socket of io.sockets.sockets.values()) {
+      const user = socket.data.user as RealtimeUser | undefined
+      if (user) byId.set(user.userId, { id: user.userId, username: user.username })
+    }
+    io.emit('presence', { users: [...byId.values()] })
+  }
+
   io.on('connection', (socket: RealtimeSocket) => {
     const user = socket.data.user
     if (process.env.DEBUG) console.log('[REALTIME] connected', { userId: user.userId })
+
+    broadcastPresence()
+
+    socket.on('typing', (payload: unknown) => {
+      const typing = Boolean((payload as { typing?: unknown } | null)?.typing)
+      // Broadcast and forget. Writing the highest-frequency, lowest-value event
+      // in the app into a 25 MB store would be a poor trade (design §5).
+      socket.broadcast.emit('typing', {
+        userId: user.userId,
+        username: user.username,
+        typing,
+      })
+    })
 
     socket.on('message', async (payload: unknown) => {
       const parsed = ChatMessageSchema.safeParse(payload)
@@ -122,6 +153,7 @@ export function createRealtime({
 
     socket.on('disconnect', () => {
       if (process.env.DEBUG) console.log('[REALTIME] disconnected', { userId: user.userId })
+      broadcastPresence()
     })
   })
 

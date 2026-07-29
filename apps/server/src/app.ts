@@ -16,6 +16,8 @@ export type BuildAppOptions = {
   clientDist?: string
   /** Absent in tests that do not exercise chat. */
   chatService?: ChatService
+  /** Ends a user's sockets on logout. Absent in tests without realtime. */
+  disconnectUser?: (userId: string) => void
 }
 
 /**
@@ -37,6 +39,8 @@ export function buildApp(opts: BuildAppOptions): express.Express {
   if (opts.sessionMiddleware) {
     app.use(opts.sessionMiddleware)
   }
+
+  if (opts.disconnectUser) app.set('disconnectUser', opts.disconnectUser)
 
   // On the app, not on v1Router: that router is a module singleton, and
   // mounting per-buildApp would leak one test's service into the next.

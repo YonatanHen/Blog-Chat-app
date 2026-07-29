@@ -32,7 +32,11 @@ describe('realtime', () => {
       secret: SECRET,
       secure: false,
     })
-    app = buildApp({ sessionMiddleware, chatService })
+    app = buildApp({
+      sessionMiddleware,
+      chatService,
+      disconnectUser: (id) => realtime.disconnectUser(id),
+    })
     httpServer = createServer(app)
     realtime = createRealtime({ server: httpServer, sessionMiddleware, chatService })
     await new Promise<void>((resolve) => httpServer.listen(0, resolve))
@@ -157,5 +161,54 @@ describe('realtime', () => {
     const message = await received
     expect(message.body).toBe('still works')
     expect(chatService.appended).toHaveLength(1)
+  })
+
+  it('lists a user once even when they hold two sockets', async () => {
+    const cookie = await signedInCookie()
+    const first = connect(cookie)
+    await new Promise<void>((resolve) => first.on('connect', resolve))
+
+    const second = connect(cookie)
+    const presence = await new Promise<{ users: { id: string }[] }>((resolve) =>
+      second.on('presence', resolve),
+    )
+
+    expect(presence.users.filter((u) => u.id === 'user-123')).toHaveLength(1)
+  })
+
+  it('relays a typing signal without persisting it', async () => {
+    const watcher = connect(await signedInCookie())
+    await new Promise<void>((resolve) => watcher.on('connect', resolve))
+    const typer = connect(await signedInCookie())
+    await new Promise<void>((resolve) => typer.on('connect', resolve))
+
+    const signal = new Promise<{ typing: boolean }>((resolve) => watcher.on('typing', resolve))
+    typer.emit('typing', { typing: true })
+
+    expect((await signal).typing).toBe(true)
+    expect(chatService.appended).toHaveLength(0)
+  })
+
+  it('disconnects a user\'s sockets when asked', async () => {
+    const socket = connect(await signedInCookie())
+    await new Promise<void>((resolve) => socket.on('connect', resolve))
+
+    const closed = new Promise<void>((resolve) => socket.on('disconnect', () => resolve()))
+    realtime.disconnectUser('user-123')
+
+    await closed
+    expect(socket.connected).toBe(false)
+  })
+
+  it('ends the socket when the user logs out over REST', async () => {
+    const cookie = await signedInCookie()
+    const socket = connect(cookie)
+    await new Promise<void>((resolve) => socket.on('connect', resolve))
+
+    const closed = new Promise<void>((resolve) => socket.on('disconnect', () => resolve()))
+    await request(app).post('/api/v1/auth/logout').set('Cookie', cookie)
+
+    await closed
+    expect(socket.connected).toBe(false)
   })
 })
