@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from 'express'
 import { ValidationError } from '../lib/errors.js'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import { validate } from './validate.js'
 
@@ -44,5 +44,44 @@ describe('validate', () => {
     const { req, res, next } = ctx(undefined)
     validate(Schema)(req, res, next)
     expect(next.mock.calls[0]?.[0]).toBeInstanceOf(ValidationError)
+  })
+})
+
+/**
+ * This middleware wraps every validated route, including POST /auth/signup and
+ * /auth/login — so whatever it logs, it logs a plaintext password. Two separate
+ * guarantees, because either alone is insufficient: the gate keeps production
+ * silent, and the redaction means turning DEBUG on to chase a bug (which is
+ * exactly when someone would) still cannot spill a credential.
+ */
+describe('validate credential logging', () => {
+  const originalDebug = process.env.DEBUG
+
+  afterEach(() => {
+    if (originalDebug === undefined) delete process.env.DEBUG
+    else process.env.DEBUG = originalDebug
+    vi.restoreAllMocks()
+  })
+
+  it('never logs a password, even with DEBUG on', () => {
+    process.env.DEBUG = '1'
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const { req, res, next } = ctx({ title: 'A Good Title', password: 'super-secret-value' })
+
+    validate(Schema)(req, res, next)
+
+    // Without this the test passes vacuously if the gate suppresses everything.
+    expect(log).toHaveBeenCalled()
+    expect(JSON.stringify(log.mock.calls)).not.toContain('super-secret-value')
+  })
+
+  it('logs nothing at all when DEBUG is off', () => {
+    delete process.env.DEBUG
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const { req, res, next } = ctx({ title: 'A Good Title', password: 'super-secret-value' })
+
+    validate(Schema)(req, res, next)
+
+    expect(log).not.toHaveBeenCalled()
   })
 })

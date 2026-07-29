@@ -1,4 +1,5 @@
 import { DEBUG } from '../lib/constants.js'
+import { redactSecrets } from '../lib/redact.js'
 
 export class ApiError extends Error {
   readonly status: number
@@ -16,7 +17,16 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T | 
   const method = init?.method || 'GET'
 
   if (DEBUG) {
-    const body = init?.body ? JSON.parse(init.body as string) : null
+    // Every API call funnels through here, signup and login included, so this
+    // trace sees plaintext passwords. Redacting at the wrapper is what actually
+    // closes it — a per-endpoint fix cannot, since the wrapper logs whatever it
+    // is handed. Non-JSON bodies (FormData, Blob) are simply not traced.
+    let body: unknown = null
+    try {
+      body = typeof init?.body === 'string' ? redactSecrets(JSON.parse(init.body)) : null
+    } catch {
+      body = '[unparsed body]'
+    }
     console.log(`[API] ${method} ${path}`, body)
   }
 
