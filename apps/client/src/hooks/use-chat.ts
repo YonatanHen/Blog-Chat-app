@@ -28,10 +28,25 @@ export function useChat() {
   // oldest-first, then live), not about serializing the fetch before the
   // socket connects. A failed fetch must not break the room: it just leaves
   // `bufferQuery.data` undefined and live messages still work.
+  //
+  // This is a one-time, mount-time snapshot, not a live view of "the last 50"
+  // — the merge below treats `bufferQuery.data` as the whole buffered portion
+  // on every render, it does not accumulate across refetches. The app's global
+  // defaults (`staleTime: 5min`, refetch on focus/reconnect) are right for the
+  // rest of the app but wrong here: the endpoint always returns only the
+  // *current* CHAT_BUFFER_SIZE, so a background refetch after the user has
+  // been in the room a while (tab away 5+ minutes, come back) would swap
+  // messages 1-50 for whatever is now the last 50 and silently drop history
+  // the user is already reading. Disabling refetch here — not globally — keeps
+  // the buffer a snapshot taken once at open; live messages carry the
+  // transcript forward from there.
   const bufferQuery = useQuery({
     queryKey: queryKeys.chat.messages,
     queryFn: () => chatApi.messages(),
     retry: false,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   })
 
   useEffect(() => {

@@ -172,4 +172,33 @@ describe('useChat', () => {
     expect(result.current.messages[0]?.body).toBe('still works')
     expect(socket.connect).toHaveBeenCalled()
   })
+
+  // The buffer is a one-time, mount-time snapshot: the endpoint always
+  // returns only the *current* last 50, and the merge treats the fetched
+  // data as the whole buffered portion on every render rather than
+  // accumulating across refetches. A background refetch (window focus,
+  // reconnect, or the app's 5-minute staleTime elapsing) would silently
+  // swap history out from under a user mid-conversation — messages they
+  // already saw would vanish from the transcript with no error. Assert the
+  // observable outcome (fetch called once) rather than the query's
+  // configuration, so a future change to the global defaults can't silently
+  // reintroduce the bug while this test stays green.
+  it('does not refetch the buffer on window focus or reconnect', async () => {
+    const fetchMock = stubFetch(() => jsonResponse([message('1', 'first')]))
+    const { result } = renderHook(() => useChat(), { wrapper: makeWrapper() })
+
+    await waitFor(() => expect(result.current.messages).toHaveLength(1))
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    act(() => {
+      window.dispatchEvent(new Event('visibilitychange'))
+      window.dispatchEvent(new Event('focus'))
+      window.dispatchEvent(new Event('online'))
+    })
+
+    // Let any refetch triggered by those events actually run before asserting.
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
 })
