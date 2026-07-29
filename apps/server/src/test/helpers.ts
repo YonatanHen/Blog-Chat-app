@@ -8,6 +8,7 @@ import { MongoMemoryServer } from 'mongodb-memory-server'
 import mongoose from 'mongoose'
 import { afterAll, beforeAll, beforeEach } from 'vitest'
 import { buildApp, type BuildAppOptions } from '../app.js'
+import { buildSessionMiddleware } from '../lib/session.js'
 
 // Test-only. Never imported by src/index.ts, so it is unreachable from the
 // tsup bundle and the production image. Production secrets always come from
@@ -22,7 +23,11 @@ const TEST_SESSION_SECRET = 'test-only-secret-never-used-in-production-32c'
  */
 export function buildTestApp(overrides: Partial<BuildAppOptions> = {}): express.Express {
   return buildApp({
-    session: { store: new session.MemoryStore(), secret: TEST_SESSION_SECRET, secure: false },
+    sessionMiddleware: buildSessionMiddleware({
+      store: new session.MemoryStore(),
+      secret: TEST_SESSION_SECRET,
+      secure: false,
+    }),
     ...overrides,
   })
 }

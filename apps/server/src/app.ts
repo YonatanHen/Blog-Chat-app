@@ -1,13 +1,13 @@
 import express from 'express'
 import helmet from 'helmet'
-import { buildSessionMiddleware, type SessionOptions } from './lib/session.js'
 import { errorHandler } from './middleware/error-handler.js'
 import { notFound } from './middleware/not-found.js'
 import { v1Router } from './routes/v1/index.js'
 import { mountStatic } from './static.js'
 
 export type BuildAppOptions = {
-  session?: SessionOptions
+  /** Prebuilt so the Socket.io server can share this exact instance. */
+  sessionMiddleware?: express.RequestHandler
   /** Behind Render's proxy this must be set, or Secure cookies are dropped. */
   trustProxy?: boolean
   /** Directory holding the built SPA. Absent in P1 — there is no client yet. */
@@ -30,8 +30,8 @@ export function buildApp(opts: BuildAppOptions): express.Express {
   app.use(helmet())
   app.use(express.json({ limit: '100kb' }))
 
-  if (opts.session) {
-    app.use(buildSessionMiddleware(opts.session))
+  if (opts.sessionMiddleware) {
+    app.use(opts.sessionMiddleware)
   }
 
   app.use('/api/v1', v1Router)
