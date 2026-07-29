@@ -1,11 +1,13 @@
 import { createBrowserRouter, Outlet } from 'react-router'
 import { PageShell } from './components/layouts/PageShell.js'
+import { RequireAuth } from './components/patterns/RequireAuth.js'
 import { BlogFeedPage } from './pages/BlogFeedPage.js'
 import { PostPage } from './pages/PostPage.js'
 import { NewPostPage } from './pages/NewPostPage.js'
 import { EditPostPage } from './pages/EditPostPage.js'
 import { LoginPage } from './pages/LoginPage.js'
 import { SignupPage } from './pages/SignupPage.js'
+import { ChatPage } from './pages/ChatPage.js'
 
 export const router = createBrowserRouter([
   {
@@ -21,6 +23,14 @@ export const router = createBrowserRouter([
       { path: '/blog/:slug/edit', element: <EditPostPage /> },
       { path: '/login', element: <LoginPage /> },
       { path: '/signup', element: <SignupPage /> },
+      {
+        path: '/chat',
+        element: (
+          <RequireAuth>
+            <ChatPage />
+          </RequireAuth>
+        ),
+      },
     ],
   },
 ])
