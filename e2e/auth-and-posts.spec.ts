@@ -13,7 +13,15 @@ test('signup, create a post, like it, then log out', async ({ page }) => {
   await page.goto('/signup')
   await page.getByLabel('Username').fill(username)
   await page.getByLabel('Email').fill(`${username}@example.com`)
-  await page.getByLabel('Password').fill('a-valid-password')
+  // `exact` matters: Playwright's getByLabel matches by SUBSTRING, so a bare
+  // 'Password' also resolves "Confirm password" and strict mode fails on the
+  // two matches. (Testing Library's getByLabelText defaults the opposite way,
+  // which is why the component tests never saw this.) Any future field whose
+  // label contains another's needs the same treatment.
+  await page.getByLabel('Password', { exact: true }).fill('a-valid-password')
+  // Required: the form blocks submission until the confirmation matches, so
+  // without this the button stays disabled and the click times out.
+  await page.getByLabel('Confirm password').fill('a-valid-password')
   await page.getByRole('button', { name: 'Sign Up' }).click()
   await expect(page).toHaveURL('/')
   await expect(page.getByText(`Welcome, ${username}`)).toBeVisible()
