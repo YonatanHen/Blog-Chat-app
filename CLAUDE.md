@@ -42,6 +42,19 @@ npm run seed         # seed the database
 with TypeScript's project-references build mode. There is no root `tsconfig.json`. Don't reintroduce a root
 `tsc --build` — it's been tried and reverted.
 
+**Don't run `typecheck` or `lint` locally — CI owns them.** Both run on every PR; running them again on
+each edit costs minutes per change and buys nothing the PR won't catch. Write clean code, push, and fix
+whatever CI flags. This applies to agents and subagents too: a dispatch should not instruct one to "run
+the full gate" before reporting.
+
+`npm run test` is **not** covered by that rule — keep running it. Tests are the working feedback loop, not
+a gate: TDD depends on watching a test fail before it passes, and a suite that only runs in CI stops being
+usable for that. The same goes for a single-file run while iterating.
+
+`npm run test:e2e` needs the prod Docker image, which currently won't build on this machine (see the Avast
+note below). Treat E2E as CI-verified until that's fixed, and say so plainly rather than implying a spec
+passed locally when it never ran.
+
 **Docker:** per-app multi-stage Dockerfiles (`base → deps → dev`/`builder → runner`) live inside each app
 (`apps/server/Dockerfile`). Orchestration/deploy config lives in `infra/`: `compose.yaml` is the dev stack
 (`target: dev`, hot reload); `compose.e2e.yaml` builds the `runner` target — the actual production image —
@@ -61,19 +74,24 @@ so a broken prod build is caught before Render is; `render.yaml` is the prod inf
 
 ```
 apps/
-  server/      # Express REST API; also serves the built SPA in prod → Render web service
+  server/      # Express REST API + Socket.io (P4); also serves the built SPA in prod → Render web service
   client/      # React + Vite SPA → static bundle, served by apps/server
-  realtime/    # Socket.io service (P4) → separate Render web service
 packages/
   zod-shared/  # Zod schemas only — the cross-app package (server validates and client forms both use it)
 ```
 
-**One origin, one service.** `apps/server` serves both `/api/v1/*` and the built SPA (catch-all →
-`index.html`). In dev, Vite's `server.proxy` forwards `/api` to the API container, reproducing the same
-origin. This is load-bearing: the httpOnly session cookie works identically in dev, CI, and prod, and **CORS
-is never needed anywhere**. `apps/realtime` is the exception — it's a separate origin, which is exactly why
-it needs a signed handshake ticket instead of the cookie (Render subdomains are on the Public Suffix List
-and cannot share cookies).
+**One origin, one service — with no exceptions.** `apps/server` serves `/api/v1/*`, the built SPA
+(catch-all → `index.html`), and the Socket.io server, all from one process. In dev, Vite's `server.proxy`
+forwards `/api` to the API container, reproducing the same origin. This is load-bearing: the httpOnly
+session cookie works identically in dev, CI, and prod, and **CORS is never needed anywhere**.
+
+There is **no `apps/realtime`** (decided 2026-07-29). It was designed as a separate service, which forced a
+signed handshake ticket — a separate origin cannot receive the session cookie, and Render subdomains are on
+the Public Suffix List so widening the cookie's domain is refused by the browser, not merely unwise.
+Running Socket.io in the same process removes the ticket, the shared sign/verify package it needed, and
+CORS. The socket reads the session directly via `io.engine.use(sessionMiddleware)`; identity always comes
+from `socket.data.user`, never from a message payload. Rationale:
+`docs/superpowers/specs/2026-07-29-realtime-chat-design.md`.
 
 **Zod is the single source of truth for validation.** Schemas live in `packages/zod-shared/src/schemas/`;
 types are inferred (`z.infer<...>`), never hand-declared. The same schema validates the request on the
@@ -159,3 +177,4 @@ arguments to `toDto` on purpose; collapsing them reports every feed item as lock
 - Never mention spec section numbers in code. Cite them in docs and plans instead.
 - Add `console.*` tracing to API calls, service methods, and middleware during development — request
   path/method, payload, status, errors. Gate with `if (process.env.DEBUG)` to keep production quiet.
+  - Avoid from long comments in the code, if you feel that a comments is necessarry write 2 lines max.

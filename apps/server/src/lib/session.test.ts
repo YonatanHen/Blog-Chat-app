@@ -2,12 +2,13 @@ import session from 'express-session'
 import request from 'supertest'
 import { describe, expect, it } from 'vitest'
 import { buildApp } from '../app.js'
+import { buildSessionMiddleware } from './session.js'
 
 const SECRET = 'test-secret-at-least-32-characters-long'
 
 function appWith(secure: boolean, trustProxy = false) {
   return buildApp({
-    session: { store: new session.MemoryStore(), secret: SECRET, secure },
+    sessionMiddleware: buildSessionMiddleware({ store: new session.MemoryStore(), secret: SECRET, secure }),
     trustProxy,
   })
 }

@@ -35,7 +35,9 @@ if (process.env.NODE_ENV !== 'production') {
     throw new Error('db password rejected')
   })
   v1Router.post('/session-test/login', (req, res) => {
-    req.session.userId = 'user-123'
+    // Defaults to 'user-123'; pass body.userId to stand up a second identity in a test.
+    const userId = typeof req.body?.userId === 'string' ? req.body.userId : 'user-123'
+    req.session.userId = userId
     res.json({ ok: true })
   })
   v1Router.get('/session-test/whoami', (req, res) => {

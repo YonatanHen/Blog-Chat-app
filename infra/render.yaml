@@ -1,5 +1,7 @@
 # Production infrastructure as code (spec §7, §12).
-# apps/realtime is NOT here — it lands in P4.
+# No apps/realtime service: Socket.io runs inside blogchat-api, sharing its process and
+# origin, so realtime chat needs no service of its own, no env var, and no CORS. See
+# docs/superpowers/specs/2026-07-29-realtime-chat-design.md.
 services:
   - type: web
     name: blogchat-api

@@ -39,4 +39,7 @@ export const queryKeys = {
   users: {
     detail: (id: string) => ['users', id] as const,
   },
+  chat: {
+    messages: ['chat', 'messages'] as const,
+  },
 }

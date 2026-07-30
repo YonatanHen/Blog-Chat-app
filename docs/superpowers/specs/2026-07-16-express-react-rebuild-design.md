@@ -51,8 +51,8 @@ preserving the project's identity: a MERN blog with real-time chat.
 | Type safety | **Zod** | Compensates for Mongoose's weak typing. Validates at runtime, infers TS types. One source of truth, shared client↔server. |
 | Auth | **`express-session` + `connect-redis`** | httpOnly cookie holding a session ID; data in Redis. Hand-rolled enough to explain in an interview, standard enough to be correct. |
 | OAuth providers | **Google, Facebook** via Passport (P6) | No GitHub (explicitly not wanted). |
-| Ephemeral store | **Redis** (Render Key Value in prod, container locally) | Session store, chat buffer, rate limiting, presence. See §7. |
-| Realtime | **Standalone Socket.io service** (`apps/realtime`) | Its own long-running Render container. |
+| Ephemeral store | **Redis** (Render Key Value in prod, container locally) | Session store and chat buffer. See §7. *(Rate limiting dropped 2026-07-29; presence is in-memory, not Redis.)* |
+| Realtime | **Socket.io inside `apps/server`** | *Revised 2026-07-29 — was a standalone `apps/realtime` service.* Same process, same origin, so the socket reads the session directly. See §5. |
 | Hosting (prod) | **Render** | Long-lived containers. |
 | Prod topology | **`apps/server` serves the built SPA + the API from one origin** | No CORS, no cross-origin cookie problem, one web service. See §11. |
 | Local / staging / E2E | **Docker Compose + `compose watch`** | Fully containerized, hot reload preserved. Replaces a cloud staging environment. See §11. |
@@ -60,7 +60,7 @@ preserving the project's identity: a MERN blog with real-time chat.
 | Theme | **Light only. White primary, blue secondary.** | Editorial aesthetic; blue is the accent (actions, links, focus), body text stays near-black. **No dark-mode toggle.** |
 | Images | **Cloudinary** | Free forever tier. Replaces the S3 + CloudFront plan. |
 | Likes | **Toggle (like / unlike)** | Not up/down voting. Count never goes below zero. |
-| Repo | **Monorepo** (npm workspaces) | Services share models, Zod schemas, and ticket verification. |
+| Repo | **Monorepo** (npm workspaces) | Server and client share Zod schemas and inferred types via `packages/zod-shared`. |
 | Testing | **Vitest (unit) + Supertest (API integration) + Playwright (E2E)** | Regression tests for the authorization bugs; E2E on critical paths. |
 
 ### Standing constraints
@@ -114,10 +114,10 @@ than ported.
 ```
 blog-chat-app/
 ├── apps/
-│   ├── server/                # Express REST API + serves the built SPA → Render web service
+│   ├── server/                # Express REST API + Socket.io + serves the built SPA → Render web service
 │   │                          # (models, connection caches, errors live here — server-only)
-│   ├── client/                # React (Vite) SPA → static bundle, served by apps/server
-│   └── realtime/              # Socket.io server → separate Render web service
+│   └── client/                # React (Vite) SPA → static bundle, served by apps/server
+│                              # (revised 2026-07-29: no apps/realtime — see §5)
 ├── packages/
 │   └── zod-shared/           # Zod schemas only — the one thing server AND client both need
 ├── infra/
@@ -217,7 +217,7 @@ too, so CORS is never needed anywhere; that is a *consequence* of the topology c
 | `src/store/` (Redux, thunks, reducers) | **Deleted** — TanStack Query owns server state |
 | `src/app.jsx` (`<Route>` config) | `apps/client/src/routes.tsx` |
 | `src/functions/checkLogin.js` | **Deleted** (dead code; never worked) |
-| `server/app.js` Socket.io block | `apps/realtime/` |
+| `server/app.js` Socket.io block | `apps/server/src/realtime/` — same process as the API *(revised 2026-07-29)* |
 | `src/css/*.css` | Tailwind |
 | `Dockerfile` (broken) | Per-app multi-stage Dockerfiles + Compose (§11) |
 
@@ -302,23 +302,55 @@ username existence via `Unable to find user: <name>`. `verifyCredentials` return
 
 **Rate limiting** on login/signup, backed by Redis (§7), from P6.
 
-### Socket authentication across origins
+### Socket authentication
 
-`apps/realtime` is a separate Render service, so it has a different origin (`*.onrender.com`). **Render
-subdomains are on the Public Suffix List, so a cookie cannot be set on the shared parent domain** — the API's
-session cookie will never reach the realtime service. Cookie-based socket auth is therefore not an option.
+> **Revised 2026-07-29.** Socket.io now runs **inside `apps/server`**, not as a separate service. Full
+> rationale in `2026-07-29-realtime-chat-design.md` §2. The superseded cross-origin design is kept below
+> rather than deleted, because it is the record of *why* a ticket was ever needed — and reinstating it is
+> the cost of ever splitting realtime back out.
 
-**Solution — short-lived signed handshake ticket:**
+Same process, same origin, so the socket reads the same session as every REST request. Socket.io shares
+the Express session middleware directly:
+
+```ts
+io.engine.use(sessionMiddleware)         // the same instance passed to buildApp
+io.use((socket, next) => {
+  const { userId, username } = socket.request.session ?? {}
+  if (!userId) return next(new Error('unauthorized'))
+  socket.data.user = { userId, username }
+  next()
+})
+```
+
+Every broadcast is stamped from `socket.data.user`. The client's payload carries a body and nothing else —
+there is no author field to spoof. The old app echoed `message.user` straight from the client payload
+(`app.js:56`), so anyone could speak as anyone; this is the fix.
+
+Reading the session live revokes **new** connections at logout, but an open socket keeps its identity in
+memory, so `POST /auth/logout` also disconnects that user's sockets.
+
+<details>
+<summary><strong>Superseded — the cross-origin handshake ticket (why it existed)</strong></summary>
+
+When `apps/realtime` was a separate Render service it had a different origin (`*.onrender.com`). **Render
+subdomains are on the Public Suffix List, so a cookie cannot be set on the shared parent domain** — the
+API's session cookie would never reach it, making cookie-based socket auth impossible rather than merely
+awkward.
+
+The solution was a short-lived signed handshake ticket:
 
 1. The client calls `POST /api/v1/auth/socket-ticket`; the API verifies the session and mints a
    **~60-second JWT** containing `{ userId, username }`, signed with a secret shared by both services.
-2. The client passes the ticket in the Socket.io handshake (`io(url, { auth: { ticket } })`).
-3. The realtime service verifies the signature and expiry using a shared verifier (P4 — where this lands
-   is still open: `packages/zod-shared` is Zod-only by design as of the P2 restructure, so a JWT verifier may
-   warrant its own package rather than being force-fit in there), then attaches the identity to the socket.
+2. The client passes the ticket in the handshake (`io(url, { auth: { ticket } })`).
+3. The realtime service verifies signature and expiry, then attaches the identity to the socket.
 
-The realtime service **never trusts a username sent from the client**. The old app echoed `message.user`
-straight from the client payload, so anyone could speak as anyone.
+This also left an unresolved question — where a shared sign/verify pair would live, given
+`packages/zod-shared` is Zod-only by design. That question disappears with the ticket.
+
+**The PSL constraint is real and still applies** to any future split. It is only avoidable by moving to a
+custom domain you control, which costs money and breaks the free-tier-only constraint (§12).
+
+</details>
 
 ---
 
@@ -381,8 +413,8 @@ and Render may restart the instance during maintenance at any time.
 |---|---|---|
 | **Sessions** | `connect-redis` keys with TTL | See the persistence note below. |
 | **Recent chat messages** | Capped list: `LPUSH` + `LTRIM` to last ~50, with TTL | Opening the chat shows recent context instead of an empty box. |
-| **Rate limiting** | Counter + TTL per IP/user | Losing counters on restart is harmless. |
-| **Presence** ("who's online") | `SET` with heartbeat TTLs | Inherently ephemeral by nature. |
+| ~~**Rate limiting**~~ | — | *Removed 2026-07-29:* rate limiting was dropped entirely. See the demo-caps design §5. |
+| ~~**Presence**~~ | — | *Removed 2026-07-29:* presence is **in-memory**, derived from `io.sockets`. With one process and no Redis adapter there is no second party to agree with, and Socket.io's own ping/pong already detects dead connections. See the realtime-chat design §4. |
 
 **On "no persistence" now that sessions live here:** a Redis restart logs every user out. For a demo whose
 services already cold-start after 15 minutes idle, this is acceptable and is *not* worth a paid tier or a
@@ -391,9 +423,10 @@ Mongo-backed session store. It is a deliberate trade, recorded so it is not mist
 **Chat messages are NOT stored in MongoDB.** There is no `Message` model. The chat is a live room, not an
 archive, and Redis is the semantically correct tier.
 
-**Socket.io Redis adapter is _not_ used** — each service runs a single instance, so it would be unnecessary
-machinery. It is the correct answer to "how would you scale this?" and is documented as such in the README
-rather than built prematurely.
+**Socket.io Redis adapter is _not_ used** — a single instance runs the whole app, so it would be
+unnecessary machinery. It is the correct answer to "how would you scale this?" and is documented as such in
+the README rather than built prematurely. *(This is also why presence needs no Redis at all — see the row
+above.)*
 
 **Deployment:** Key Value is a **managed addon**, not a container we build. It is declared in
 `infra/render.yaml` as `type: keyvalue`, and Render injects its internal connection string into both
@@ -531,8 +564,10 @@ On the client, **every `alert()` is removed**; field errors render inline from Z
 
 **Vitest (unit)** — `apps/server/src/models/*` and `apps/server/src/lib/services/*` against
 `mongodb-memory-server` (no live database required), plus `packages/zod-shared` for schema-only tests. Covers
-Zod schemas, slug generation, teaser derivation, socket-ticket verification,
-and the service-layer authorization rules.
+Zod schemas, slug generation, teaser derivation, the chat buffer's trim-and-expire,
+and the service-layer authorization rules. *(Socket auth moved to integration coverage 2026-07-29 — with
+no ticket to verify in isolation, the meaningful assertion is that an anonymous handshake is rejected and
+that a broadcast carries the session's identity rather than the payload's.)*
 
 **Supertest (API integration)** — the layer that most directly demonstrates backend competence, and where the
 §14 regression checklist is enforced against **real routes through the real middleware chain**:
@@ -607,20 +642,28 @@ running as root) with per-app multi-stage Dockerfiles that run as a non-root use
 
 | Component | Host | Free tier |
 |---|---|---|
-| `apps/server` (+ the SPA it serves) | Render web service | 750 instance-hours/workspace/month; 100 GB egress |
-| `apps/realtime` | Render web service | (shares the same 750-hour pool) |
+| `apps/server` (+ the SPA and the Socket.io server it hosts) | Render web service | 750 instance-hours/workspace/month; 100 GB egress |
 | Redis | Render Key Value | 25 MB, 50 connections, **no persistence**, **one per workspace** |
 | Database | MongoDB Atlas M0 | 512 MB |
 | Images | Cloudinary | Free-forever tier; ample for a demo's avatars and cover images |
 | CI | GitHub Actions | Free (public repo) |
 
-**Accepted:** free Render services **spin down after 15 minutes idle and cold-start in ~60 s**. Both services
-are permitted to sleep. (750 hours funds only *one* always-on service, so keeping both warm is not possible on
-the free tier — hence cold starts are accepted rather than worked around.)
+**Accepted:** free Render services **spin down after 15 minutes idle and cold-start in ~60 s**.
 
-**`infra/render.yaml`** declares all three prod resources as infrastructure-as-code. Secrets (`MONGODB_URI`,
+*Revised 2026-07-29.* This originally read "both services are permitted to sleep," on the reasoning that
+750 hours funds only *one* always-on service so keeping two warm was impossible. Collapsing realtime into
+`apps/server` (§5) removes the second service, so the allowance now covers the only service there is —
+744 hours in a 31-day month against a 750-hour grant.
+
+That makes staying warm **possible, not automatic**: Render sleeps an idle service after 15 minutes
+regardless of remaining hours, so eliminating cold starts requires a periodic external ping. None is
+configured. Until one is, the first chat visitor after an idle period still waits ~60 s — but once, not
+twice in series as the two-service design would have cost.
+
+**`infra/render.yaml`** declares both prod resources as infrastructure-as-code. Secrets (`MONGODB_URI`,
 `CLOUDINARY_URL`, OAuth credentials) use `sync: false` and are set in the dashboard — never committed, never
-hardcoded as a fallback. `SESSION_SECRET` and the socket-ticket secret use `generateValue: true`.
+hardcoded as a fallback. `SESSION_SECRET` uses `generateValue: true`. *(The socket-ticket secret is gone
+with the ticket, 2026-07-29 — realtime adds no new environment variable at all.)*
 
 **Never write credentials, tokens, or connection strings into source.** `.env` is gitignored; `.env.example`
 documents every variable with no real values. (A 5-year-old MongoDB credential was found leaked in this
@@ -646,7 +689,7 @@ parallel agents.
 | **P1** | `dev/express-api-foundation` | Monorepo re-shape, `apps/server` (Express + TS; originally scaffolded as `apps/api`, renamed during the P2 restructure) session auth on Redis, `requireAuth`/`requireOwner`, posts CRUD with correct authorization, Supertest integration suite, Compose dev + e2e, seed script, CI, deployed to Render. **Demoable via curl/Postman — no UI needed.** |
 | **P2** | `dev/react-client` | Vite + React + React Router + TanStack Query, Tailwind + shadcn (`ui`/`patterns`/`layouts`), auth pages, blog feed/post/editor, likes with optimistic UI, Playwright E2E, served by `apps/server` in prod. |
 | **P3** | `dev/comments-markdown` | Threaded comments, Markdown editor + preview, `AutoForm`. (Gating shipped in P2 and needs no flag — see §6.) |
-| **P4** | `dev/realtime-chat` | `apps/realtime` Socket.io service, signed handshake tickets, Redis message buffer, presence + typing indicators. |
+| **P4** | `dev/realtime-chat` | Socket.io **inside `apps/server`**, authenticated by the existing session, Redis message buffer, in-memory presence + typing indicators. *(Revised 2026-07-29 — was a standalone `apps/realtime` service with signed handshake tickets; see §5 and `2026-07-29-realtime-chat-design.md`.)* |
 | **P5** | `dev/media-and-search` | Signed Cloudinary uploads, avatars + cover images, tags, MongoDB full-text search. |
 | **P6** | `dev/oauth-polish` | Google + Facebook OAuth via Passport, Redis rate limiting, README + architecture diagram, demo account, final visual polish. |
 
@@ -690,15 +733,18 @@ items, a Supertest integration test against the real route.
 - [x] User cannot delete another user's account (`server/routers/user.js:60`) — `users.test.ts`
 - [x] Logout requires authentication **and is POST-only** (`server/routers/user.js:45` — unauthenticated GET) — `auth.test.ts`
 - [x] Like requires authentication and uses session identity, not a body field — `likes.test.ts`
-- [ ] Chat messages use server-derived identity — a client cannot speak as another user
-      (old `app.js:56` echoed `message.user` straight from the client payload) — **P4** (realtime, not built yet)
+- [x] Chat messages use server-derived identity — a client cannot speak as another user
+      (old `app.js:56` echoed `message.user` straight from the client payload) — `realtime.test.ts`'s "stamps
+      the session identity and ignores an author in the payload"
 - [x] Session token is not readable by JavaScript (httpOnly cookie, not `localStorage`) — `session.test.ts`
 - [x] Login does not reveal whether a username exists — `auth.test.ts`
 - [x] A post's full body is absent from the API response for an anonymous reader (§6) — `posts.test.ts`
 
 **Correctness**
-- [ ] Socket listeners are cleaned up (old `chat.jsx:51` added a listener per message received) — **P4**
-- [ ] Chat does not emit `disconnect` on every render (`chat.jsx:57`) — **P4**
+- [x] Socket listeners are cleaned up (old `chat.jsx:51` added a listener per message received) —
+      `use-chat.test.tsx`'s "removes every listener it registered on unmount"
+- [x] Chat does not emit `disconnect` on every render (`chat.jsx:57`) — `use-chat.test.tsx`'s "does not
+      reconnect or disconnect on re-render"
 - [x] A failed delete does not remove the post from the UI (`store/actions/posts.js:44`) — **P2**, `use-posts.ts`'s `useDeletePost` (invalidate-not-optimistic, so a failed mutation never touched the cache); structural guarantee, not yet exercised by a written test
 - [ ] Password confirmation is validated *before* the request, not after (`updateUser.jsx:58`) — **P2, known gap**: no signup confirm-password field was built in this round; not silently dropped, tracked here for a future pass
 - [x] Password is not silently reset on every profile update (`user.js:79` compares plaintext to a hash) — `users.test.ts`

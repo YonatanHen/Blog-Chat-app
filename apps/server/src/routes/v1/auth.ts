@@ -45,8 +45,14 @@ authRouter.post('/login', validate(LoginSchema), async (req, res) => {
 // POST, never GET: the legacy GET logout meant any <img src="/logout"> on any
 // page logged the visitor out. requireAuth makes an anonymous logout a 401.
 authRouter.post('/logout', requireAuth, async (req, res) => {
+  const userId = req.session.userId
   await destroySession(req)
   res.clearCookie('sid')
+  // The session is gone, but a socket opened before now still holds its
+  // identity in memory. Without this, logout leaves a live authenticated
+  // socket behind.
+  const disconnectUser = req.app.get('disconnectUser') as ((id: string) => void) | undefined
+  if (userId && disconnectUser) disconnectUser(userId)
   res.status(204).end()
 })
 

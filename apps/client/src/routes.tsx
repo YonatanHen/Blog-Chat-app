@@ -6,6 +6,7 @@ import { NewPostPage } from './pages/NewPostPage.js'
 import { EditPostPage } from './pages/EditPostPage.js'
 import { LoginPage } from './pages/LoginPage.js'
 import { SignupPage } from './pages/SignupPage.js'
+import { ChatPage } from './pages/ChatPage.js'
 
 export const router = createBrowserRouter([
   {
@@ -21,6 +22,7 @@ export const router = createBrowserRouter([
       { path: '/blog/:slug/edit', element: <EditPostPage /> },
       { path: '/login', element: <LoginPage /> },
       { path: '/signup', element: <SignupPage /> },
+      { path: '/chat', element: <ChatPage /> },
     ],
   },
 ])
