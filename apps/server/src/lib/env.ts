@@ -59,6 +59,22 @@ export type Env = z.infer<typeof EnvSchema>
 
 const FILE_BACKED_KEYS = ['SESSION_SECRET', 'CLOUDINARY_API_SECRET'] as const
 
+/**
+ * Standalone on purpose: callers that need PUBLIC_ORIGIN alone (the OAuth
+ * strategy setup in routes/v1/auth.ts) must not have to satisfy the full
+ * EnvSchema — e.g. MONGODB_URI/SESSION_SECRET — just to resolve one field.
+ * loadEnv() below is one caller of this, not the only path to it.
+ */
+export function resolvePublicOrigin(source: NodeJS.ProcessEnv = process.env): string {
+  const explicit = source.PUBLIC_ORIGIN?.trim()
+  if (explicit) return explicit
+  // Render injects RENDER_EXTERNAL_URL. Without this fallback a deploy keeps
+  // building localhost callbacks and breaks sign-in, with nothing failing loudly.
+  const renderUrl = source.RENDER_EXTERNAL_URL?.trim()
+  if (renderUrl) return renderUrl
+  return 'http://localhost:5173'
+}
+
 function resolveFileBackedSecrets(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   const resolved = { ...source }
   for (const key of FILE_BACKED_KEYS) {
@@ -67,11 +83,7 @@ function resolveFileBackedSecrets(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv 
       resolved[key] = readFileSync(filePath, 'utf-8').trim()
     }
   }
-  // Render injects RENDER_EXTERNAL_URL. Without this fallback a deploy keeps
-  // building localhost callbacks and breaks sign-in, with nothing failing loudly.
-  if (!resolved.PUBLIC_ORIGIN?.trim() && resolved.RENDER_EXTERNAL_URL?.trim()) {
-    resolved.PUBLIC_ORIGIN = resolved.RENDER_EXTERNAL_URL.trim()
-  }
+  resolved.PUBLIC_ORIGIN = resolvePublicOrigin(resolved)
   return resolved
 }
 

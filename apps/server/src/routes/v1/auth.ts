@@ -2,6 +2,7 @@ import { LoginSchema, SignupSchema } from '@blog/zod-shared'
 import { ServiceUnavailableError, UnauthorizedError } from '../../lib/errors.js'
 import { Router } from 'express'
 import passport from 'passport'
+import { resolvePublicOrigin } from '../../lib/env.js'
 import {
   registerOAuthStrategies,
   type ConfiguredProviders,
@@ -15,6 +16,14 @@ export const authRouter = Router()
 
 // Lazily registered so the strategies are built after loadEnv has validated the
 // credential pairs, and so a deployment with no OAuth apps pays nothing.
+//
+// REGRESSION GUARD: this used to build PUBLIC_ORIGIN from raw
+// `process.env.PUBLIC_ORIGIN ?? 'http://localhost:5173'`, bypassing the
+// RENDER_EXTERNAL_URL fallback entirely. On Render, where PUBLIC_ORIGIN is
+// correctly left unset, that raw read is undefined and fell straight to the
+// localhost default — so the Google OAuth callback URL sent to Google was
+// `http://localhost:5173/...` in production. resolvePublicOrigin() is the one
+// place that fallback lives; call it here rather than re-deriving it.
 let providers: ConfiguredProviders | undefined
 function configuredProviders(): ConfiguredProviders {
   providers ??= registerOAuthStrategies({
@@ -22,7 +31,7 @@ function configuredProviders(): ConfiguredProviders {
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
     FACEBOOK_APP_ID: process.env.FACEBOOK_APP_ID,
     FACEBOOK_APP_SECRET: process.env.FACEBOOK_APP_SECRET,
-    PUBLIC_ORIGIN: process.env.PUBLIC_ORIGIN ?? 'http://localhost:5173',
+    PUBLIC_ORIGIN: resolvePublicOrigin(),
   })
   return providers
 }
