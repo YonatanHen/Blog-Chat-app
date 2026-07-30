@@ -45,8 +45,9 @@ describe('ChatPage guard', () => {
       online: [],
       typingUsers: [],
       status: 'connected',
-      send: vi.fn(),
+      send: vi.fn(() => true),
       setTyping: vi.fn(),
+      sendError: null,
     })
     renderChatPage({ id: 'u1', username: 'reader' })
     expect(useChat).toHaveBeenCalled()
