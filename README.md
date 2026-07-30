@@ -110,6 +110,12 @@ client-side `Array.filter`. See "Search semantics" below for the word-matching b
 - **Generated cover art** — a post with no uploaded cover gets a deterministic canvas drawing keyed to its
   slug, so the feed is image-led whether or not the author supplied a picture.
 
+**Demo capacity caps.** This is a portfolio demo on free-tier infrastructure, so it is deliberately
+capped: **20 accounts, 3 posts per account, 10 comments per post**. Exceeding one returns `403` with a
+message naming which limit was hit — the app is not broken, it is full. Limits are env-driven
+(`DEMO_MAX_*`), enforced in the service layer, and scoped per owner so no single visitor can consume
+everyone else's allowance.
+
 **Not yet built (by design, not oversight):** Facebook sign-in and avatar uploads. The Facebook strategy is
 written and dormant — it needs only credentials — but Facebook's HTTPS redirect requirement makes it poor
 value for a demo, so only Google is wired up. See the phase table in
