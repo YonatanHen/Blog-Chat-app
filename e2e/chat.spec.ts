@@ -11,7 +11,10 @@ test('two signed-in users exchange a message, and a fresh client sees the buffer
   const stamp = Date.now()
 
   async function signUp(name: string) {
-    const context = await browser.newContext()
+    const context = await browser.newContext({
+      baseURL: 'http://localhost:3000',
+      extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+    })
     const page = await context.newPage()
     await page.goto('/signup')
     await page.getByLabel('Username').fill(name)

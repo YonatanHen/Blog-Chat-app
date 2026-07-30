@@ -62,4 +62,16 @@ describe('chatService', () => {
   it('returns an empty array when the buffer is empty', async () => {
     expect(await createChatService(redis).list()).toEqual([])
   })
+
+  // The key can be shared with another Render project on the free tier, so a
+  // foreign write is a real possibility. It must not 500 the whole feed.
+  it('skips entries that fail to parse rather than failing the whole call', async () => {
+    const service = createChatService(redis)
+    await service.append(message('good one'))
+    redis.store.unshift('not json{{{')
+    await service.append(message('good two'))
+
+    const result = await service.list()
+    expect(result.map((m) => m.body)).toEqual(['good one', 'good two'])
+  })
 })

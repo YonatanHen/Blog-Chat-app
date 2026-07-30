@@ -1,4 +1,4 @@
-import type { ChatMessage } from '@blog/zod-shared'
+import { ChatMessageSchema, type ChatMessage } from '@blog/zod-shared'
 import { useQuery } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { io, type Socket } from 'socket.io-client'
@@ -6,7 +6,10 @@ import { chatApi } from '../api/chat.js'
 import { DEBUG } from '../lib/constants.js'
 import { queryKeys } from '../lib/query-client.js'
 
-export type ChatUser = { id: string; username: string }
+// Optional, honestly: it reflects whatever the server's session held at
+// handshake time (see ChatMessage.author in zod-shared). Every real login
+// sets it, but the type must not pretend a session can't lack one.
+export type ChatUser = { id: string; username?: string }
 export type ChatStatus = 'connecting' | 'connected' | 'reconnecting' | 'failed'
 
 export function useChat() {
@@ -14,6 +17,11 @@ export function useChat() {
   const [online, setOnline] = useState<ChatUser[]>([])
   const [typingUsers, setTypingUsers] = useState<string[]>([])
   const [status, setStatus] = useState<ChatStatus>('connecting')
+  // Set by the server's `error` event (rejected validation, a failed Redis
+  // append) and by client-side ChatMessageSchema validation in `send` below.
+  // Cleared at the start of every new attempt so a stale error never outlives
+  // the send it was about to result from.
+  const [sendError, setSendError] = useState<string | null>(null)
 
   // Held in a ref, created once. Creating it during render would open a
   // connection per render — the shape of the legacy chat.jsx:57 defect.
@@ -47,6 +55,13 @@ export function useChat() {
     staleTime: Infinity,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
+    // staleTime: Infinity keeps the buffer frozen *during* a visit (see above).
+    // gcTime: 0 stops that same snapshot from surviving *across* a visit — the
+    // default 5min gcTime would replay it on remount while liveMessages
+    // (component state) had already reset to [], losing anything that arrived
+    // live in between. Evicting on unmount forces a refetch instead, which
+    // recovers those messages because the server already persisted them.
+    gcTime: 0,
   })
 
   useEffect(() => {
@@ -79,12 +94,17 @@ export function useChat() {
     const onConnectError = () => setStatus('failed')
     const onMessage = (message: ChatMessage) => setLiveMessages((prev) => [...prev, message])
     const onPresence = ({ users }: { users: ChatUser[] }) => setOnline(users)
-    const onTyping = ({ username, typing }: { username: string; typing: boolean }) =>
+    // No fallback name: a typing signal with no username is omitted from the
+    // indicator entirely rather than rendering a fabricated placeholder.
+    const onTyping = ({ username, typing }: { username?: string; typing: boolean }) => {
+      if (!username) return
       setTypingUsers((prev) =>
         typing ? [...new Set([...prev, username])] : prev.filter((u) => u !== username),
       )
+    }
     const onError = ({ message }: { message: string }) => {
       if (DEBUG) console.warn('[CHAT] rejected', message)
+      setSendError(message)
     }
 
     socket.on('connect', onConnect)
@@ -110,16 +130,21 @@ export function useChat() {
     }
   }, [])
 
-  const send = useCallback((body: string) => {
-    const trimmed = body.trim()
-    if (!trimmed) return
+  const send = useCallback((body: string): boolean => {
+    setSendError(null)
+    const parsed = ChatMessageSchema.safeParse({ body })
+    if (!parsed.success) {
+      setSendError(parsed.error.errors[0]?.message ?? 'Invalid message')
+      return false
+    }
     // Body only. The author is stamped server-side from the session.
-    socketRef.current?.emit('message', { body: trimmed })
+    socketRef.current?.emit('message', { body: parsed.data.body })
+    return true
   }, [])
 
   const setTyping = useCallback((typing: boolean) => {
     socketRef.current?.emit('typing', { typing })
   }, [])
 
-  return { messages, online, typingUsers, status, send, setTyping }
+  return { messages, online, typingUsers, status, send, setTyping, sendError }
 }

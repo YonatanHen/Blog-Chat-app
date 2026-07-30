@@ -107,6 +107,43 @@ describe('useChat', () => {
     expect(socket.emit).toHaveBeenCalledWith('message', { body: 'hi' })
   })
 
+  // Design §5/§7: the same ChatMessageSchema the server enforces must reject
+  // an over-length message on the client too, rather than letting it round-
+  // trip to the server just to be rejected and silently swallowed.
+  it('rejects an over-length message locally, without emitting, and surfaces the Zod message', () => {
+    stubFetch(() => jsonResponse([]))
+    const { result } = renderHook(() => useChat(), { wrapper: makeWrapper() })
+
+    let accepted = true
+    act(() => {
+      accepted = result.current.send('a'.repeat(1001))
+    })
+
+    expect(accepted).toBe(false)
+    expect(socket.emit).not.toHaveBeenCalled()
+    expect(result.current.sendError).toMatch(/1,000 characters/)
+  })
+
+  // A rejected message used to vanish silently — the composer emptied with no
+  // sign anything went wrong. The server's `error` event (validation failure
+  // or a failed Redis append) must surface through sendError.
+  it('surfaces a server-side rejection via sendError, cleared on the next attempt', async () => {
+    stubFetch(() => jsonResponse([]))
+    const { result } = renderHook(() => useChat(), { wrapper: makeWrapper() })
+
+    act(() => {
+      handlers.get('error')?.({ message: 'Could not send message. Please try again.' })
+    })
+    await waitFor(() =>
+      expect(result.current.sendError).toBe('Could not send message. Please try again.'),
+    )
+
+    act(() => {
+      result.current.send('a fresh attempt')
+    })
+    expect(result.current.sendError).toBeNull()
+  })
+
   // The design's explicit ordering: load the buffer over REST, then subscribe.
   // Buffered history must render oldest-first, ahead of anything arriving live.
   it('loads the buffer on mount, oldest-first, ahead of live messages', async () => {
@@ -233,5 +270,46 @@ describe('useChat', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  // A remount within the default 5-minute gcTime window used to serve the
+  // FROZEN first-visit buffer while liveMessages (component state) had
+  // already reset to [] — a message that only ever arrived live during the
+  // first visit was gone for good on the second. gcTime: 0 forces a refetch
+  // on remount instead, which recovers it because the server persisted it.
+  it('recovers a message that only arrived live, after an unmount/remount inside the cache window', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    )
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([message('live-1', 'arrived mid-visit')]))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const first = renderHook(() => useChat(), { wrapper })
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+
+    act(() => {
+      handlers.get('message')?.(message('live-1', 'arrived mid-visit'))
+    })
+    await waitFor(() => expect(first.result.current.messages).toHaveLength(1))
+
+    first.unmount()
+
+    // gcTime: 0 schedules eviction via a real timer rather than evicting
+    // synchronously on unmount — give it a tick to fire before remounting,
+    // or the second mount would still see the (soon-to-be-collected) cached
+    // snapshot and this test would race the very fix it's proving.
+    await new Promise((resolve) => setTimeout(resolve, 10))
+
+    const second = renderHook(() => useChat(), { wrapper })
+
+    await waitFor(() =>
+      expect(second.result.current.messages.map((m) => m.id)).toContain('live-1'),
+    )
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 })

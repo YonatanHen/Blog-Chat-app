@@ -21,6 +21,7 @@ type ChatState = {
   status: ChatStatus
   send: ReturnType<typeof vi.fn>
   setTyping: ReturnType<typeof vi.fn>
+  sendError: string | null
 }
 
 function mockChat(overrides: Partial<ChatState> = {}): ChatState {
@@ -29,8 +30,11 @@ function mockChat(overrides: Partial<ChatState> = {}): ChatState {
     online: [],
     typingUsers: [],
     status: 'connected',
-    send: vi.fn(),
+    // Defaults to a successful send — ChatRoom only clears the draft when
+    // send() reports true, so a test exercising that path must opt in.
+    send: vi.fn(() => true),
     setTyping: vi.fn(),
+    sendError: null,
     ...overrides,
   }
   vi.mocked(useChat).mockReturnValue(state)
@@ -82,6 +86,33 @@ describe('ChatRoom send flow', () => {
     expect(state.send).toHaveBeenCalledWith('hello room')
     expect(screen.getByLabelText('Message')).toHaveValue('')
     expect(state.setTyping).toHaveBeenCalledWith(false)
+  })
+
+  // send() returns false for a locally-rejected message (over the length
+  // limit) — the draft must survive so the reader can fix it, not vanish.
+  it('keeps the draft when send() rejects the message', () => {
+    const state = mockChat({ status: 'connected', send: vi.fn(() => false) })
+    render(<ChatRoom />)
+
+    fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'too long' } })
+    fireEvent.click(screen.getByText('Send'))
+
+    expect(state.send).toHaveBeenCalledWith('too long')
+    expect(screen.getByLabelText('Message')).toHaveValue('too long')
+    expect(state.setTyping).not.toHaveBeenCalledWith(false)
+  })
+
+  // A rejected message must not vanish silently — see design §7.
+  it('renders sendError near the composer', () => {
+    mockChat({ status: 'connected', sendError: 'Message must be at most 1,000 characters' })
+    render(<ChatRoom />)
+    expect(screen.getByText('Message must be at most 1,000 characters')).toBeInTheDocument()
+  })
+
+  it('renders nothing extra when there is no sendError', () => {
+    mockChat({ status: 'connected', sendError: null })
+    render(<ChatRoom />)
+    expect(screen.queryByText(/characters/)).not.toBeInTheDocument()
   })
 })
 
@@ -149,6 +180,23 @@ describe('ChatRoom messages and presence', () => {
     render(<ChatRoom />)
     expect(screen.getByText('abe')).toBeInTheDocument()
     expect(screen.getByText(/hello room/)).toBeInTheDocument()
+  })
+
+  // No fallback name: a username-less author omits the author span and its
+  // separator, rather than an empty span plus a stray leading space.
+  it('renders a message from a username-less author with no leading space', () => {
+    mockChat({
+      messages: [
+        {
+          id: 'm2',
+          body: 'anonymous-ish message',
+          author: { id: 'u3' },
+          sentAt: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    })
+    render(<ChatRoom />)
+    expect(screen.getByText('anonymous-ish message')).toBeInTheDocument()
   })
 
   it('reflects the online roster size', () => {

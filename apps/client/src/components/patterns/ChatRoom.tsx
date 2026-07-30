@@ -16,14 +16,18 @@ const STATUS_LABEL = {
 // server would immediately reject) a socket for nothing, waking the realtime
 // service's free-tier instance on every anonymous hit to /chat.
 export function ChatRoom() {
-  const { messages, online, typingUsers, status, send, setTyping } = useChat()
+  const { messages, online, typingUsers, status, send, setTyping, sendError } = useChat()
   const [draft, setDraft] = useState('')
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
-    send(draft)
-    setDraft('')
-    setTyping(false)
+    // Only clear the draft once send() has actually accepted it — a locally
+    // rejected message (e.g. over the length limit) leaves the text in place
+    // so the reader can fix it instead of losing it.
+    if (send(draft)) {
+      setDraft('')
+      setTyping(false)
+    }
   }
 
   return (
@@ -42,9 +46,13 @@ export function ChatRoom() {
       <ul className="flex flex-col gap-2">
         {messages.map((m) => (
           <li key={m.id} className="text-sm">
-            {/* Plain text, not Markdown: a fast room does not need tables, and
-                it removes the question of what a link in chat should do. */}
-            <span className="font-semibold">{m.author.username}</span> {m.body}
+            {m.author.username ? (
+              <>
+                <span className="font-semibold">{m.author.username}</span> {m.body}
+              </>
+            ) : (
+              m.body
+            )}
           </li>
         ))}
       </ul>
@@ -52,6 +60,8 @@ export function ChatRoom() {
       <p className="h-4 text-xs text-[var(--muted-foreground)]">
         {typingUsers.length > 0 && `${typingUsers.join(', ')} typing…`}
       </p>
+
+      {sendError && <p className="text-sm text-[var(--destructive)]">{sendError}</p>}
 
       <form onSubmit={submit} className="flex gap-2">
         <Input

@@ -95,7 +95,7 @@ flowchart TB
 | `apps/server` Render service | 🚧 built, not yet deployed | P1–P4. Serves the REST API, the built SPA, **and** the Socket.io realtime chat server from one origin — no CORS, no cross-origin cookie problem |
 | `apps/client` | 🚧 built, baked into the `apps/server` image | P2, complete on `staging`. Vite build; not a separate Render service — this was always the design, see "Why one service for API + client" below |
 | Realtime chat | 🚧 built, not yet deployed | P4 — runs **inside** `apps/server`, not as its own Render service (see below); no separate handshake needed because it shares the session cookie |
-| Render Key Value (Redis) | 🚧 declared in `infra/render.yaml`, not yet provisioned | P1 (sessions) → P4 (chat buffer, presence) → P6 (rate limiting). Ephemeral by design |
+| Render Key Value (Redis) | 🚧 declared in `infra/render.yaml`, not yet provisioned | P1 (sessions) → P4 (chat buffer) → P6 (rate limiting). Ephemeral by design. Presence is in-memory, not Redis — see the realtime chat design §4 |
 | MongoDB Atlas M0 | ✅ exists, 🚧 being re-secured | Credential was leaked and rotated on 2026-07-16; cluster will be wiped and reseeded before go-live |
 | Cloudinary | 📋 planned | P5 — replaces the S3 + CloudFront plan; free forever, no shared-AWS-account hazard |
 

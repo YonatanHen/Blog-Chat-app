@@ -32,8 +32,21 @@ export function createChatService(redis: ChatRedis): ChatService {
 
     async list() {
       const raw = await redis.lRange(CHAT_KEY, 0, -1)
+      // This key can be shared with another Render project on the free tier,
+      // so a foreign write here is a real possibility, not a hypothetical —
+      // one bad entry must not 500 the feed for every user forever. Skip it
+      // rather than let JSON.parse throw for the whole list; never log the
+      // entry itself, since it may not be chat data at all.
+      const messages: ChatMessage[] = []
+      for (const entry of raw) {
+        try {
+          messages.push(JSON.parse(entry) as ChatMessage)
+        } catch {
+          if (process.env.DEBUG) console.warn('[CHAT_SERVICE] skipped an unparsable entry')
+        }
+      }
       // LPUSH writes newest-to-head; a conversation reads oldest-first.
-      return raw.reverse().map((entry) => JSON.parse(entry) as ChatMessage)
+      return messages.reverse()
     },
   }
 }
