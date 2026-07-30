@@ -32,11 +32,7 @@ export function createChatService(redis: ChatRedis): ChatService {
 
     async list() {
       const raw = await redis.lRange(CHAT_KEY, 0, -1)
-      // This key can be shared with another Render project on the free tier,
-      // so a foreign write here is a real possibility, not a hypothetical —
-      // one bad entry must not 500 the feed for every user forever. Skip it
-      // rather than let JSON.parse throw for the whole list; never log the
-      // entry itself, since it may not be chat data at all.
+      // Skip entries that fail to parse instead of 500ing the whole feed; never log the entry itself.
       const messages: ChatMessage[] = []
       for (const entry of raw) {
         try {

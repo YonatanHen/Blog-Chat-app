@@ -107,9 +107,7 @@ describe('useChat', () => {
     expect(socket.emit).toHaveBeenCalledWith('message', { body: 'hi' })
   })
 
-  // Design §5/§7: the same ChatMessageSchema the server enforces must reject
-  // an over-length message on the client too, rather than letting it round-
-  // trip to the server just to be rejected and silently swallowed.
+  // Same schema the server enforces — an over-length message must fail here first.
   it('rejects an over-length message locally, without emitting, and surfaces the Zod message', () => {
     stubFetch(() => jsonResponse([]))
     const { result } = renderHook(() => useChat(), { wrapper: makeWrapper() })
@@ -124,9 +122,7 @@ describe('useChat', () => {
     expect(result.current.sendError).toMatch(/1,000 characters/)
   })
 
-  // A rejected message used to vanish silently — the composer emptied with no
-  // sign anything went wrong. The server's `error` event (validation failure
-  // or a failed Redis append) must surface through sendError.
+  // A rejected message must surface via sendError instead of vanishing silently.
   it('surfaces a server-side rejection via sendError, cleared on the next attempt', async () => {
     stubFetch(() => jsonResponse([]))
     const { result } = renderHook(() => useChat(), { wrapper: makeWrapper() })
@@ -272,11 +268,7 @@ describe('useChat', () => {
     }
   })
 
-  // A remount within the default 5-minute gcTime window used to serve the
-  // FROZEN first-visit buffer while liveMessages (component state) had
-  // already reset to [] — a message that only ever arrived live during the
-  // first visit was gone for good on the second. gcTime: 0 forces a refetch
-  // on remount instead, which recovers it because the server persisted it.
+  // Reproduces the remount bug: gcTime:0 forces a refetch instead of replaying a frozen buffer.
   it('recovers a message that only arrived live, after an unmount/remount inside the cache window', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -299,10 +291,7 @@ describe('useChat', () => {
 
     first.unmount()
 
-    // gcTime: 0 schedules eviction via a real timer rather than evicting
-    // synchronously on unmount — give it a tick to fire before remounting,
-    // or the second mount would still see the (soon-to-be-collected) cached
-    // snapshot and this test would race the very fix it's proving.
+    // gcTime's eviction timer needs a tick to fire before remounting.
     await new Promise((resolve) => setTimeout(resolve, 10))
 
     const second = renderHook(() => useChat(), { wrapper })

@@ -50,11 +50,7 @@ describe('realtime', () => {
     await new Promise<void>((resolve) => httpServer.close(() => resolve()))
   })
 
-  /**
-   * Signs in over REST and returns the session cookie for the handshake.
-   * `userId` defaults to the fixed 'user-123' every other test in this file
-   * uses; pass one explicitly to stand up a second, distinct identity.
-   */
+  /** Signs in over REST; pass userId to stand up a second, distinct identity. */
   async function signedInCookie(userId?: string): Promise<string> {
     const res = await request(app)
       .post('/api/v1/session-test/login')
@@ -169,10 +165,7 @@ describe('realtime', () => {
     expect(chatService.appended).toHaveLength(1)
   })
 
-  // Design §8: presence must reflect connect AND disconnect. Two distinct
-  // identities on purpose — with one shared identity, dedup would keep the
-  // user listed via a second socket, and the assertion below would pass for
-  // the wrong reason.
+  // Design §8: two identities on purpose — one shared identity would let dedup mask the removal.
   it('removes a user from presence when their socket disconnects', async () => {
     const watcher = connect(await signedInCookie('watcher-1'))
     await new Promise<void>((resolve) => watcher.on('connect', resolve))
@@ -180,11 +173,7 @@ describe('realtime', () => {
     const leaver = connect(await signedInCookie('leaver-1'))
     await new Promise<void>((resolve) => leaver.on('connect', resolve))
 
-    // The presence broadcast triggered by leaver's own connection is still in
-    // flight to watcher at this point (it's a separate round trip from the
-    // client-side 'connect' event above). Wait for it explicitly so the
-    // listener registered below can only be resolved by the DISCONNECT
-    // broadcast, not race the connect one.
+    // Drain the connect-triggered presence broadcast first, so the listener below only catches disconnect's.
     await new Promise<void>((resolve) => {
       watcher.on('presence', function onConnectPresence({ users }: { users: { id: string }[] }) {
         if (users.some((u) => u.id === 'leaver-1')) {

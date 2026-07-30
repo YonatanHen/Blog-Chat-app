@@ -21,9 +21,7 @@ export function ChatRoom() {
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
-    // Only clear the draft once send() has actually accepted it — a locally
-    // rejected message (e.g. over the length limit) leaves the text in place
-    // so the reader can fix it instead of losing it.
+    // Only clear the draft once send() actually accepts it, so a rejected message isn't lost.
     if (send(draft)) {
       setDraft('')
       setTyping(false)

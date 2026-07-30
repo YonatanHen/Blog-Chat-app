@@ -35,9 +35,7 @@ if (process.env.NODE_ENV !== 'production') {
     throw new Error('db password rejected')
   })
   v1Router.post('/session-test/login', (req, res) => {
-    // Defaults to the fixed 'user-123' every existing test relies on; an
-    // explicit body.userId lets a test stand up a second, distinct identity
-    // (e.g. to prove presence actually removes ONE user, not the only user).
+    // Defaults to 'user-123'; pass body.userId to stand up a second identity in a test.
     const userId = typeof req.body?.userId === 'string' ? req.body.userId : 'user-123'
     req.session.userId = userId
     res.json({ ok: true })
