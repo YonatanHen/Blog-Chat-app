@@ -30,6 +30,7 @@ export function PostCard({ post, featured = false }: { post: Post; featured?: bo
       <Link to={`/blog/${post.slug}`} aria-hidden="true" tabIndex={-1} className="group block">
         <PostTile
           slug={post.slug}
+          coverUrl={post.coverUrl}
           className="transition-opacity duration-200 group-hover:opacity-85"
         />
       </Link>

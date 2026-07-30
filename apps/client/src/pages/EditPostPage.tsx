@@ -29,6 +29,7 @@ export function EditPostPage() {
           schema={UpdatePostSchema}
           initialValues={post}
           submitLabel="Save changes"
+          imagePreviewUrl={post.coverUrl}
           onSubmit={(values) =>
             updatePost.mutate(values, {
               // The slug is derived from the title, so it may have changed —

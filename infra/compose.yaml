@@ -17,6 +17,11 @@ services:
       MONGODB_URI: mongodb://mongo:27017/blogchat
       REDIS_URL: redis://redis:6379
       SESSION_SECRET_FILE: /run/secrets/session_secret
+      # Optional, read from your gitignored .env. Unset means uploads report 503
+      # and covers stay generated — set all three or none.
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
     secrets:
       - session_secret
     depends_on:

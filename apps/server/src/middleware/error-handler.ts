@@ -3,6 +3,7 @@ import {
   ConflictError,
   ForbiddenError,
   NotFoundError,
+  ServiceUnavailableError,
   UnauthorizedError,
   ValidationError,
 } from '../lib/errors.js'
@@ -37,6 +38,12 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
   if (err instanceof ConflictError) {
     console.warn(`[ERROR_HANDLER] ConflictError on ${req.method} ${req.path}:`, err.message)
     res.status(409).json({ error: { message: err.message } })
+    return
+  }
+
+  if (err instanceof ServiceUnavailableError) {
+    console.warn(`[ERROR_HANDLER] ServiceUnavailableError on ${req.method} ${req.path}:`, err.message)
+    res.status(503).json({ error: { message: err.message } })
     return
   }
 

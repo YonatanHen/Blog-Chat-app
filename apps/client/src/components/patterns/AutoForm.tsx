@@ -4,9 +4,10 @@ import { Button } from '../ui/button.js'
 import { Input } from '../ui/input.js'
 import { Label } from '../ui/label.js'
 import { Textarea } from '../ui/textarea.js'
+import { ImageUpload } from './ImageUpload.js'
 import { TagsInput } from './TagsInput.js'
 
-type FieldKind = 'checkbox' | 'textarea' | 'tags' | 'text'
+type FieldKind = 'checkbox' | 'textarea' | 'tags' | 'image' | 'text'
 
 /**
  * `ZodTypeDef` is the public (near-empty) shape of `_def`; the discriminant and
@@ -49,6 +50,9 @@ function fieldKind(key: string, schema: ZodTypeAny): FieldKind {
   if (typeName === ZodFirstPartyTypeKind.ZodBoolean) return 'checkbox'
   if (typeName === ZodFirstPartyTypeKind.ZodArray) return 'tags'
   if (key === 'body') return 'textarea'
+  // Keyed by name, not by type: a public ID is a plain string to zod, and a raw
+  // text box for one would be unusable — nobody types a Cloudinary ID by hand.
+  if (key === 'coverImage' || key === 'avatar') return 'image'
   return 'text'
 }
 
@@ -62,11 +66,14 @@ export function AutoForm<S extends ZodObject<ZodRawShape>>({
   initialValues,
   onSubmit,
   submitLabel = 'Save',
+  imagePreviewUrl,
 }: {
   schema: S
   initialValues?: Partial<z.infer<S>>
   onSubmit: (values: z.infer<S>) => void
   submitLabel?: string
+  /** Delivery URL for an already-saved image — the form holds only its ID. */
+  imagePreviewUrl?: string
 }) {
   // Derived once, up front: `schema.shape` is indexed by an open `string` key,
   // so re-reading it per render would fight `noUncheckedIndexedAccess`.
@@ -74,7 +81,7 @@ export function AutoForm<S extends ZodObject<ZodRawShape>>({
     ([key, fieldSchema]) => ({ key, kind: fieldKind(key, fieldSchema) }),
   )
 
-  const [values, setValues] = useState<Record<string, string | boolean | string[]>>(() => {
+  const [values, setValues] = useState<Record<string, string | boolean | string[] | null>>(() => {
     const initial = (initialValues ?? {}) as Record<string, unknown>
     return Object.fromEntries(
       fields.map(({ key, kind }) => {
@@ -84,6 +91,10 @@ export function AutoForm<S extends ZodObject<ZodRawShape>>({
             return [key, Boolean(seed ?? false)]
           case 'tags':
             return [key, Array.isArray(seed) ? seed.map(String) : []]
+          // null, never '': an empty string is not a valid public ID and would
+          // fail the schema on every submit that leaves the image blank.
+          case 'image':
+            return [key, typeof seed === 'string' ? seed : null]
           default:
             return [key, typeof seed === 'string' ? seed : '']
         }
@@ -117,8 +128,17 @@ export function AutoForm<S extends ZodObject<ZodRawShape>>({
       {fields.map(({ key, kind }) => {
         return (
           <div key={key} className="flex flex-col gap-1">
-            <Label htmlFor={key}>{key}</Label>
-            {kind === 'checkbox' ? (
+            {/* ImageUpload renders its own label and controls. */}
+            {kind !== 'image' && <Label htmlFor={key}>{key}</Label>}
+            {kind === 'image' ? (
+              <ImageUpload
+                value={typeof values[key] === 'string' ? (values[key] as string) : null}
+                previewUrl={imagePreviewUrl}
+                folder={key === 'avatar' ? 'avatars' : 'covers'}
+                label={key === 'avatar' ? 'Avatar' : 'Cover image'}
+                onChange={(publicId) => setValues((v) => ({ ...v, [key]: publicId }))}
+              />
+            ) : kind === 'checkbox' ? (
               <input
                 id={key}
                 type="checkbox"

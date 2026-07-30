@@ -43,7 +43,7 @@ export function PostPage() {
         </h1>
       </header>
 
-      <PostTile slug={post.slug} className="aspect-[21/9]" />
+      <PostTile slug={post.slug} coverUrl={post.coverUrl} className="aspect-[21/9]" />
 
       <div className="max-w-[68ch] text-lg leading-relaxed whitespace-pre-wrap">{post.body}</div>
 
