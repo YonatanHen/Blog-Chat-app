@@ -20,6 +20,13 @@ export const queryKeys = {
      * they must all still be dropped together when a post changes.
      */
     all: ['posts'] as const,
+    /**
+     * Match target for every cached feed variant regardless of filters, never
+     * fetched directly — same idea as `all`, one level narrower. Lets a
+     * mutation patch every list the feed might currently have cached without
+     * also touching detail queries, which store a single Post, not an array.
+     */
+    lists: ['posts', 'list'] as const,
     list: (params: PostListParams = {}) => ['posts', 'list', params] as const,
     /**
      * Namespaced under 'detail' rather than sitting directly on the slug: with
