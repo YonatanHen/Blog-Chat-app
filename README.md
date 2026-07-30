@@ -86,7 +86,7 @@ client-side `Array.filter`. See "Search semantics" below for the word-matching b
 
 | Layer | What's used |
 |---|---|
-| Server | Express 5 · Socket.io (realtime chat) · Mongoose 8 (MongoDB) · `express-session` + `connect-redis` (Redis-backed sessions) · bcryptjs · Helmet · Zod |
+| Server | Express 5 · Socket.io (realtime chat) · Mongoose 8 (MongoDB) · `express-session` + `connect-redis` (Redis-backed sessions) · bcryptjs · Helmet · Zod · Cloudinary (signed image uploads) |
 | Client | React 19 · Vite · TanStack Query · React Router 8 · Tailwind CSS 4 · `react-markdown` + `remark-gfm` |
 | Shared | Zod schemas in `packages/zod-shared`, the single source of truth for both server validation and client forms |
 | Testing | Vitest · Supertest · `mongodb-memory-server` · Testing Library · Playwright (e2e) |
@@ -101,12 +101,17 @@ client-side `Array.filter`. See "Search semantics" below for the word-matching b
 - **Search** — full-text search plus tag filtering over the feed, debounced, bookmarkable via the URL.
 - **Realtime chat** — one room, signed-in only, with presence and typing indicators; recent history is
   loaded from Redis on join, and messages live only in Redis, never in MongoDB.
-- **Generated cover art** — every post gets a deterministic canvas drawing keyed to its slug, so the feed
-  is image-led with no upload pipeline and no stored assets.
+- **Cover images** — optional per post, uploaded straight to Cloudinary from the browser against a
+  short-lived signature the API issues; only the public ID is stored, so the delivery host can change
+  without rewriting documents.
+- **Generated cover art** — a post with no uploaded cover gets a deterministic canvas drawing keyed to its
+  slug, so the feed is image-led whether or not the author supplied a picture.
 
-**Not yet built (by design, not oversight):** OAuth login (planned P6) and media/avatar uploads — post
-covers are generated placeholders until those land. See the phase table in
-`docs/superpowers/specs/2026-07-16-express-react-rebuild-design.md` §13 for what's next.
+**Not yet built (by design, not oversight):** OAuth login (planned P6) and avatar uploads. See the phase
+table in `docs/superpowers/specs/2026-07-16-express-react-rebuild-design.md` §13 for what's next.
+
+Uploads are optional infrastructure: with no `CLOUDINARY_*` variables set the API still boots, the upload
+endpoint reports 503, and every post falls back to its generated cover.
 
 ## Quick start
 
