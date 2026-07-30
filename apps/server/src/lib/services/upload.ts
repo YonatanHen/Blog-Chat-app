@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { v2 as cloudinary } from 'cloudinary'
 import { ServiceUnavailableError, ValidationError } from '../errors.js'
 
 /**
@@ -7,8 +7,8 @@ import { ServiceUnavailableError, ValidationError } from '../errors.js'
  * browser → Cloudinary and never transit this container, which is what keeps
  * Render's egress allowance intact.
  *
- * No SDK: the signature is a documented SHA-1 over the signable params, so a
- * dependency would buy nothing and add a supply-chain surface.
+ * Signing and URL building are the SDK's (`api_sign_request`, `url`) — the
+ * signature algorithm is theirs to change, not ours to reimplement.
  */
 
 /** The only folders a signature may be issued for. */
@@ -17,6 +17,12 @@ export type UploadFolder = keyof typeof FOLDERS
 
 /** Cloudinary rejects the upload itself if the file is not one of these. */
 const ALLOWED_FORMATS = 'jpg,jpeg,png,webp,avif'
+
+export type CloudinaryCredentials = {
+  cloudName: string
+  apiKey: string
+  apiSecret: string
+}
 
 export type SignedUpload = {
   cloudName: string
@@ -27,31 +33,34 @@ export type SignedUpload = {
   signature: string
 }
 
-type Credentials = { cloudName: string; apiKey: string; apiSecret: string }
-
-// cloudinary://<api_key>:<api_secret>@<cloud_name>
-function parseCloudinaryUrl(raw: string): Credentials {
-  let url: URL
-  try {
-    url = new URL(raw)
-  } catch {
-    throw new Error('CLOUDINARY_URL is not a valid URL')
-  }
-  const cloudName = url.hostname
-  const apiKey = decodeURIComponent(url.username)
-  const apiSecret = decodeURIComponent(url.password)
-  if (url.protocol !== 'cloudinary:' || !cloudName || !apiKey || !apiSecret) {
-    throw new Error('CLOUDINARY_URL must look like cloudinary://<api_key>:<api_secret>@<cloud_name>')
-  }
+/**
+ * Reads credentials from the environment. All three or none — `loadEnv` rejects
+ * a partial set at boot, and this mirrors that so a direct caller cannot get a
+ * half-configured service.
+ */
+export function credentialsFromEnv(
+  source: NodeJS.ProcessEnv = process.env,
+): CloudinaryCredentials | undefined {
+  const cloudName = source.CLOUDINARY_CLOUD_NAME?.trim()
+  const apiKey = source.CLOUDINARY_API_KEY?.trim()
+  const apiSecret = source.CLOUDINARY_API_SECRET?.trim()
+  if (!cloudName || !apiKey || !apiSecret) return undefined
   return { cloudName, apiKey, apiSecret }
 }
 
-export function createUploadService(cloudinaryUrl: string | undefined) {
-  // `?.trim()` guard: Compose renders an unset variable as '', and an empty
-  // string must mean "no Cloudinary", not "malformed URL".
-  const creds = cloudinaryUrl?.trim() ? parseCloudinaryUrl(cloudinaryUrl) : undefined
+export function createUploadService(creds: CloudinaryCredentials | undefined) {
+  if (creds) {
+    // The SDK's own config, per its Node integration guide. Values come from the
+    // gitignored .env via loadEnv — never a literal in source.
+    cloudinary.config({
+      cloud_name: creds.cloudName,
+      api_key: creds.apiKey,
+      api_secret: creds.apiSecret,
+      secure: true,
+    })
+  }
 
-  function require(): Credentials {
+  function required(): CloudinaryCredentials {
     if (!creds) throw new ServiceUnavailableError('Image uploads are not configured on this server.')
     return creds
   }
@@ -66,7 +75,7 @@ export function createUploadService(cloudinaryUrl: string | undefined) {
      * caller-supplied path would let any signed-in user write anywhere in the account.
      */
     signUpload(folder: string, timestamp: number): SignedUpload {
-      const { cloudName, apiKey, apiSecret } = require()
+      const { cloudName, apiKey, apiSecret } = required()
       const target = FOLDERS[folder as UploadFolder]
       if (!target) {
         throw new ValidationError('Unknown upload folder.', {
@@ -74,11 +83,12 @@ export function createUploadService(cloudinaryUrl: string | undefined) {
         })
       }
 
-      // Sorted by key, joined k=v with &, secret appended, SHA-1 — Cloudinary's
-      // documented scheme. Params not listed here are not signed, so Cloudinary
-      // rejects the upload if the browser adds any of its own.
-      const signable = `allowed_formats=${ALLOWED_FORMATS}&folder=${target}&timestamp=${timestamp}`
-      const signature = createHash('sha1').update(`${signable}${apiSecret}`).digest('hex')
+      // Only these params are signed, so Cloudinary rejects the upload if the
+      // browser adds any of its own.
+      const signature = cloudinary.utils.api_sign_request(
+        { allowed_formats: ALLOWED_FORMATS, folder: target, timestamp },
+        apiSecret,
+      )
 
       return {
         cloudName,
@@ -118,18 +128,17 @@ export function publicIdFrom(publicId: string, field = 'coverImage'): string {
  * so the client never needs the cloud name and the stored document stays
  * host-independent — changing delivery host is a config change, not a migration.
  *
- * `f_auto,q_auto` lets Cloudinary pick format and quality per browser, which is
- * most of the bandwidth saving on the free tier.
+ * `fetch_format`/`quality` auto let Cloudinary pick per browser, which is most
+ * of the bandwidth saving on the free tier.
  */
 export function deliveryUrl(publicId: string, width = 1200): string | undefined {
-  const raw = process.env.CLOUDINARY_URL
-  if (!raw?.trim()) return undefined
-  try {
-    const cloudName = new URL(raw).hostname
-    return `https://res.cloudinary.com/${cloudName}/image/upload/f_auto,q_auto,w_${width}/${publicId}`
-  } catch {
-    return undefined
-  }
+  const creds = credentialsFromEnv()
+  if (!creds) return undefined
+  return cloudinary.url(publicId, {
+    cloud_name: creds.cloudName,
+    secure: true,
+    transformation: [{ fetch_format: 'auto', quality: 'auto', width, crop: 'limit' }],
+  })
 }
 
 export type UploadService = ReturnType<typeof createUploadService>

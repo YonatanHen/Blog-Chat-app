@@ -26,9 +26,15 @@ services:
       # Set in the dashboard. NEVER committed, NEVER a hardcoded fallback.
       - key: MONGODB_URI
         sync: false
-      # Optional: without it the API still boots and uploads report 503, so a
-      # deploy is never blocked on having a Cloudinary account.
-      - key: CLOUDINARY_URL
+      # Optional: without these the API still boots and uploads report 503, so a
+      # deploy is never blocked on having a Cloudinary account. Set all three or
+      # none — a partial set is rejected at boot. sync: false means Render
+      # prompts for the value and it is never committed.
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
         sync: false
       - key: REDIS_URL
         fromService:

@@ -661,7 +661,7 @@ configured. Until one is, the first chat visitor after an idle period still wait
 twice in series as the two-service design would have cost.
 
 **`infra/render.yaml`** declares both prod resources as infrastructure-as-code. Secrets (`MONGODB_URI`,
-`CLOUDINARY_URL`, OAuth credentials) use `sync: false` and are set in the dashboard — never committed, never
+`CLOUDINARY_*`, OAuth credentials) use `sync: false` and are set in the dashboard — never committed, never
 hardcoded as a fallback. `SESSION_SECRET` uses `generateValue: true`. *(The socket-ticket secret is gone
 with the ticket, 2026-07-29 — realtime adds no new environment variable at all.)*
 

@@ -46,28 +46,50 @@ describe('loadEnv', () => {
   })
 })
 
-describe('CLOUDINARY_URL', () => {
+describe('CLOUDINARY_* credentials', () => {
   const base = {
     MONGODB_URI: 'mongodb://localhost:27017/x',
     REDIS_URL: 'redis://localhost:6379',
     SESSION_SECRET: 'a'.repeat(32),
   }
+  const full = {
+    CLOUDINARY_CLOUD_NAME: 'my-cloud',
+    CLOUDINARY_API_KEY: 'my-key',
+    CLOUDINARY_API_SECRET: 'my-secret',
+  }
 
   // Compose and Render both render an unset variable as '' rather than dropping
-  // it. Before this was handled, an empty value failed startsWith() and the API
+  // it. Before this was handled, an empty value failed validation and the API
   // refused to boot on any deployment without a Cloudinary account.
-  it('treats an empty string as unset rather than as a malformed URL', () => {
-    expect(loadEnv({ ...base, CLOUDINARY_URL: '' }).CLOUDINARY_URL).toBeUndefined()
-    expect(loadEnv({ ...base, CLOUDINARY_URL: '   ' }).CLOUDINARY_URL).toBeUndefined()
+  it('treats empty strings as unset rather than as invalid values', () => {
+    const env = loadEnv({
+      ...base,
+      CLOUDINARY_CLOUD_NAME: '',
+      CLOUDINARY_API_KEY: '   ',
+      CLOUDINARY_API_SECRET: '',
+    })
+    expect(env.CLOUDINARY_CLOUD_NAME).toBeUndefined()
+    expect(env.CLOUDINARY_API_KEY).toBeUndefined()
+    expect(env.CLOUDINARY_API_SECRET).toBeUndefined()
   })
 
-  it('accepts a well-formed cloudinary URL', () => {
-    expect(loadEnv({ ...base, CLOUDINARY_URL: 'cloudinary://k:s@cloud' }).CLOUDINARY_URL).toBe(
-      'cloudinary://k:s@cloud',
+  it('accepts all three together', () => {
+    expect(loadEnv({ ...base, ...full }).CLOUDINARY_CLOUD_NAME).toBe('my-cloud')
+  })
+
+  it('boots fine with none of them — uploads are optional', () => {
+    expect(() => loadEnv(base)).not.toThrow()
+  })
+
+  // A partial set looks configured and then fails at Cloudinary with an opaque
+  // error, so it must be caught at boot instead.
+  it('rejects a partial set, naming every missing variable', () => {
+    expect(() => loadEnv({ ...base, CLOUDINARY_CLOUD_NAME: 'my-cloud' })).toThrow(
+      /CLOUDINARY_API_KEY[\s\S]*CLOUDINARY_API_SECRET|CLOUDINARY_API_SECRET[\s\S]*CLOUDINARY_API_KEY/,
     )
   })
 
-  it('rejects a non-cloudinary URL loudly', () => {
-    expect(() => loadEnv({ ...base, CLOUDINARY_URL: 'https://example.com' })).toThrow(/CLOUDINARY_URL/)
+  it('resolves CLOUDINARY_API_SECRET from a _FILE path like SESSION_SECRET', () => {
+    expect(loadEnv({ ...base, ...full }).CLOUDINARY_API_SECRET).toBe('my-secret')
   })
 })

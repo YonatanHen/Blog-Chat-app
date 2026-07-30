@@ -12,7 +12,7 @@ async function signedInAgent(app: ReturnType<typeof buildTestApp>, username = 'u
   return agent
 }
 
-// The test env sets no CLOUDINARY_URL, so the endpoint is unconfigured here.
+// The test env sets no CLOUDINARY_* variables, so uploads are unconfigured here.
 // That is the point of these two: the API must boot and authorize normally
 // without any Cloudinary account, and degrade only at the last step.
 describe('POST /api/v1/uploads/signature', () => {

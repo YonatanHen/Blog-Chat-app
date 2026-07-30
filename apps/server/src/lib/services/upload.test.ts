@@ -1,24 +1,26 @@
-import { createHash } from 'node:crypto'
+import { v2 as cloudinary } from 'cloudinary'
 import { describe, expect, it } from 'vitest'
 import { ServiceUnavailableError, ValidationError } from '../errors.js'
-import { createUploadService, publicIdFrom } from './upload.js'
+import { createUploadService, credentialsFromEnv, deliveryUrl, publicIdFrom } from './upload.js'
 
-const URL_ = 'cloudinary://123456789:test-api-secret@demo-cloud'
+const CREDS = { cloudName: 'demo-cloud', apiKey: '123456789', apiSecret: 'test-api-secret' }
 
 describe('uploadService.signUpload', () => {
-  const service = createUploadService(URL_)
+  const service = createUploadService(CREDS)
 
-  it('signs only the parameters Cloudinary signs, sorted and secret-suffixed', () => {
+  it('signs exactly the parameters it declares, per the SDK', () => {
     const signed = service.signUpload('covers', 1_700_000_000)
 
-    // Cloudinary's documented algorithm: the signable params sorted by key,
-    // joined k=v with &, the api_secret appended, SHA-1 hex.
-    const expected = createHash('sha1')
-      .update(
-        `allowed_formats=jpg,jpeg,png,webp,avif&folder=blogchat/covers&timestamp=1700000000test-api-secret`,
-      )
-      .digest('hex')
-
+    // Cross-checked against the SDK's own signer rather than a hand-rolled
+    // digest: the algorithm is Cloudinary's to change, not ours to reimplement.
+    const expected = cloudinary.utils.api_sign_request(
+      {
+        allowed_formats: 'jpg,jpeg,png,webp,avif',
+        folder: 'blogchat/covers',
+        timestamp: 1_700_000_000,
+      },
+      CREDS.apiSecret,
+    )
     expect(signed.signature).toBe(expected)
   })
 
@@ -32,13 +34,13 @@ describe('uploadService.signUpload', () => {
       timestamp: 1_700_000_000,
       allowedFormats: 'jpg,jpeg,png,webp,avif',
     })
-    expect(JSON.stringify(signed)).not.toContain('test-api-secret')
+    expect(JSON.stringify(signed)).not.toContain(CREDS.apiSecret)
   })
 
   // The folder is what scopes an upload. Accepting it from the request body
   // would let any signed-in user write anywhere in the account.
   it('rejects a folder outside the known set', () => {
-    expect(() => service.signUpload('..\\/etc', 1_700_000_000)).toThrow(ValidationError)
+    expect(() => service.signUpload('../etc', 1_700_000_000)).toThrow(ValidationError)
     expect(() => service.signUpload('anything-else', 1_700_000_000)).toThrow(ValidationError)
   })
 
@@ -54,10 +56,58 @@ describe('uploadService.signUpload', () => {
     expect(unconfigured.isConfigured).toBe(false)
     expect(() => unconfigured.signUpload('covers', 1)).toThrow(ServiceUnavailableError)
   })
+})
 
-  it('rejects a malformed CLOUDINARY_URL loudly at construction', () => {
-    expect(() => createUploadService('https://not-cloudinary')).toThrow(/CLOUDINARY_URL/)
-    expect(() => createUploadService('cloudinary://missing-secret@cloud')).toThrow(/CLOUDINARY_URL/)
+describe('credentialsFromEnv', () => {
+  it('reads all three variables', () => {
+    expect(
+      credentialsFromEnv({
+        CLOUDINARY_CLOUD_NAME: 'c',
+        CLOUDINARY_API_KEY: 'k',
+        CLOUDINARY_API_SECRET: 's',
+      }),
+    ).toEqual({ cloudName: 'c', apiKey: 'k', apiSecret: 's' })
+  })
+
+  // A partial set is the worst outcome — the app looks configured, then every
+  // upload fails at Cloudinary with an opaque error. loadEnv rejects it at boot;
+  // this mirrors that so a direct caller cannot get a half-configured service.
+  it('treats a partial or blank set as unconfigured', () => {
+    expect(credentialsFromEnv({ CLOUDINARY_CLOUD_NAME: 'c' })).toBeUndefined()
+    expect(
+      credentialsFromEnv({
+        CLOUDINARY_CLOUD_NAME: 'c',
+        CLOUDINARY_API_KEY: 'k',
+        CLOUDINARY_API_SECRET: '   ',
+      }),
+    ).toBeUndefined()
+    expect(credentialsFromEnv({})).toBeUndefined()
+  })
+})
+
+describe('deliveryUrl', () => {
+  it('returns undefined when Cloudinary is not configured', () => {
+    const saved = process.env.CLOUDINARY_CLOUD_NAME
+    delete process.env.CLOUDINARY_CLOUD_NAME
+    expect(deliveryUrl('blogchat/covers/ab12cd')).toBeUndefined()
+    if (saved !== undefined) process.env.CLOUDINARY_CLOUD_NAME = saved
+  })
+
+  it('builds a secure, auto-format delivery URL from the public ID', () => {
+    process.env.CLOUDINARY_CLOUD_NAME = 'demo-cloud'
+    process.env.CLOUDINARY_API_KEY = '123456789'
+    process.env.CLOUDINARY_API_SECRET = 'test-api-secret'
+    try {
+      const url = deliveryUrl('blogchat/covers/ab12cd')
+      expect(url).toContain('https://res.cloudinary.com/demo-cloud/')
+      expect(url).toContain('f_auto')
+      expect(url).toContain('q_auto')
+      expect(url).toContain('blogchat/covers/ab12cd')
+    } finally {
+      delete process.env.CLOUDINARY_CLOUD_NAME
+      delete process.env.CLOUDINARY_API_KEY
+      delete process.env.CLOUDINARY_API_SECRET
+    }
   })
 })
 
@@ -74,7 +124,6 @@ describe('publicIdFrom', () => {
     expect(() => publicIdFrom('blogchat/../secrets/x')).toThrow(ValidationError)
   })
 
-  // Needs no credentials — the post and user services call it directly.
   it('works without any Cloudinary configuration', () => {
     expect(publicIdFrom('blogchat/covers/ok')).toBe('blogchat/covers/ok')
   })

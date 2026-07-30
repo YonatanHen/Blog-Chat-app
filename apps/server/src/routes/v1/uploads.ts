@@ -1,13 +1,16 @@
 import { Router } from 'express'
-import { createUploadService, type UploadService } from '../../lib/services/upload.js'
+import {
+  createUploadService,
+  credentialsFromEnv,
+  type UploadService,
+} from '../../lib/services/upload.js'
 import { requireAuth } from '../../middleware/require-auth.js'
 
-// Built once from the validated env. Parsing the URL per request would be
-// wasted work, and constructing at import time would make a malformed
-// CLOUDINARY_URL throw during module load rather than at boot validation.
+// Built once, lazily: constructing at import time would call cloudinary.config()
+// before loadEnv has had a chance to reject a partial credential set.
 let cached: UploadService | undefined
 function defaultService(): UploadService {
-  cached ??= createUploadService(process.env.CLOUDINARY_URL)
+  cached ??= createUploadService(credentialsFromEnv())
   return cached
 }
 
@@ -21,8 +24,8 @@ export function createUploadsRouter(injected?: UploadService): Router {
   const router = Router()
 
   router.post('/signature', requireAuth, (req, res) => {
-    // Resolved per request, not at construction: a malformed CLOUDINARY_URL
-    // must surface at boot validation, never as an import-time crash.
+    // Resolved per request, not at construction, so a bad credential set
+    // surfaces at boot validation rather than as an import-time crash.
     const service = injected ?? defaultService()
     const folder = typeof req.query.folder === 'string' ? req.query.folder : 'covers'
     // Seconds, and Cloudinary rejects a signature more than an hour old — that
