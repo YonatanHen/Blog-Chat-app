@@ -301,7 +301,7 @@ carrying `author` or `user` cannot influence the broadcast.
 **No new environment variables.** The two-service design needed a socket-ticket secret; this one needs
 nothing — it reuses `SESSION_SECRET` and `REDIS_URL`, both already validated at boot by `lib/env.ts`.
 
-**No new Render service.** `infra/render.yaml` is unchanged apart from removing the `apps/realtime`
+**No new Render service.** `render.yaml` is unchanged apart from removing the `apps/realtime`
 comment. WebSocket upgrades work on Render web services with no extra configuration.
 
 **`infra/compose.yaml`** needs no new container. The Vite dev proxy already forwards `/api`; the socket

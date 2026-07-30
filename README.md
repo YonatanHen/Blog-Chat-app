@@ -223,7 +223,7 @@ sessionless connection server-side regardless.
 a problem with the code. See the `extra-ca` note in `CLAUDE.md`; the certificate has to be re-exported
 whenever the interceptor rotates it.
 
-**Deploying:** `infra/render.yaml` declares this rebuild's target Render service, but it has not been
+**Deploying:** `render.yaml` declares this rebuild's target Render service, but it has not been
 promoted to `master`/deployed yet — there is no live URL for it. (`master`'s legacy app is separately
 live on Render today; that deployment predates this rebuild and is unrelated to it.)
 

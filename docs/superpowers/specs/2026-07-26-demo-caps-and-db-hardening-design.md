@@ -315,7 +315,7 @@ Three properties, all mandatory:
 
 | Control | Status |
 |---|---|
-| `ipAllowList: []` — no public access | ✅ already set in `infra/render.yaml` |
+| `ipAllowList: []` — no public access | ✅ already set in `render.yaml` |
 | `maxmemoryPolicy: allkeys-lru` | ✅ already set. Eviction can log a user out early; acceptable at demo scale |
 | `SESSION_SECRET` via `generateValue: true` | ✅ already set — never seen by the repo or by us |
 
@@ -386,7 +386,7 @@ approval, per the project's standing rule. This spec does not constitute that ap
 
 1. **Free-tier limits move.** The Render, Atlas, and Resend figures cited here should be re-verified against
    current provider documentation at implementation time rather than trusted from this document.
-2. **The legacy service collision is unresolved.** A Render service predating `infra/render.yaml` currently
+2. **The legacy service collision is unresolved.** A Render service predating `render.yaml` currently
    watches `master` and auto-deploys the legacy app. Applying this Blueprint creates a *parallel* set of
    services rather than updating that one. This is the same mechanism that took the site down on 2026-07-16.
    It is out of scope here but **must be settled before promotion**.
