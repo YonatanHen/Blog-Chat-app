@@ -30,7 +30,7 @@ const EnvSchema = z.object({
   GOOGLE_CLIENT_SECRET: optionalSecret,
   FACEBOOK_APP_ID: optionalSecret,
   FACEBOOK_APP_SECRET: optionalSecret,
-  /** Absolute origin used to build OAuth callback URLs. */
+  /** Absolute origin used to build OAuth callback URLs. **/
   PUBLIC_ORIGIN: z.string().url().default('http://localhost:5173'),
 })
   // Each credential pair is all-or-nothing. A partial config is the worst
@@ -67,6 +67,12 @@ function resolveFileBackedSecrets(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv 
     if (filePath) {
       resolved[key] = readFileSync(filePath, 'utf-8').trim()
     }
+  }
+  // Render injects RENDER_EXTERNAL_URL (e.g. https://blogchat.onrender.com) into
+  // every web service. Falling back to it means a deploy cannot silently keep
+  // building localhost OAuth callbacks, which would break sign-in for everyone.
+  if (!resolved.PUBLIC_ORIGIN?.trim() && resolved.RENDER_EXTERNAL_URL?.trim()) {
+    resolved.PUBLIC_ORIGIN = resolved.RENDER_EXTERNAL_URL.trim()
   }
   return resolved
 }

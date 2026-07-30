@@ -93,3 +93,37 @@ describe('CLOUDINARY_* credentials', () => {
     expect(loadEnv({ ...base, ...full }).CLOUDINARY_API_SECRET).toBe('my-secret')
   })
 })
+
+describe('PUBLIC_ORIGIN resolution', () => {
+  const base = {
+    MONGODB_URI: 'mongodb://localhost:27017/x',
+    REDIS_URL: 'redis://localhost:6379',
+    SESSION_SECRET: 'a'.repeat(32),
+  }
+
+  it('defaults to the dev client origin locally', () => {
+    expect(loadEnv(base).PUBLIC_ORIGIN).toBe('http://localhost:5173')
+  })
+
+  // Without this, a Render deploy keeps building localhost OAuth callbacks and
+  // sign-in is broken for every user with no error at boot to warn you.
+  it('falls back to the URL Render injects', () => {
+    expect(
+      loadEnv({ ...base, RENDER_EXTERNAL_URL: 'https://blogchat.onrender.com' }).PUBLIC_ORIGIN,
+    ).toBe('https://blogchat.onrender.com')
+  })
+
+  it('lets an explicit PUBLIC_ORIGIN win, for a custom domain', () => {
+    expect(
+      loadEnv({
+        ...base,
+        RENDER_EXTERNAL_URL: 'https://blogchat.onrender.com',
+        PUBLIC_ORIGIN: 'https://blog.example.com',
+      }).PUBLIC_ORIGIN,
+    ).toBe('https://blog.example.com')
+  })
+
+  it('rejects a non-URL rather than building broken callbacks from it', () => {
+    expect(() => loadEnv({ ...base, PUBLIC_ORIGIN: 'not-a-url' })).toThrow(/PUBLIC_ORIGIN/)
+  })
+})

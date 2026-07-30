@@ -47,6 +47,11 @@ services:
         sync: false
       - key: FACEBOOK_APP_SECRET
         sync: false
+      # Only needed for a CUSTOM domain. Left unset, the API falls back to
+      # RENDER_EXTERNAL_URL, which Render injects as the service's real URL — so
+      # OAuth callbacks are correct on a default onrender.com deploy with no
+      # configuration at all. Whatever this resolves to must be registered as
+      # https://<origin>/api/v1/auth/google/callback in the Google console.
       - key: PUBLIC_ORIGIN
         sync: false
       - key: REDIS_URL
