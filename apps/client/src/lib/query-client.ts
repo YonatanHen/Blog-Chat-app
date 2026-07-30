@@ -10,6 +10,7 @@ export const queryClient = new QueryClient({
 
 export const queryKeys = {
   me: ['auth', 'me'] as const,
+  providers: ['auth', 'providers'] as const,
   posts: {
     /**
      * The invalidation target, never a query key of its own: every posts key

@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router'
+import { useNavigate, Link, useSearchParams } from 'react-router'
+import { OAuthButtons } from '../components/patterns/OAuthButtons.js'
 import { Button } from '../components/ui/button.js'
 import { Input } from '../components/ui/input.js'
 import { Label } from '../components/ui/label.js'
@@ -8,6 +9,13 @@ import { useLogin } from '../hooks/use-auth.js'
 export function LoginPage() {
   const navigate = useNavigate()
   const { mutate: login, isPending, error } = useLogin()
+  const [searchParams] = useSearchParams()
+  // The OAuth callback redirects here with ?error=<reason> rather than rendering
+  // a raw 500, so the reason has to be surfaced. 'oauth' is the generic case the
+  // provider itself bounced.
+  const rawOauthError = searchParams.get('error')
+  const oauthError =
+    rawOauthError === 'oauth' ? 'Could not sign you in with that account.' : rawOauthError
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
 
@@ -57,6 +65,10 @@ export function LoginPage() {
             {isPending ? 'Logging in...' : 'Login'}
           </Button>
         </form>
+
+        {oauthError && <p className="text-sm text-[var(--destructive)]">{oauthError}</p>}
+
+        <OAuthButtons verb="Sign in" />
 
         <p className="text-sm text-center">
           Don't have an account?{' '}
