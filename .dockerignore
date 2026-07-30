@@ -1,2 +1,13 @@
-node_modules
-npm-debug.log
+**/node_modules
+.git
+.worktrees
+.vscode
+docs
+dist
+*.tsbuildinfo
+.env*
+coverage
+test-results
+playwright-report
+.DS_Store
+**.md

@@ -1,0 +1,48 @@
+import { Router } from 'express'
+import { ForbiddenError, NotFoundError, ValidationError } from '../../lib/errors.js'
+import { authRouter } from './auth.js'
+import { postsRouter } from './posts.js'
+import { uploadsRouter } from './uploads.js'
+import { usersRouter } from './users.js'
+
+export const v1Router = Router()
+
+// Liveness probe. Used by the Compose healthcheck and the CI smoke test.
+v1Router.get('/health', (_req, res) => {
+  res.json({ status: 'ok' })
+})
+
+v1Router.use('/auth', authRouter)
+v1Router.use('/posts', postsRouter)
+v1Router.use('/uploads', uploadsRouter)
+v1Router.use('/users', usersRouter)
+
+// Routes that exist only to let app.test.ts assert the middleware chain from the
+// outside. Registered only outside production so they can never ship.
+if (process.env.NODE_ENV !== 'production') {
+  v1Router.post('/echo-test', (req, res) => {
+    res.json(req.body)
+  })
+  v1Router.get('/throw-test/not-found', () => {
+    throw new NotFoundError('Nothing here.')
+  })
+  v1Router.get('/throw-test/validation', () => {
+    throw new ValidationError('Invalid input.', { title: ['Too short'] })
+  })
+  v1Router.get('/throw-test/async-forbidden', async () => {
+    await Promise.resolve()
+    throw new ForbiddenError()
+  })
+  v1Router.get('/throw-test/boom', () => {
+    throw new Error('db password rejected')
+  })
+  v1Router.post('/session-test/login', (req, res) => {
+    // Defaults to 'user-123'; pass body.userId to stand up a second identity in a test.
+    const userId = typeof req.body?.userId === 'string' ? req.body.userId : 'user-123'
+    req.session.userId = userId
+    res.json({ ok: true })
+  })
+  v1Router.get('/session-test/whoami', (req, res) => {
+    res.json({ userId: req.session?.userId ?? null })
+  })
+}

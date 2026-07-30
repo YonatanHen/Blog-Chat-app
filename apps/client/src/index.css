@@ -1,0 +1,47 @@
+/* apps/client/src/index.css — Tailwind v4 is CSS-first: no tailwind.config.js,
+   no postcss.config.js. Light theme only (spec §2) — no .dark block. */
+@import 'tailwindcss';
+
+/* Font roles as Tailwind utilities: font-display, font-body, font-mono.
+   No webfont is loaded, so nothing can silently fall back to a wrong face. */
+@theme {
+  --font-display: 'Arial Black', 'Archivo Black', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-body: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Mono', 'Cascadia Code', Consolas, 'SF Mono', Menlo, monospace;
+}
+
+:root {
+  --background: #e7eaf1; /* paper — blue-shifted, so the neutral reads as chosen */
+  --sheet: #fafbfd; /* the contained page the content sits on */
+  --foreground: #14161d; /* ink — blue-black, not pure black */
+  --primary: #0f5d57; /* signal pine — links, active nav, focus */
+  --primary-foreground: #fafbfd;
+  --primary-wash: #0f5d5714; /* the same pine at 8% — tag chips, quiet fills */
+  --border: #d8dce4; /* hairline rule */
+  --muted: #eef0f5; /* pale panel */
+  --muted-foreground: #59606e; /* body grey, blue-biased to match the ink */
+  --ink-faint: #8a91a0; /* metadata, third-level text */
+  --destructive: #a82d42; /* oxblood — warm enough to read as danger, cool enough to belong */
+
+  /* Plotter pens for the generated post tiles. One is picked per post from a
+     hash of its slug, so a post's cover art never changes. */
+  --pen-0: #0f5d57;
+  --pen-1: #28356b;
+  --pen-2: #8a6a16;
+  --pen-3: #7a2e3b;
+  --pen-4: #3a414e;
+  --tile-wash: 0.1; /* alpha of the flat pen tint behind the linework */
+  --tile-line: 0.9; /* alpha of the linework itself */
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}

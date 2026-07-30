@@ -1,0 +1,304 @@
+import '@testing-library/jest-dom/vitest'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
+import type { ChatMessage } from '@blog/zod-shared'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+const handlers = new Map<string, (payload: unknown) => void>()
+const socket = {
+  connected: false,
+  connect: vi.fn(),
+  disconnect: vi.fn(),
+  emit: vi.fn(),
+  on: vi.fn((event: string, fn: (payload: unknown) => void) => {
+    handlers.set(event, fn)
+    return socket
+  }),
+  off: vi.fn((event: string) => {
+    handlers.delete(event)
+    return socket
+  }),
+}
+
+vi.mock('socket.io-client', () => ({ io: vi.fn(() => socket) }))
+
+const { useChat } = await import('./use-chat.js')
+
+const message = (id: string, body: string): ChatMessage => ({
+  id,
+  body,
+  author: { id: 'u1', username: 'demo' },
+  sentAt: '2026-07-29T00:00:00.000Z',
+})
+
+const jsonResponse = (data: unknown, status = 200) =>
+  new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } })
+
+function stubFetch(response: () => Response) {
+  const fetchMock = vi.fn(() => Promise.resolve(response()))
+  vi.stubGlobal('fetch', fetchMock)
+  return fetchMock
+}
+
+function makeWrapper() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
+  const wrapper = ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  )
+  return wrapper
+}
+
+describe('useChat', () => {
+  afterEach(() => {
+    handlers.clear()
+    vi.clearAllMocks()
+    vi.unstubAllGlobals()
+    cleanup()
+  })
+
+  it('appends a broadcast message', async () => {
+    stubFetch(() => jsonResponse([]))
+    const { result } = renderHook(() => useChat(), { wrapper: makeWrapper() })
+    act(() => {
+      handlers.get('message')?.({
+        id: '1',
+        body: 'hello',
+        author: { id: 'u1', username: 'demo' },
+        sentAt: '2026-07-29T00:00:00.000Z',
+      })
+    })
+    await waitFor(() => expect(result.current.messages).toHaveLength(1))
+    expect(result.current.messages[0]?.body).toBe('hello')
+  })
+
+  // Legacy chat.jsx:51 registered a listener per message received, so every
+  // message was handled N times and the count grew with the conversation.
+  it('removes every listener it registered on unmount', () => {
+    stubFetch(() => jsonResponse([]))
+    const { unmount } = renderHook(() => useChat(), { wrapper: makeWrapper() })
+    const registered = socket.on.mock.calls.map(([event]) => event)
+
+    unmount()
+
+    const removed = socket.off.mock.calls.map(([event]) => event)
+    for (const event of registered) expect(removed).toContain(event)
+    expect(handlers.size).toBe(0)
+  })
+
+  // Legacy chat.jsx:57 emitted disconnect on every render.
+  it('does not reconnect or disconnect on re-render', () => {
+    stubFetch(() => jsonResponse([]))
+    const { rerender } = renderHook(() => useChat(), { wrapper: makeWrapper() })
+    const connectsAfterMount = socket.connect.mock.calls.length
+
+    rerender()
+    rerender()
+
+    expect(socket.connect).toHaveBeenCalledTimes(connectsAfterMount)
+    expect(socket.disconnect).not.toHaveBeenCalled()
+  })
+
+  it('sends the body only — the server stamps the author', () => {
+    stubFetch(() => jsonResponse([]))
+    const { result } = renderHook(() => useChat(), { wrapper: makeWrapper() })
+    act(() => result.current.send('  hi  '))
+    expect(socket.emit).toHaveBeenCalledWith('message', { body: 'hi' })
+  })
+
+  // Same schema the server enforces — an over-length message must fail here first.
+  it('rejects an over-length message locally, without emitting, and surfaces the Zod message', () => {
+    stubFetch(() => jsonResponse([]))
+    const { result } = renderHook(() => useChat(), { wrapper: makeWrapper() })
+
+    let accepted = true
+    act(() => {
+      accepted = result.current.send('a'.repeat(1001))
+    })
+
+    expect(accepted).toBe(false)
+    expect(socket.emit).not.toHaveBeenCalled()
+    expect(result.current.sendError).toMatch(/1,000 characters/)
+  })
+
+  // A rejected message must surface via sendError instead of vanishing silently.
+  it('surfaces a server-side rejection via sendError, cleared on the next attempt', async () => {
+    stubFetch(() => jsonResponse([]))
+    const { result } = renderHook(() => useChat(), { wrapper: makeWrapper() })
+
+    act(() => {
+      handlers.get('error')?.({ message: 'Could not send message. Please try again.' })
+    })
+    await waitFor(() =>
+      expect(result.current.sendError).toBe('Could not send message. Please try again.'),
+    )
+
+    act(() => {
+      result.current.send('a fresh attempt')
+    })
+    expect(result.current.sendError).toBeNull()
+  })
+
+  // The design's explicit ordering: load the buffer over REST, then subscribe.
+  // Buffered history must render oldest-first, ahead of anything arriving live.
+  it('loads the buffer on mount, oldest-first, ahead of live messages', async () => {
+    stubFetch(() => jsonResponse([message('1', 'first'), message('2', 'second')]))
+    const { result } = renderHook(() => useChat(), { wrapper: makeWrapper() })
+
+    await waitFor(() => expect(result.current.messages).toHaveLength(2))
+    expect(result.current.messages.map((m) => m.id)).toEqual(['1', '2'])
+
+    act(() => {
+      handlers.get('message')?.(message('3', 'live'))
+    })
+
+    await waitFor(() => expect(result.current.messages).toHaveLength(3))
+    expect(result.current.messages.map((m) => m.id)).toEqual(['1', '2', '3'])
+  })
+
+  // The fetch and the socket connect race. A message can plausibly arrive
+  // live while the buffer fetch is still in flight and also be present in
+  // the fetched buffer once it resolves — that message must appear exactly
+  // once, not twice.
+  it('deduplicates a message present in both the buffer and a live event', async () => {
+    let resolveFetch!: (response: Response) => void
+    const fetchMock = vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveFetch = resolve
+        }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => useChat(), { wrapper: makeWrapper() })
+
+    // Live message arrives while the buffer fetch is still pending.
+    act(() => {
+      handlers.get('message')?.(message('dup', 'collides'))
+    })
+    await waitFor(() => expect(result.current.messages).toHaveLength(1))
+
+    // The buffer resolves afterward and also contains that same id, in its
+    // own (server-authoritative) oldest-first order.
+    act(() => {
+      resolveFetch(jsonResponse([message('older', 'before it'), message('dup', 'collides')]))
+    })
+
+    await waitFor(() => expect(result.current.messages).toHaveLength(2))
+    const ids = result.current.messages.map((m) => m.id)
+    expect(ids.filter((id) => id === 'dup')).toHaveLength(1)
+    expect(ids).toEqual(['older', 'dup'])
+  })
+
+  // A broken history endpoint must not take the room down with it: the
+  // socket still connects and live messages still arrive.
+  it('stays usable when the buffer fetch fails', async () => {
+    stubFetch(() => jsonResponse({ error: { message: 'boom' } }, 500))
+    const { result } = renderHook(() => useChat(), { wrapper: makeWrapper() })
+
+    act(() => {
+      handlers.get('message')?.(message('1', 'still works'))
+    })
+
+    await waitFor(() => expect(result.current.messages).toHaveLength(1))
+    expect(result.current.messages[0]?.body).toBe('still works')
+    expect(socket.connect).toHaveBeenCalled()
+  })
+
+  // The buffer is a one-time, mount-time snapshot: the endpoint always
+  // returns only the *current* last 50, and the merge treats the fetched
+  // data as the whole buffered portion on every render rather than
+  // accumulating across refetches. Left to the app's global defaults
+  // (staleTime 5min, refetchOnWindowFocus true), a tab-away-and-back after
+  // 5+ minutes would silently swap history out from under a user mid-
+  // conversation. This wrapper mirrors those global defaults (see
+  // apps/client/src/lib/query-client.ts) rather than reusing `makeWrapper`'s
+  // bare client (staleTime 0) — the point of the test is to prove the
+  // per-query override in use-chat.ts beats a client that would otherwise
+  // refetch, so the client has to actually behave like the real one.
+  function makeProdDefaultsWrapper() {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 5 * 60 * 1000 } },
+    })
+    return ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    )
+  }
+
+  // Verified against the installed @tanstack/query-core@5.101.4 source
+  // (node_modules/@tanstack/query-core/build/modern/{focusManager,
+  // onlineManager,queryObserver}.js) before writing this: focusManager's
+  // default setup listens only for `visibilitychange` on `window` — there is
+  // no `focus` listener in this version, so dispatching a `focus` event is
+  // inert. onlineManager gates its listeners on a `true !== newValue`
+  // transition and starts `_online: true`, so dispatching `online` again is
+  // a no-op. And `shouldFetchOn` short-circuits on `isStale(query, options)`
+  // — a `visibilitychange` dispatched immediately after the fetch resolves
+  // hits a fresh query and refetches nothing regardless of any staleTime or
+  // refetch flag. So the only way to exercise the real path is: advance past
+  // the (mirrored) 5-minute staleTime with fake timers, then dispatch
+  // `visibilitychange`.
+  it('does not refetch the buffer once the global staleTime has elapsed and the tab regains focus', async () => {
+    vi.useFakeTimers()
+    try {
+      const fetchMock = stubFetch(() => jsonResponse([message('1', 'first')]))
+      const { result } = renderHook(() => useChat(), { wrapper: makeProdDefaultsWrapper() })
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+      expect(result.current.messages).toHaveLength(1)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+
+      // Past the global 5-minute staleTime this query would otherwise have
+      // inherited.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(6 * 60 * 1000)
+      })
+
+      await act(async () => {
+        window.dispatchEvent(new Event('visibilitychange'))
+        await vi.advanceTimersByTimeAsync(0)
+      })
+
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  // Reproduces the remount bug: gcTime:0 forces a refetch instead of replaying a frozen buffer.
+  it('recovers a message that only arrived live, after an unmount/remount inside the cache window', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    )
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([message('live-1', 'arrived mid-visit')]))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const first = renderHook(() => useChat(), { wrapper })
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+
+    act(() => {
+      handlers.get('message')?.(message('live-1', 'arrived mid-visit'))
+    })
+    await waitFor(() => expect(first.result.current.messages).toHaveLength(1))
+
+    first.unmount()
+
+    // gcTime's eviction timer needs a tick to fire before remounting.
+    await new Promise((resolve) => setTimeout(resolve, 10))
+
+    const second = renderHook(() => useChat(), { wrapper })
+
+    await waitFor(() =>
+      expect(second.result.current.messages.map((m) => m.id)).toContain('live-1'),
+    )
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+})

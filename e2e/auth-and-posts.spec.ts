@@ -1,0 +1,47 @@
+import { expect, test } from '@playwright/test'
+
+/**
+ * The whole authenticated round trip through the real prod image: an account
+ * that did not exist, a post it owns, a like on it, and a session that ends.
+ *
+ * Selectors are the accessible name the app actually renders, not the ones the
+ * plan guessed at. The nav rail's labels are matched case-insensitively because
+ * it is uppercased in CSS, and text-transform can reach the accessible name.
+ */
+test('signup, create a post, like it, then log out', async ({ page }) => {
+  const username = `e2e-${Date.now()}`
+
+  await page.goto('/signup')
+  await page.getByLabel('Username').fill(username)
+  await page.getByLabel('Email').fill(`${username}@example.com`)
+  // `exact` matters: Playwright's getByLabel matches by SUBSTRING, so a bare
+  // 'Password' also resolves "Confirm password" and strict mode fails on the
+  // two matches. (Testing Library's getByLabelText defaults the opposite way,
+  // which is why the component tests never saw this.) Any future field whose
+  // label contains another's needs the same treatment.
+  await page.getByLabel('Password', { exact: true }).fill('a-valid-password')
+  // Required: the form blocks submission until the confirmation matches, so
+  // without this the button stays disabled and the click times out.
+  await page.getByLabel('Confirm password').fill('a-valid-password')
+  await page.getByRole('button', { name: 'Sign Up' }).click()
+  await expect(page).toHaveURL('/')
+  // The nav rail shows the bare username; there is no "Welcome," prefix any
+  // more. Case-insensitive throughout this file because the rail is uppercased
+  // in CSS, and text-transform can reach the accessible name.
+  await expect(page.getByText(username, { exact: false })).toBeVisible()
+
+  await page.getByRole('link', { name: /new post/i }).click()
+  // AutoForm labels every field with its raw schema key.
+  await page.getByLabel('title').fill('An E2E post')
+  await page.getByLabel('body').fill('Written by Playwright.')
+  await page.getByRole('button', { name: 'Publish' }).click()
+  // Re-runs collide on the slug, so the server suffixes it: -2, -3, ...
+  await expect(page).toHaveURL(/\/blog\/an-e2e-post/)
+
+  // The like button's accessible name is just its count — a fresh post is at 0.
+  await page.getByRole('button', { name: '0' }).click()
+  await expect(page.getByRole('button', { name: '1' })).toBeVisible()
+
+  await page.getByRole('button', { name: /log ?out/i }).click()
+  await expect(page.getByRole('link', { name: /log ?in/i })).toBeVisible()
+})
