@@ -19,22 +19,16 @@ export function callbackPath(provider: OAuthProvider): string {
 }
 
 /**
- * Google marks each address with whether it verified it. passport exposes that
- * per-email, and it is the input to the account-linking decision in oauthService
- * — so it is read here rather than assumed true.
+ * oauthService never auto-links an OAuth identity to a pre-existing local
+ * account by email match (see its findOrCreate) — this project's local signup
+ * has no email-verification step, so no provider's "verified" claim can prove
+ * the local account belongs to the same person. A provider-asserted
+ * verification flag is therefore not read or plumbed through at all.
  */
-type PassportEmail = { value: string; verified?: boolean | string }
+type PassportEmail = { value: string }
 
-function firstEmail(emails: PassportEmail[] | undefined): {
-  email?: string
-  emailVerified: boolean
-} {
-  const first = emails?.[0]
-  if (!first) return { emailVerified: false }
-  // The field arrives as a boolean from some providers and the string 'true'
-  // from others; anything else must count as unverified.
-  const verified = first.verified === true || first.verified === 'true'
-  return { email: first.value, emailVerified: verified }
+function firstEmail(emails: PassportEmail[] | undefined): { email?: string } {
+  return { email: emails?.[0]?.value }
 }
 
 export function registerOAuthStrategies(env: {
@@ -56,12 +50,11 @@ export function registerOAuthStrategies(env: {
         },
         async (_accessToken, _refreshToken, profile, done) => {
           try {
-            const { email, emailVerified } = firstEmail(profile.emails)
+            const { email } = firstEmail(profile.emails)
             const resolved: OAuthProfile = {
               provider: 'google',
               providerId: profile.id,
               email,
-              emailVerified,
               displayName: profile.displayName,
             }
             done(null, await oauthService.findOrCreate(resolved))
@@ -91,11 +84,6 @@ export function registerOAuthStrategies(env: {
               provider: 'facebook',
               providerId: profile.id,
               email,
-              // Facebook's Graph API exposes no per-address verification flag,
-              // so we never treat its email as verified. That means it can
-              // create an account but can never silently link to an existing
-              // one — see oauthService.findOrCreate.
-              emailVerified: false,
               displayName: profile.displayName,
             }
             done(null, await oauthService.findOrCreate(resolved))

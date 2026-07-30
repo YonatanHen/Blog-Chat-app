@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { PublicIdSchema } from './post.js'
 
 export const SignupSchema = z.object({
   username: z
@@ -25,7 +26,10 @@ export type Login = z.infer<typeof LoginSchema>
 // became an account takeover.
 export const UpdateUserSchema = z.object({
   bio: z.string().trim().max(500, 'Bio must be at most 500 characters').optional(),
-  image: z.string().trim().max(200).optional(),
+  // Same PublicIdSchema coverImage uses — a Cloudinary public ID under one of
+  // our own folders, never an arbitrary string. Re-checked server-side by
+  // publicIdFrom() before persisting, same as coverImage.
+  image: PublicIdSchema.nullish(),
   password: z.string().min(8, 'Password must be at least 8 characters').max(200).optional(),
 })
 

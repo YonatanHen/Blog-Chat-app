@@ -1,4 +1,4 @@
-import { ConflictError, NotFoundError } from '../errors.js'
+import { ConflictError, NotFoundError, ValidationError } from '../errors.js'
 import { UserModel } from '../../models/user.js'
 import { describe, expect, it } from 'vitest'
 import { useTestDb } from '../../test/helpers.js'
@@ -93,5 +93,35 @@ describe('userService.getPublicProfile', () => {
 
   it('throws NotFoundError for a malformed id rather than a cast error', async () => {
     await expect(userService.getPublicProfile('not-an-objectid')).rejects.toThrow(NotFoundError)
+  })
+})
+
+describe('userService.updateProfile — image validation', () => {
+  // SECURITY FIX. `image` used to accept any string up to 200 chars, unlike
+  // `coverImage` on posts — which requires publicIdFrom() to gate a Cloudinary
+  // public ID before persisting. A client reports what Cloudinary returned and
+  // can lie about it, so this must be re-checked server-side, not trusted from
+  // the body, exactly like coverImage.
+  it('rejects an arbitrary string — only a Cloudinary public ID under our folders is accepted', async () => {
+    const { id } = await signup()
+    await expect(
+      userService.updateProfile(id, { image: 'https://evil.example/track.png' }),
+    ).rejects.toThrow(ValidationError)
+    await expect(userService.updateProfile(id, { image: 'javascript:alert(1)' })).rejects.toThrow(
+      ValidationError,
+    )
+  })
+
+  it('accepts a public ID under blogchat/avatars', async () => {
+    const { id } = await signup()
+    const profile = await userService.updateProfile(id, { image: 'blogchat/avatars/ab12cd' })
+    expect(profile.image).toBe('blogchat/avatars/ab12cd')
+  })
+
+  it('rejects a public ID outside our folders', async () => {
+    const { id } = await signup()
+    await expect(
+      userService.updateProfile(id, { image: 'someone-elses/folder/x' }),
+    ).rejects.toThrow(ValidationError)
   })
 })
