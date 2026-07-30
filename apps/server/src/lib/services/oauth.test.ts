@@ -11,7 +11,6 @@ const googleProfile = (over: Partial<OAuthProfile> = {}): OAuthProfile => ({
   provider: 'google',
   providerId: 'g-1',
   email: 'ada@example.com',
-  emailVerified: true,
   displayName: 'Ada Lovelace',
   ...over,
 })
@@ -54,55 +53,56 @@ describe('oauthService.findOrCreate', () => {
       provider: 'facebook',
       providerId: 'f-1',
       email: 'grace@example.com',
-      emailVerified: false,
       displayName: 'Grace Hopper',
     })
     expect(f.id).not.toBe(g.id)
   })
 
-  describe('account linking', () => {
-    it('links to an existing account when the provider verified the email', async () => {
+  describe('account linking — always refused on email match', () => {
+    // SECURITY REGRESSION TEST. This app's local signup has no email-verification
+    // step, so nothing stops an attacker from registering a victim's real email
+    // address locally with a password only the attacker knows. findOrCreate used
+    // to auto-link a federated identity onto that pre-existing account whenever
+    // the OAuth PROVIDER claimed the email was verified — which every real Google
+    // sign-in does. That let an attacker pre-register `victim@gmail.com`, then
+    // silently inherit the account the moment the real victim signed in with
+    // Google, while the attacker's original password kept working. There must be
+    // no code path that links to a pre-existing account by email match, ever,
+    // regardless of what the provider claims.
+    it('refuses to link, and does not touch the pre-existing password, even though this looks like a legitimate provider profile', async () => {
       const existing = await userService.signup({
         username: 'ada',
         email: 'ada@example.com',
-        password: 'correct-horse',
+        password: 'attacker-chosen-password',
       })
-      const linked = await oauthService.findOrCreate(googleProfile({ emailVerified: true }))
 
-      expect(linked.id).toBe(existing.id)
-      expect(linked.username).toBe('ada')
-      expect((await UserModel.findById(existing.id))?.googleId).toBe('g-1')
+      await expect(oauthService.findOrCreate(googleProfile())).rejects.toThrow(ConflictError)
+
+      const doc = await UserModel.findById(existing.id)
+      expect(doc?.googleId).toBeUndefined()
       expect(await UserModel.countDocuments()).toBe(1)
+      // The attacker's original credentials must still be the only way in —
+      // proving no takeover path was opened by the attempted OAuth sign-in.
+      const stillLogsIn = await userService.verifyCredentials('ada', 'attacker-chosen-password')
+      expect(stillLogsIn?.id).toBe(existing.id)
     })
 
-    // The takeover this project exists to prevent: an unverified address is
-    // attacker-controlled, so matching on it must never grant the account.
-    it('REFUSES to link when the provider did not verify the email', async () => {
-      await userService.signup({
-        username: 'ada',
-        email: 'ada@example.com',
-        password: 'correct-horse',
-      })
-      await expect(
-        oauthService.findOrCreate(googleProfile({ emailVerified: false })),
-      ).rejects.toThrow(ConflictError)
-      // And nothing was attached to the victim's account.
-      expect((await UserModel.findOne({ email: 'ada@example.com' }))?.googleId).toBeUndefined()
-    })
-
-    it('links a second provider onto an already-linked account', async () => {
+    it('refuses to link a second provider onto an account created via the first', async () => {
       const first = await oauthService.findOrCreate(googleProfile())
-      const second = await oauthService.findOrCreate({
-        provider: 'facebook',
-        providerId: 'f-9',
-        email: 'ada@example.com',
-        emailVerified: true,
-        displayName: 'Ada',
-      })
-      expect(second.id).toBe(first.id)
+
+      await expect(
+        oauthService.findOrCreate({
+          provider: 'facebook',
+          providerId: 'f-9',
+          email: 'ada@example.com',
+          displayName: 'Ada',
+        }),
+      ).rejects.toThrow(ConflictError)
+
       const doc = await UserModel.findById(first.id)
       expect(doc?.googleId).toBe('g-1')
-      expect(doc?.facebookId).toBe('f-9')
+      expect(doc?.facebookId).toBeUndefined()
+      expect(await UserModel.countDocuments()).toBe(1)
     })
   })
 
@@ -113,7 +113,6 @@ describe('oauthService.findOrCreate', () => {
       oauthService.findOrCreate({
         provider: 'facebook',
         providerId: 'f-2',
-        emailVerified: false,
         displayName: 'No Email',
       }),
     ).rejects.toThrow(ConflictError)

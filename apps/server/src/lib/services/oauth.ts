@@ -16,8 +16,6 @@ export type OAuthProfile = {
   provider: OAuthProvider
   providerId: string
   email?: string
-  /** Whether the PROVIDER asserts it verified this address. Never assumed. */
-  emailVerified: boolean
   displayName?: string
 }
 
@@ -44,10 +42,17 @@ export const oauthService = {
    *
    * Three cases, in order:
    * 1. We already know this provider id — that is the account, full stop.
-   * 2. An account exists with the same email — link, but ONLY if the provider
-   *    says it verified the address. An unverified email is attacker-controlled:
-   *    anyone who can claim `victim@example.com` at a sloppy provider could
-   *    otherwise take over the local account. We refuse instead of linking.
+   * 2. An account exists with the same email — REFUSED, always. This project's
+   *    local signup has no email-verification step, so a "provider verified
+   *    this email" claim proves nothing about whether the pre-existing local
+   *    account genuinely belongs to that person. Auto-linking on that basis let
+   *    an attacker pre-register a victim's email locally with an
+   *    attacker-chosen password, then silently inherit the account the moment
+   *    the real victim signed in with that same email via Google — a
+   *    persistent account takeover requiring no further action from the
+   *    victim. There is no email-verification system in this app to make
+   *    linking safe, so it is never attempted; the visitor is told to sign in
+   *    with their password instead.
    * 3. Otherwise create a fresh passwordless account.
    */
   async findOrCreate(profile: OAuthProfile): Promise<{ id: string; username: string }> {
@@ -59,27 +64,18 @@ export const oauthService = {
       return { id: known._id.toString(), username: known.username }
     }
 
-    if (email) {
-      const byEmail = await UserModel.findOne({ email })
-      if (byEmail) {
-        if (!profile.emailVerified) {
-          throw new ConflictError(
-            'An account with that email already exists. Sign in with your password instead.',
-          )
-        }
-        // Verified match: attach the provider id so next time case 1 hits.
-        byEmail.set(idField, profile.providerId)
-        await byEmail.save()
-        return { id: byEmail._id.toString(), username: byEmail.username }
-      }
-    }
-
     if (!email) {
       // Facebook can withhold email when the user denies the scope. Without one
       // we cannot dedupe or ever contact them, so this is a dead end, not a
       // silent half-account.
       throw new ConflictError(
         'That account did not share an email address, which this site needs to sign you in.',
+      )
+    }
+
+    if (await UserModel.findOne({ email })) {
+      throw new ConflictError(
+        'An account with that email already exists. Sign in with your password instead.',
       )
     }
 

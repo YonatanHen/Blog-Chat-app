@@ -2,6 +2,7 @@ import { type Signup, type UpdateUser } from '@blog/zod-shared'
 import { ConflictError, NotFoundError } from '../errors.js'
 import { assertUserSlotFree } from '../demo-limits.js'
 import { UserModel } from '../../models/user.js'
+import { publicIdFrom } from './upload.js'
 import bcrypt from 'bcryptjs'
 import { Types } from 'mongoose'
 
@@ -109,7 +110,12 @@ export const userService = {
     if (!user) throw new NotFoundError('User not found.')
 
     if (input.bio !== undefined) user.bio = input.bio
-    if (input.image !== undefined) user.image = input.image
+    // Re-checked here, not trusted from the body: the browser reports what
+    // Cloudinary returned and a client can lie about it — same rule coverImage
+    // follows in postService. `null` clears an existing image.
+    if (input.image !== undefined) {
+      user.image = input.image ? publicIdFrom(input.image, 'image') : undefined
+    }
     // Only when explicitly provided. The legacy handler compared the plaintext
     // field to the stored hash, so every profile save reset the password.
     if (input.password !== undefined) {
