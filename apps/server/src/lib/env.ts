@@ -24,19 +24,34 @@ const EnvSchema = z.object({
   CLOUDINARY_CLOUD_NAME: optionalSecret,
   CLOUDINARY_API_KEY: optionalSecret,
   CLOUDINARY_API_SECRET: optionalSecret,
+  // OAuth providers, each independently optional. A provider with no
+  // credentials simply does not appear on the sign-in page.
+  GOOGLE_CLIENT_ID: optionalSecret,
+  GOOGLE_CLIENT_SECRET: optionalSecret,
+  FACEBOOK_APP_ID: optionalSecret,
+  FACEBOOK_APP_SECRET: optionalSecret,
+  /** Absolute origin used to build OAuth callback URLs. **/
+  PUBLIC_ORIGIN: z.string().url().default('http://localhost:5173'),
 })
-  // All three or none. A partial config is the worst outcome: the app looks
-  // configured, then every upload fails at Cloudinary with an opaque error.
+  // Each credential pair is all-or-nothing. A partial config is the worst
+  // outcome: the app looks configured, then fails at the provider with an
+  // opaque error.
   .superRefine((env, ctx) => {
-    const keys = ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'] as const
-    const present = keys.filter((k) => env[k] !== undefined)
-    if (present.length > 0 && present.length < keys.length) {
-      for (const key of keys.filter((k) => env[k] === undefined)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: [key],
-          message: 'Set all three CLOUDINARY_* variables, or none of them',
-        })
+    const groups = [
+      ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'],
+      ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'],
+      ['FACEBOOK_APP_ID', 'FACEBOOK_APP_SECRET'],
+    ] as const
+    for (const keys of groups) {
+      const present = keys.filter((k) => env[k] !== undefined)
+      if (present.length > 0 && present.length < keys.length) {
+        for (const key of keys.filter((k) => env[k] === undefined)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [key],
+            message: `Set all of ${keys.join(', ')}, or none of them`,
+          })
+        }
       }
     }
   })
@@ -52,6 +67,12 @@ function resolveFileBackedSecrets(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv 
     if (filePath) {
       resolved[key] = readFileSync(filePath, 'utf-8').trim()
     }
+  }
+  // Render injects RENDER_EXTERNAL_URL (e.g. https://blogchat.onrender.com) into
+  // every web service. Falling back to it means a deploy cannot silently keep
+  // building localhost OAuth callbacks, which would break sign-in for everyone.
+  if (!resolved.PUBLIC_ORIGIN?.trim() && resolved.RENDER_EXTERNAL_URL?.trim()) {
+    resolved.PUBLIC_ORIGIN = resolved.RENDER_EXTERNAL_URL.trim()
   }
   return resolved
 }

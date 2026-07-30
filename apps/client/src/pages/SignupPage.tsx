@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router'
+import { OAuthButtons } from '../components/patterns/OAuthButtons.js'
 import { Button } from '../components/ui/button.js'
 import { Input } from '../components/ui/input.js'
 import { Label } from '../components/ui/label.js'
@@ -178,6 +179,8 @@ export function SignupPage() {
             {isPending ? 'Signing up...' : 'Sign Up'}
           </Button>
         </form>
+
+        <OAuthButtons verb="Sign up" />
 
         <p className="text-sm text-center">
           Already have an account?{' '}

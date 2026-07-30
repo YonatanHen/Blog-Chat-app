@@ -86,8 +86,7 @@ export function BlogFeedPage() {
           The Blog
         </h1>
         <p className="max-w-[46ch] text-lg text-[var(--muted-foreground)]">
-          Notes from rebuilding a five-year-old MERN app as an Express and React monorepo — one
-          decision at a time.
+          Explore top stories, trending topics, and personalized recommendations curated just for you.
         </p>
       </div>
 

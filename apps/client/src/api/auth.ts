@@ -5,6 +5,9 @@ import { DEBUG } from '../lib/constants.js'
 
 export type User = { id: string; username: string; email: string }
 
+/** Which federated sign-in options this deployment can actually offer. */
+export type AuthProviders = { google: boolean; facebook: boolean }
+
 export const authApi = {
   signup: (input: z.infer<typeof SignupSchema>) => {
     // Never spread `input` into a log: it carries the plaintext password, and
@@ -20,4 +23,6 @@ export const authApi = {
   logout: () => request<void>('/api/v1/auth/logout', { method: 'POST' }),
 
   me: () => request<User>('/api/v1/auth/me'),
+
+  providers: () => request<AuthProviders>('/api/v1/auth/providers'),
 }

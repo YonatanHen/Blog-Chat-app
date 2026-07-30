@@ -11,8 +11,8 @@
 A MERN blog + chat app. It reimplements every real feature of the legacy app — session auth, posts,
 likes, threaded comments, search — while fixing five documented authorization holes the original had,
 and adds genuine upgrades (server-side session auth instead of a client-stored JWT, per-reader content
-gating, MongoDB-backed full-text search, realtime chat over Socket.io) the legacy app never had. OAuth
-login is designed but intentionally not built yet.
+gating, MongoDB-backed full-text search, realtime chat over Socket.io, Google sign-in) the legacy app
+never had.
 
 ## Architecture
 
@@ -86,7 +86,7 @@ client-side `Array.filter`. See "Search semantics" below for the word-matching b
 
 | Layer | What's used |
 |---|---|
-| Server | Express 5 · Socket.io (realtime chat) · Mongoose 8 (MongoDB) · `express-session` + `connect-redis` (Redis-backed sessions) · bcryptjs · Helmet · Zod · Cloudinary (signed image uploads) |
+| Server | Express 5 · Socket.io (realtime chat) · Mongoose 8 (MongoDB) · `express-session` + `connect-redis` (Redis-backed sessions) · bcryptjs · Helmet · Zod · Cloudinary (signed image uploads) · Passport (Google OAuth) |
 | Client | React 19 · Vite · TanStack Query · React Router 8 · Tailwind CSS 4 · `react-markdown` + `remark-gfm` |
 | Shared | Zod schemas in `packages/zod-shared`, the single source of truth for both server validation and client forms |
 | Testing | Vitest · Supertest · `mongodb-memory-server` · Testing Library · Playwright (e2e) |
@@ -95,6 +95,9 @@ client-side `Array.filter`. See "Search semantics" below for the word-matching b
 ## Core features
 
 - **Auth** — signup/login/logout on server-side sessions; self-service profile update and account deletion.
+- **Google sign-in** — OAuth via Passport, sharing the same session as password login. A federated profile
+  links to an existing account only when Google confirms it verified the email; an unverified address is
+  attacker-controlled, so matching on it is refused rather than granting the account.
 - **Posts** — create/edit/delete, tags, per-reader content gating on every read.
 - **Likes** — idempotent (`PUT`/`DELETE`, not a toggle endpoint), optimistic UI with rollback on failure.
 - **Threaded comments** — Markdown editor with a live preview, cascade-delete of reply subtrees.
@@ -107,11 +110,15 @@ client-side `Array.filter`. See "Search semantics" below for the word-matching b
 - **Generated cover art** — a post with no uploaded cover gets a deterministic canvas drawing keyed to its
   slug, so the feed is image-led whether or not the author supplied a picture.
 
-**Not yet built (by design, not oversight):** OAuth login (planned P6) and avatar uploads. See the phase
-table in `docs/superpowers/specs/2026-07-16-express-react-rebuild-design.md` §13 for what's next.
+**Not yet built (by design, not oversight):** Facebook sign-in and avatar uploads. The Facebook strategy is
+written and dormant — it needs only credentials — but Facebook's HTTPS redirect requirement makes it poor
+value for a demo, so only Google is wired up. See the phase table in
+`docs/superpowers/specs/2026-07-16-express-react-rebuild-design.md` §13 for what's next.
 
-Uploads are optional infrastructure: with no `CLOUDINARY_*` variables set the API still boots, the upload
-endpoint reports 503, and every post falls back to its generated cover.
+Both integrations are optional infrastructure. With no `CLOUDINARY_*` variables the API still boots, the
+upload endpoint reports 503, and every post falls back to its generated cover. With no `GOOGLE_*`
+variables there is simply no Google button — `GET /api/v1/auth/providers` tells the client which providers
+this deployment can offer, so a missing credential never produces a button that fails.
 
 ## Quick start
 
