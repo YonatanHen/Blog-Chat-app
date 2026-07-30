@@ -11,11 +11,22 @@ const EnvSchema = z.object({
   REDIS_URL: z.string().min(1, 'REDIS_URL is required'),
   SESSION_SECRET: z.string().min(32, 'SESSION_SECRET must be at least 32 characters'),
   CLIENT_DIST: z.string().optional(),
+  // Optional: with no Cloudinary the API still boots and every other route
+  // works — only the upload-signature endpoint reports 503. An empty string is
+  // treated as unset, because Compose and Render both render an absent variable
+  // as '' rather than dropping it — without this the API refuses to boot.
+  CLOUDINARY_URL: z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+    z
+      .string()
+      .startsWith('cloudinary://', 'CLOUDINARY_URL must start with cloudinary://')
+      .optional(),
+  ),
 })
 
 export type Env = z.infer<typeof EnvSchema>
 
-const FILE_BACKED_KEYS = ['SESSION_SECRET'] as const
+const FILE_BACKED_KEYS = ['SESSION_SECRET', 'CLOUDINARY_URL'] as const
 
 function resolveFileBackedSecrets(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   const resolved = { ...source }

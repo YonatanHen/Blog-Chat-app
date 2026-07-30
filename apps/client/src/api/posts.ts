@@ -13,6 +13,8 @@ export type Post = {
   tags: string[]
   likeCount: number
   coverImage?: string
+  /** Delivery URL derived server-side from coverImage. Absent when there is no cover. */
+  coverUrl?: string
   createdAt: string
   updatedAt: string
 }

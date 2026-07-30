@@ -143,11 +143,23 @@ const nest: Motif = (ctx, w, h, rnd) => {
 
 const MOTIFS: Motif[] = [arcs, isogrid, strata, spokes, nest]
 
-export function PostTile({ slug, className }: { slug: string; className?: string }) {
+export function PostTile({
+  slug,
+  coverUrl,
+  alt = '',
+  className,
+}: {
+  slug: string
+  /** An uploaded cover, if the author added one. Optional by design. */
+  coverUrl?: string
+  alt?: string
+  className?: string
+}) {
   const ref = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
     const canvas = ref.current
+    // Nothing to draw when a real cover is showing — the canvas is not mounted.
     if (!canvas) return
 
     const draw = () => {
@@ -204,6 +216,17 @@ export function PostTile({ slug, className }: { slug: string; className?: string
       observer.disconnect()
     }
   }, [slug])
+
+  if (coverUrl) {
+    return (
+      <img
+        src={coverUrl}
+        alt={alt}
+        loading="lazy"
+        className={cn('block aspect-[16/10] w-full bg-[var(--muted)] object-cover', className)}
+      />
+    )
+  }
 
   return (
     <canvas

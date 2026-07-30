@@ -45,3 +45,29 @@ describe('loadEnv', () => {
     expect(() => loadEnv({})).toThrow(/MONGODB_URI/)
   })
 })
+
+describe('CLOUDINARY_URL', () => {
+  const base = {
+    MONGODB_URI: 'mongodb://localhost:27017/x',
+    REDIS_URL: 'redis://localhost:6379',
+    SESSION_SECRET: 'a'.repeat(32),
+  }
+
+  // Compose and Render both render an unset variable as '' rather than dropping
+  // it. Before this was handled, an empty value failed startsWith() and the API
+  // refused to boot on any deployment without a Cloudinary account.
+  it('treats an empty string as unset rather than as a malformed URL', () => {
+    expect(loadEnv({ ...base, CLOUDINARY_URL: '' }).CLOUDINARY_URL).toBeUndefined()
+    expect(loadEnv({ ...base, CLOUDINARY_URL: '   ' }).CLOUDINARY_URL).toBeUndefined()
+  })
+
+  it('accepts a well-formed cloudinary URL', () => {
+    expect(loadEnv({ ...base, CLOUDINARY_URL: 'cloudinary://k:s@cloud' }).CLOUDINARY_URL).toBe(
+      'cloudinary://k:s@cloud',
+    )
+  })
+
+  it('rejects a non-cloudinary URL loudly', () => {
+    expect(() => loadEnv({ ...base, CLOUDINARY_URL: 'https://example.com' })).toThrow(/CLOUDINARY_URL/)
+  })
+})

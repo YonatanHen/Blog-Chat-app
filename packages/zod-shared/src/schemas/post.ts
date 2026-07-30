@@ -1,5 +1,17 @@
 import { z } from 'zod'
 
+/**
+ * A Cloudinary public ID under one of our own folders — never a full URL, so the
+ * delivery host can change without rewriting every document. The server checks
+ * this again before persisting (`publicIdFrom`); this layer is what lets the
+ * form reject a bad value without a round trip.
+ */
+export const PublicIdSchema = z
+  .string()
+  .trim()
+  .regex(/^blogchat\/(covers|avatars)\/[A-Za-z0-9_-]+$/, 'Must be an image uploaded through this site')
+  .max(200)
+
 export const CreatePostSchema = z.object({
   title: z
     .string()
@@ -12,6 +24,9 @@ export const CreatePostSchema = z.object({
     .min(1, 'Body cannot be empty')
     .max(50_000, 'Body must be at most 50,000 characters'),
   tags: z.array(z.string().trim().min(1)).max(5, 'A post can have at most 5 tags').default([]),
+  // Optional by design: a post with no cover falls back to art generated from
+  // its slug. `null` clears an existing cover on update.
+  coverImage: PublicIdSchema.nullish(),
 })
 
 // PATCH /api/v1/posts/:slug — the slug identifies the post, so the body carries

@@ -17,6 +17,8 @@ services:
       MONGODB_URI: mongodb://mongo:27017/blogchat
       REDIS_URL: redis://redis:6379
       SESSION_SECRET_FILE: /run/secrets/session_secret
+      # Optional — unset means uploads report 503 and covers stay generated.
+      CLOUDINARY_URL: ${CLOUDINARY_URL:-}
     secrets:
       - session_secret
     depends_on:

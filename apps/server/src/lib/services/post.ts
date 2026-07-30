@@ -8,6 +8,7 @@ import { NotFoundError } from '../errors.js'
 import { commentService } from './comment.js'
 import { LikeModel } from '../../models/like.js'
 import { PostModel, type Post } from '../../models/post.js'
+import { deliveryUrl, publicIdFrom } from './upload.js'
 import { Types, type FilterQuery, type HydratedDocument } from 'mongoose'
 
 export type PostAuthor = { id: string; username: string }
@@ -25,6 +26,8 @@ export type PostDto = {
   tags: string[]
   likeCount: number
   coverImage?: string
+  /** Derived from `coverImage` at serialization time — see deliveryUrl. */
+  coverUrl?: string
   createdAt: Date
   updatedAt: Date
 }
@@ -70,6 +73,7 @@ function toDto(
     tags: post.tags ?? [],
     likeCount,
     coverImage: post.coverImage ?? undefined,
+    coverUrl: post.coverImage ? deliveryUrl(post.coverImage) : undefined,
     createdAt: post.createdAt,
     updatedAt: post.updatedAt,
   }
@@ -157,6 +161,9 @@ export const postService = {
   async create(input: CreatePost, authorId: string): Promise<PostDto> {
     const post = await PostModel.create({
       ...input,
+      // Re-checked here, not trusted from the body: the browser reports what
+      // Cloudinary returned and a client can lie about it.
+      coverImage: input.coverImage ? publicIdFrom(input.coverImage) : undefined,
       slug: await uniqueSlug(input.title),
       // From the session, never from `input` — validate() strips an `author`
       // key anyway, and this is the second reason it cannot be spoofed.
@@ -176,6 +183,11 @@ export const postService = {
     }
     if (input.body !== undefined) post.body = input.body
     if (input.tags !== undefined) post.tags = input.tags
+    // `null` clears the cover; `undefined` means the field was not in the PATCH
+    // and must be left alone. Collapsing the two would wipe a cover on any edit.
+    if (input.coverImage !== undefined) {
+      post.coverImage = input.coverImage ? publicIdFrom(input.coverImage) : undefined
+    }
 
     await post.save()
     await post.populate('author', 'username')

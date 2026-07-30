@@ -36,3 +36,11 @@ export class ConflictError extends Error {
     this.name = 'ConflictError'
   }
 }
+
+/** 503 — an optional dependency this route needs is not configured on this deployment. */
+export class ServiceUnavailableError extends Error {
+  constructor(message = 'That feature is not available on this deployment.') {
+    super(message)
+    this.name = 'ServiceUnavailableError'
+  }
+}
