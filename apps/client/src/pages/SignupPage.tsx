@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router'
+import { ApiError } from '../api/client.js'
 import { OAuthButtons } from '../components/patterns/OAuthButtons.js'
 import { Button } from '../components/ui/button.js'
 import { Input } from '../components/ui/input.js'
@@ -173,7 +174,14 @@ export function SignupPage() {
             )}
           </div>
 
-          {error && <p className="text-sm text-[var(--destructive)]">Signup failed. Please try again.</p>}
+          {/* The server's own message, not a generic one: when the demo is at
+              its visitor cap the 403 explains that and where to reach the
+              author. "Please try again" would send that visitor into a loop. */}
+          {error && (
+            <p className="text-sm text-[var(--destructive)]">
+              {error instanceof ApiError ? error.message : 'Signup failed. Please try again.'}
+            </p>
+          )}
 
           <Button type="submit" className="w-full" disabled={isPending || !isFormValid}>
             {isPending ? 'Signing up...' : 'Sign Up'}

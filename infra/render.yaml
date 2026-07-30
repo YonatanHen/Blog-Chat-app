@@ -47,6 +47,14 @@ services:
       # https://<origin>/api/v1/auth/google/callback in the Google console.
       - key: PUBLIC_ORIGIN
         sync: false
+      # Demo capacity caps. Not secrets — committed on purpose so the deployed
+      # limits are visible in the repo rather than only in the dashboard.
+      - key: DEMO_MAX_USERS
+        value: 20
+      - key: DEMO_MAX_POSTS_PER_USER
+        value: 3
+      - key: DEMO_MAX_COMMENTS_PER_POST
+        value: 10
       - key: REDIS_URL
         fromService:
           type: keyvalue

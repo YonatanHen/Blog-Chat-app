@@ -10,9 +10,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // Mocked at the API boundary rather than at `useSignup`, so the assertion on the
 // outgoing payload is about what actually reaches the wire.
 vi.mock('../api/auth.js', () => ({
-  authApi: { signup: vi.fn(), login: vi.fn(), logout: vi.fn(), me: vi.fn() },
+  authApi: { signup: vi.fn(), login: vi.fn(), logout: vi.fn(), me: vi.fn(), providers: vi.fn() },
 }))
 
+const { ApiError } = await import('../api/client.js')
 const { authApi } = await import('../api/auth.js')
 const { SignupPage } = await import('./SignupPage.js')
 
@@ -115,5 +116,38 @@ describe('SignupPage debug logging', () => {
     // Without this the test passes vacuously whenever DEBUG resolves false.
     expect(log).toHaveBeenCalled()
     expect(JSON.stringify(log.mock.calls)).not.toContain('a-valid-password')
+  })
+})
+
+describe('SignupPage server errors', () => {
+  afterEach(() => cleanup())
+
+  // When the demo is at its visitor cap the server's 403 explains that and
+  // where to reach the author. A generic "please try again" would send that
+  // visitor into a loop retrying something that cannot succeed.
+  it('renders the server message verbatim rather than a generic retry prompt', async () => {
+    const capMessage =
+      "This is a portfolio demo app and it's reached its visitor limit. " +
+      'For any questions, contact the creator directly on GitHub: github.com/YonatanHen'
+    vi.mocked(authApi.signup).mockRejectedValueOnce(new ApiError(403, capMessage))
+
+    renderSignup()
+    fillValidForm()
+    submit()
+
+    expect(await screen.findByText(capMessage)).toBeInTheDocument()
+    expect(screen.queryByText(/please try again/i)).not.toBeInTheDocument()
+  })
+
+  it('falls back to a generic message for a non-API failure', async () => {
+    vi.mocked(authApi.signup).mockRejectedValueOnce(new Error('socket hang up'))
+
+    renderSignup()
+    fillValidForm()
+    submit()
+
+    expect(await screen.findByText(/please try again/i)).toBeInTheDocument()
+    // The raw transport error is not something to show a visitor.
+    expect(screen.queryByText(/socket hang up/i)).not.toBeInTheDocument()
   })
 })

@@ -1,5 +1,6 @@
 import { type Signup, type UpdateUser } from '@blog/zod-shared'
 import { ConflictError, NotFoundError } from '../errors.js'
+import { assertUserSlotFree } from '../demo-limits.js'
 import { UserModel } from '../../models/user.js'
 import bcrypt from 'bcryptjs'
 import { Types } from 'mongoose'
@@ -24,6 +25,12 @@ function isDuplicateKeyError(err: unknown): err is { code: number; keyPattern?: 
 export const userService = {
   async signup(input: Signup): Promise<{ id: string; username: string }> {
     console.log('[USER_SERVICE] signup start', { username: input.username, email: input.email })
+    // Demo capacity (spec §3). Signup is the only global cap, and with rate
+    // limiting dropped it is the one remaining chokepoint — a scripted run of
+    // registrations is what exhausts the demo. Race accepted and documented:
+    // two concurrent signups at the limit can both pass, overshooting by at
+    // most the concurrency level, never unbounded.
+    assertUserSlotFree(await UserModel.countDocuments())
     // A pre-check only to produce a precise message. It is NOT the guard —
     // two concurrent signups can both pass it. The unique index is the guard,
     // and the catch below turns its E11000 into the same ConflictError.

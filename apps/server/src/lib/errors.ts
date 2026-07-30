@@ -37,6 +37,22 @@ export class ConflictError extends Error {
   }
 }
 
+/**
+ * 403 — the demo deployment has reached a fixed capacity.
+ *
+ * 403 rather than 503: 503 is semantically closer to "at capacity" and would
+ * permit Retry-After, but it reads as *broken* to a visitor and trips uptime
+ * monitoring. This is a policy refusal of a well-formed, well-authenticated
+ * request. A distinct class rather than reusing ForbiddenError keeps the case
+ * separable in tests and logs.
+ */
+export class DemoLimitError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'DemoLimitError'
+  }
+}
+
 /** 503 — an optional dependency this route needs is not configured on this deployment. */
 export class ServiceUnavailableError extends Error {
   constructor(message = 'That feature is not available on this deployment.') {

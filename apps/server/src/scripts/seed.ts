@@ -3,6 +3,7 @@ import mongoose from 'mongoose'
 import { loadEnv } from '../lib/env.js'
 import { connectDb } from '../lib/db.js'
 import { userService } from '../lib/services/user.js'
+import { CommentModel } from '../models/comment.js'
 import { LikeModel } from '../models/like.js'
 import { PostModel } from '../models/post.js'
 import { UserModel } from '../models/user.js'
@@ -47,8 +48,18 @@ async function seed(): Promise<void> {
   // The unique indexes are layer 3 of the authorization model — build them.
   await mongoose.syncIndexes()
 
-  console.log('Wiping posts, likes and users…')
-  await Promise.all([PostModel.deleteMany({}), LikeModel.deleteMany({}), UserModel.deleteMany({})])
+  // CommentModel is not optional here. Without it the weekly reset frees every
+  // post and user while every comment survives, so the per-post comment cap
+  // would ratchet to full and never release a slot — creating the permanent
+  // wall the reset exists to prevent, plus a fresh generation of orphaned rows
+  // pointing at deleted posts every week.
+  console.log('Wiping posts, comments, likes and users…')
+  await Promise.all([
+    PostModel.deleteMany({}),
+    CommentModel.deleteMany({}),
+    LikeModel.deleteMany({}),
+    UserModel.deleteMany({}),
+  ])
 
   const demo = await userService.signup({
     username: 'demo',
@@ -62,6 +73,14 @@ async function seed(): Promise<void> {
   })
   console.log(`Created users: ${demo.username}, ${reader.username}`)
 
+  // Three posts, all by `demo`, against a per-author cap of 3 — exactly at the
+  // limit, so `demo` cannot add a fourth through the UI. That is intended: new
+  // portfolio content is added by editing this file and reseeding.
+  //
+  // This writes via PostModel, BELOW the service layer, so the cap guard never
+  // runs. That bypass is deliberate. Do not "tidy" it to call
+  // postService.create(): reseeding would then fail once the collection is not
+  // empty, and only in production.
   for (const post of POSTS) {
     const created = await PostModel.create({
       ...post,

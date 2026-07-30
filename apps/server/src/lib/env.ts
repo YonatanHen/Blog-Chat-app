@@ -1,10 +1,9 @@
 import { readFileSync } from 'node:fs'
 import { z } from 'zod'
 
-// Validate the environment once, at boot, and fail loudly. A missing
-// SESSION_SECRET must stop the process — never fall back to a default, because
-// a hardcoded fallback silently makes every production session forgeable.
-/** An optional value where '' means unset — see the CLOUDINARY_* note below. */
+// Validated once at boot so a bad value stops the process. Never default a
+// secret: a fallback SESSION_SECRET makes every production session forgeable.
+/** Optional, where '' counts as unset — Compose and Render both emit ''. */
 const optionalSecret = z.preprocess(
   (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
   z.string().min(1).optional(),
@@ -17,25 +16,25 @@ const EnvSchema = z.object({
   REDIS_URL: z.string().min(1, 'REDIS_URL is required'),
   SESSION_SECRET: z.string().min(32, 'SESSION_SECRET must be at least 32 characters'),
   CLIENT_DIST: z.string().optional(),
-  // Optional: with no Cloudinary the API still boots and every other route
-  // works — only the upload-signature endpoint reports 503. Empty strings are
-  // treated as unset, because Compose and Render both render an absent variable
-  // as '' rather than dropping it — without this the API refuses to boot.
+  // Unset is fine: only the upload-signature endpoint reports 503.
   CLOUDINARY_CLOUD_NAME: optionalSecret,
   CLOUDINARY_API_KEY: optionalSecret,
   CLOUDINARY_API_SECRET: optionalSecret,
-  // OAuth providers, each independently optional. A provider with no
-  // credentials simply does not appear on the sign-in page.
+  // Independently optional — no credentials means no button, not a broken one.
   GOOGLE_CLIENT_ID: optionalSecret,
   GOOGLE_CLIENT_SECRET: optionalSecret,
   FACEBOOK_APP_ID: optionalSecret,
   FACEBOOK_APP_SECRET: optionalSecret,
-  /** Absolute origin used to build OAuth callback URLs. **/
+  /** Origin the OAuth callback URLs are built from. */
   PUBLIC_ORIGIN: z.string().url().default('http://localhost:5173'),
+  // Demo capacity caps (spec §3). Defaulted, so an unconfigured deploy is
+  // still capped rather than wide open. Env-driven so tests can raise them.
+  DEMO_MAX_USERS: z.coerce.number().int().nonnegative().default(20),
+  DEMO_MAX_POSTS_PER_USER: z.coerce.number().int().nonnegative().default(3),
+  DEMO_MAX_COMMENTS_PER_POST: z.coerce.number().int().nonnegative().default(10),
 })
-  // Each credential pair is all-or-nothing. A partial config is the worst
-  // outcome: the app looks configured, then fails at the provider with an
-  // opaque error.
+  // All-or-nothing per pair: a half-configured app looks fine, then fails at
+  // the provider with an opaque error.
   .superRefine((env, ctx) => {
     const groups = [
       ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'],
@@ -68,9 +67,8 @@ function resolveFileBackedSecrets(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv 
       resolved[key] = readFileSync(filePath, 'utf-8').trim()
     }
   }
-  // Render injects RENDER_EXTERNAL_URL (e.g. https://blogchat.onrender.com) into
-  // every web service. Falling back to it means a deploy cannot silently keep
-  // building localhost OAuth callbacks, which would break sign-in for everyone.
+  // Render injects RENDER_EXTERNAL_URL. Without this fallback a deploy keeps
+  // building localhost callbacks and breaks sign-in, with nothing failing loudly.
   if (!resolved.PUBLIC_ORIGIN?.trim() && resolved.RENDER_EXTERNAL_URL?.trim()) {
     resolved.PUBLIC_ORIGIN = resolved.RENDER_EXTERNAL_URL.trim()
   }

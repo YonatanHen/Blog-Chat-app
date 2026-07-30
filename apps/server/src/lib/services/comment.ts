@@ -1,5 +1,6 @@
 import type { CreateComment, UpdateComment } from '@blog/zod-shared'
 import { NotFoundError, ValidationError } from '../errors.js'
+import { assertCommentSlotFree } from '../demo-limits.js'
 import { CommentModel, type Comment } from '../../models/comment.js'
 import { PostModel } from '../../models/post.js'
 import { Types, type HydratedDocument } from 'mongoose'
@@ -109,6 +110,10 @@ export const commentService = {
   async create(slug: string, input: CreateComment, authorId: string): Promise<CommentDto> {
     if (process.env.DEBUG) console.log('[COMMENT_SERVICE] create', { slug, authorId })
     const postId = await resolvePostId(slug)
+    // Demo capacity (spec §3). `post` is indexed, so this is a lookup. `postId`
+    // comes from the resolved slug, never the body — the same rule the
+    // ownership checks follow.
+    assertCommentSlotFree(await CommentModel.countDocuments({ post: postId }))
 
     if (input.parent) {
       const parent = await findById(input.parent)
