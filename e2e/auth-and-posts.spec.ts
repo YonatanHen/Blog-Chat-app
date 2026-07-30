@@ -4,8 +4,9 @@ import { expect, test } from '@playwright/test'
  * The whole authenticated round trip through the real prod image: an account
  * that did not exist, a post it owns, a like on it, and a session that ends.
  *
- * Selectors are the accessible name the app actually renders — "Sign Up",
- * "New Post", "Publish", "Logout" — not the ones the plan guessed at.
+ * Selectors are the accessible name the app actually renders, not the ones the
+ * plan guessed at. The nav rail's labels are matched case-insensitively because
+ * it is uppercased in CSS, and text-transform can reach the accessible name.
  */
 test('signup, create a post, like it, then log out', async ({ page }) => {
   const username = `e2e-${Date.now()}`
@@ -24,9 +25,12 @@ test('signup, create a post, like it, then log out', async ({ page }) => {
   await page.getByLabel('Confirm password').fill('a-valid-password')
   await page.getByRole('button', { name: 'Sign Up' }).click()
   await expect(page).toHaveURL('/')
-  await expect(page.getByText(`Welcome, ${username}`)).toBeVisible()
+  // The nav rail shows the bare username; there is no "Welcome," prefix any
+  // more. Case-insensitive throughout this file because the rail is uppercased
+  // in CSS, and text-transform can reach the accessible name.
+  await expect(page.getByText(username, { exact: false })).toBeVisible()
 
-  await page.getByRole('link', { name: 'New Post' }).click()
+  await page.getByRole('link', { name: /new post/i }).click()
   // AutoForm labels every field with its raw schema key.
   await page.getByLabel('title').fill('An E2E post')
   await page.getByLabel('body').fill('Written by Playwright.')
@@ -38,6 +42,6 @@ test('signup, create a post, like it, then log out', async ({ page }) => {
   await page.getByRole('button', { name: '0' }).click()
   await expect(page.getByRole('button', { name: '1' })).toBeVisible()
 
-  await page.getByRole('button', { name: 'Logout' }).click()
-  await expect(page.getByRole('link', { name: 'Login' })).toBeVisible()
+  await page.getByRole('button', { name: /log ?out/i }).click()
+  await expect(page.getByRole('link', { name: /log ?in/i })).toBeVisible()
 })

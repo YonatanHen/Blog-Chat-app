@@ -52,7 +52,7 @@ function CommentItem({ slug, node, depth }: { slug: string; node: CommentNode; d
 
   return (
     <li className="flex flex-col gap-2">
-      <article className="flex flex-col gap-1 rounded-md border border-[var(--border)] p-3">
+      <article className="flex flex-col gap-1 border border-[var(--border)] p-3">
         <header className="text-xs text-[var(--muted-foreground)]">
           {node.author.username} · {new Date(node.createdAt).toLocaleDateString()}
         </header>
