@@ -1,6 +1,7 @@
 import type { ErrorRequestHandler } from 'express'
 import {
   ConflictError,
+  DemoLimitError,
   ForbiddenError,
   NotFoundError,
   ServiceUnavailableError,
@@ -41,6 +42,11 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
     return
   }
 
+  if (err instanceof DemoLimitError) {
+    console.warn(`[ERROR_HANDLER] DemoLimitError on ${req.method} ${req.path}:`, err.message)
+    res.status(403).json({ error: { message: err.message } })
+    return
+  }
   if (err instanceof ServiceUnavailableError) {
     console.warn(`[ERROR_HANDLER] ServiceUnavailableError on ${req.method} ${req.path}:`, err.message)
     res.status(503).json({ error: { message: err.message } })

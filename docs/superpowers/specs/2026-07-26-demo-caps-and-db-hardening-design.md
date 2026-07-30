@@ -76,17 +76,33 @@ Three consequences follow, and this design addresses all three together because 
 | Limit | Scope | Value |
 |---|---|---|
 | `DEMO_MAX_USERS` | **global** | 20 |
-| `DEMO_MAX_POSTS_PER_USER` | per author | 2 |
+| `DEMO_MAX_POSTS_PER_USER` | per author | 3 |
 | `DEMO_MAX_COMMENTS_PER_POST` | per post | 10 |
 
 **No exemptions** — the owner account is capped like any visitor. Seed data occupies 2 users and 3 posts,
 leaving 18 visitor accounts.
 
+> **Amendment 2026-07-30 — posts per user raised from 2 to 3, and the weekly reset is dropped.**
+> Both decided by the project owner.
+>
+> 1. `DEMO_MAX_POSTS_PER_USER` is **3**, not 2. Worst-case footprint becomes 20 users → 60 posts →
+>    600 comments, plus at most 20 × 60 = 1,200 likes. Still trivial for an M0 cluster.
+>    A side effect: `seed.ts`'s three posts under `demo` now sit exactly *at* the cap rather than over
+>    it, so the 2/1 author split this section previously required is no longer needed and was not
+>    implemented.
+> 2. **§6's weekly auto-reset is removed.** No scheduled workflow ships. This is a knowing trade: the
+>    caps no longer self-heal, so the global 20-user cap is now **permanent** — once 20 accounts exist,
+>    no further visitor can sign up until someone deletes an account or `npm run seed` is run by hand.
+>    §1.3 named that permanent-wall outcome as the reason the reset existed; that argument is not
+>    withdrawn, it is overruled, and recorded here rather than deleted.
+>    The `CommentModel.deleteMany({})` fix §6 requires was still implemented — a manual reseed that
+>    leaves every comment behind is a bug regardless of what triggers it.
+
 **Why per-owner scoping is not just a smaller number.** A global post cap is a shared pool, so one
 enthusiastic visitor can consume all of it and every later visitor finds the app full. A per-user
 allowance cannot be exhausted on anyone else's behalf: the worst a single account achieves is its own
-2 posts. The ceiling is then a product of the caps rather than a single number — 20 × 2 = 40 posts,
-40 × 10 = 400 comments — which is what makes the total footprint predictable enough to share a cluster.
+2 posts. The ceiling is then a product of the caps rather than a single number — 20 × 3 = 60 posts,
+60 × 10 = 600 comments — which is what makes the total footprint predictable enough to share a cluster.
 
 **This also changes where the denial-of-service pressure sits.** Under global caps, posting was the
 cheapest way to fill the app. Now posts and comments are self-limiting per account, so **signup is the
@@ -299,7 +315,7 @@ Three properties, all mandatory:
 
 | Control | Status |
 |---|---|
-| `ipAllowList: []` — no public access | ✅ already set in `infra/render.yaml` |
+| `ipAllowList: []` — no public access | ✅ already set in `render.yaml` |
 | `maxmemoryPolicy: allkeys-lru` | ✅ already set. Eviction can log a user out early; acceptable at demo scale |
 | `SESSION_SECRET` via `generateValue: true` | ✅ already set — never seen by the repo or by us |
 
@@ -319,7 +335,7 @@ set in the Render dashboard with `sync: false`.
 | Variable | Where | Notes |
 |---|---|---|
 | `DEMO_MAX_USERS` | `render.yaml`, value `20` | Not secret. Env-driven so tests can raise it |
-| `DEMO_MAX_POSTS_PER_USER` | `render.yaml`, value `2` | Not secret *(renamed + rescoped 2026-07-29)* |
+| `DEMO_MAX_POSTS_PER_USER` | `render.yaml`, value `3` | Not secret *(renamed + rescoped 2026-07-29; raised to 3 on 2026-07-30)* |
 | `DEMO_MAX_COMMENTS_PER_POST` | `render.yaml`, value `10` | Not secret *(renamed + rescoped 2026-07-29)* |
 | `NOTIFY_EMAIL` | `render.yaml`, `sync: false` | **Secret** — never in source, never in the repo |
 | `RESEND_API_KEY` | `render.yaml`, `sync: false` | **Secret** |
@@ -370,7 +386,7 @@ approval, per the project's standing rule. This spec does not constitute that ap
 
 1. **Free-tier limits move.** The Render, Atlas, and Resend figures cited here should be re-verified against
    current provider documentation at implementation time rather than trusted from this document.
-2. **The legacy service collision is unresolved.** A Render service predating `infra/render.yaml` currently
+2. **The legacy service collision is unresolved.** A Render service predating `render.yaml` currently
    watches `master` and auto-deploys the legacy app. Applying this Blueprint creates a *parallel* set of
    services rather than updating that one. This is the same mechanism that took the site down on 2026-07-16.
    It is out of scope here but **must be settled before promotion**.

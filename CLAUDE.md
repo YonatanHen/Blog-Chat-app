@@ -58,7 +58,8 @@ passed locally when it never ran.
 **Docker:** per-app multi-stage Dockerfiles (`base → deps → dev`/`builder → runner`) live inside each app
 (`apps/server/Dockerfile`). Orchestration/deploy config lives in `infra/`: `compose.yaml` is the dev stack
 (`target: dev`, hot reload); `compose.e2e.yaml` builds the `runner` target — the actual production image —
-so a broken prod build is caught before Render is; `render.yaml` is the prod infra-as-code.
+so a broken prod build is caught before Render is. `render.yaml` is the prod infra-as-code and lives at
+the **repo root**, not in `infra/` — Render discovers Blueprints there and nowhere else.
 
 - **Invoke both compose files with `--project-directory .` from the repo root.** Their `context`/
   `develop.watch`/secrets paths are written relative to the repo root, but Compose resolves them relative

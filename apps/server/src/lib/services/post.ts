@@ -8,6 +8,7 @@ import { NotFoundError } from '../errors.js'
 import { commentService } from './comment.js'
 import { LikeModel } from '../../models/like.js'
 import { PostModel, type Post } from '../../models/post.js'
+import { assertPostSlotFree } from '../demo-limits.js'
 import { deliveryUrl, publicIdFrom } from './upload.js'
 import { Types, type FilterQuery, type HydratedDocument } from 'mongoose'
 
@@ -159,6 +160,11 @@ export const postService = {
   },
 
   async create(input: CreatePost, authorId: string): Promise<PostDto> {
+    // Demo capacity (spec §3). A filtered count, not a collection count —
+    // `author` is indexed, so this is a lookup rather than a scan. `authorId`
+    // comes from the session, never the body: a body-supplied owner would let a
+    // caller spend someone else's allowance, or dodge their own.
+    assertPostSlotFree(await PostModel.countDocuments({ author: new Types.ObjectId(authorId) }))
     const post = await PostModel.create({
       ...input,
       // Re-checked here, not trusted from the body: the browser reports what

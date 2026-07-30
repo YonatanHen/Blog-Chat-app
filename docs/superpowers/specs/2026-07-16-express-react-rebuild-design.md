@@ -429,7 +429,7 @@ the README rather than built prematurely. *(This is also why presence needs no R
 above.)*
 
 **Deployment:** Key Value is a **managed addon**, not a container we build. It is declared in
-`infra/render.yaml` as `type: keyvalue`, and Render injects its internal connection string into both
+`render.yaml` as `type: keyvalue`, and Render injects its internal connection string into both
 services via `fromService`.
 Constraints:
 
@@ -660,7 +660,7 @@ regardless of remaining hours, so eliminating cold starts requires a periodic ex
 configured. Until one is, the first chat visitor after an idle period still waits ~60 s — but once, not
 twice in series as the two-service design would have cost.
 
-**`infra/render.yaml`** declares both prod resources as infrastructure-as-code. Secrets (`MONGODB_URI`,
+**`render.yaml`** declares both prod resources as infrastructure-as-code. Secrets (`MONGODB_URI`,
 `CLOUDINARY_*`, OAuth credentials) use `sync: false` and are set in the dashboard — never committed, never
 hardcoded as a fallback. `SESSION_SECRET` uses `generateValue: true`. *(The socket-ticket secret is gone
 with the ticket, 2026-07-29 — realtime adds no new environment variable at all.)*

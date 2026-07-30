@@ -15,4 +15,4 @@ cp infra/secrets/e2e/session_secret.txt.example infra/secrets/e2e/session_secret
 The example values are synthetic and public on purpose — `dev`/`e2e` mongo and redis run
 unauthenticated on an isolated Compose network with no real user data, so there's nothing to
 protect there regardless. Real production secrets are never here; they live in the Render
-dashboard (`infra/render.yaml` uses `sync: false`).
+dashboard (`render.yaml` uses `sync: false`).

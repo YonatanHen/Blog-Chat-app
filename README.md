@@ -110,6 +110,12 @@ client-side `Array.filter`. See "Search semantics" below for the word-matching b
 - **Generated cover art** — a post with no uploaded cover gets a deterministic canvas drawing keyed to its
   slug, so the feed is image-led whether or not the author supplied a picture.
 
+**Demo capacity caps.** This is a portfolio demo on free-tier infrastructure, so it is deliberately
+capped: **20 accounts, 3 posts per account, 10 comments per post**. Exceeding one returns `403` with a
+message naming which limit was hit — the app is not broken, it is full. Limits are env-driven
+(`DEMO_MAX_*`), enforced in the service layer, and scoped per owner so no single visitor can consume
+everyone else's allowance.
+
 **Not yet built (by design, not oversight):** Facebook sign-in and avatar uploads. The Facebook strategy is
 written and dormant — it needs only credentials — but Facebook's HTTPS redirect requirement makes it poor
 value for a demo, so only Google is wired up. See the phase table in
@@ -126,7 +132,7 @@ this deployment can offer, so a missing credential never produces a button that 
 cp .env.example .env       # then fill in SESSION_SECRET
 npm install
 npm run dev                # docker compose watch — api, client, mongo, redis
-npm run seed               # demo data + a demo account
+npm run seed               # demo data + a demo account (local only)
 ```
 
 The client is on http://localhost:5173, proxying `/api` to the API on http://localhost:3000/api/v1 —
@@ -199,7 +205,7 @@ two tabs share one session and you would be talking to yourself.
 
 ```bash
 npm run dev                # wait for all four containers to report healthy
-npm run seed               # creates demo/reader; prints the shared password
+npm run seed               # creates demo/reader; prints the shared password (local only)
 ```
 
 1. Sign in as `demo` at http://localhost:5173/login, open **Chat** in the nav.
@@ -217,7 +223,7 @@ sessionless connection server-side regardless.
 a problem with the code. See the `extra-ca` note in `CLAUDE.md`; the certificate has to be re-exported
 whenever the interceptor rotates it.
 
-**Deploying:** `infra/render.yaml` declares this rebuild's target Render service, but it has not been
+**Deploying:** `render.yaml` declares this rebuild's target Render service, but it has not been
 promoted to `master`/deployed yet — there is no live URL for it. (`master`'s legacy app is separately
 live on Render today; that deployment predates this rebuild and is unrelated to it.)
 
@@ -261,7 +267,8 @@ is a query error) and degrades to the unfiltered feed instead.
 | Command | What it does |
 |---|---|
 | `npm run dev` | Full stack via `docker compose watch`, hot reload |
-| `npm run seed` | Wipe and reseed the demo dataset |
+| `npm run seed` | Wipe and reseed the **local** dataset. Ignores `MONGODB_URI`, so it can never reach production |
+| `npm run seed:prod` | Reseed **production**. Requires `MONGODB_URI` and refuses a local one |
 | `npm run typecheck` | Per-workspace `tsc --noEmit` — CI runs this on every PR |
 | `npm run lint` | ESLint (flat config) — CI runs this on every PR |
 | `npm run test` | Vitest unit + Supertest integration |
