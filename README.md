@@ -8,8 +8,7 @@
 
 ## About
 
-A from-scratch rebuild of a five-year-old MERN blog + chat app, built as a portfolio piece targeting
-fullstack/backend roles. It reimplements every real feature of the legacy app — session auth, posts,
+A MERN blog + chat app. It reimplements every real feature of the legacy app — session auth, posts,
 likes, threaded comments, search — while fixing five documented authorization holes the original had,
 and adds genuine upgrades (server-side session auth instead of a client-stored JWT, per-reader content
 gating, MongoDB-backed full-text search, realtime chat over Socket.io) the legacy app never had. OAuth
@@ -118,6 +117,31 @@ npm run seed               # demo data + a demo account
 The client is on http://localhost:5173, proxying `/api` to the API on http://localhost:3000/api/v1 —
 same origin as prod, so the session cookie behaves identically in dev.
 
+### Trying the chat
+
+Chat needs two signed-in users, so open a second **incognito/private** window rather than a second tab —
+two tabs share one session and you would be talking to yourself.
+
+```bash
+npm run dev                # wait for all four containers to report healthy
+npm run seed               # creates demo/reader; prints the shared password
+```
+
+1. Sign in as `demo` at http://localhost:5173/login, open **Chat** in the nav.
+2. In a private window, sign in as `reader` and open Chat too.
+3. Type in one window — the message, the online count and the typing indicator all update in the other.
+4. Reload either window: the last 50 messages come back from Redis. Restart the `redis` container and
+   they do not — the buffer is deliberately ephemeral, and that is the design working, not a bug.
+
+The socket is served by the API process on the same origin, so there is no separate service to start.
+`/chat` redirects to `/login` when signed out; that guard is UX only — the socket handshake rejects a
+sessionless connection server-side regardless.
+
+**If the containers fail to build** with `UNABLE_TO_VERIFY_LEAF_SIGNATURE` or npm's
+`Exit handler never called!`, that is local TLS interception breaking `npm ci` inside the container, not
+a problem with the code. See the `extra-ca` note in `CLAUDE.md`; the certificate has to be re-exported
+whenever the interceptor rotates it.
+
 **Deploying:** `infra/render.yaml` declares this rebuild's target Render service, but it has not been
 promoted to `master`/deployed yet — there is no live URL for it. (`master`'s legacy app is separately
 live on Render today; that deployment predates this rebuild and is unrelated to it.)
@@ -163,8 +187,14 @@ is a query error) and degrades to the unfiltered feed instead.
 |---|---|
 | `npm run dev` | Full stack via `docker compose watch`, hot reload |
 | `npm run seed` | Wipe and reseed the demo dataset |
-| `npm run typecheck` | Per-workspace `tsc --noEmit` |
-| `npm run lint` | ESLint (flat config) |
+| `npm run typecheck` | Per-workspace `tsc --noEmit` — CI runs this on every PR |
+| `npm run lint` | ESLint (flat config) — CI runs this on every PR |
 | `npm run test` | Vitest unit + Supertest integration |
 | `npm run test:e2e` | Playwright, against the production Docker image |
 | `npm run build` | Production build (client Vite bundle + server tsup bundle) |
+
+Two things worth knowing about `docker compose watch`: source edits under `apps/` sync into the running
+containers, but a change to `package.json` or `package-lock.json` triggers a full **rebuild** — so pulling
+a branch that adds a dependency means waiting for `npm ci` to run inside the container again. And the
+containers bake source at build time, so if an edit genuinely is not showing up, rebuild before debugging
+the code.

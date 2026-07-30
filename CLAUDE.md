@@ -42,6 +42,19 @@ npm run seed         # seed the database
 with TypeScript's project-references build mode. There is no root `tsconfig.json`. Don't reintroduce a root
 `tsc --build` — it's been tried and reverted.
 
+**Don't run `typecheck` or `lint` locally — CI owns them.** Both run on every PR; running them again on
+each edit costs minutes per change and buys nothing the PR won't catch. Write clean code, push, and fix
+whatever CI flags. This applies to agents and subagents too: a dispatch should not instruct one to "run
+the full gate" before reporting.
+
+`npm run test` is **not** covered by that rule — keep running it. Tests are the working feedback loop, not
+a gate: TDD depends on watching a test fail before it passes, and a suite that only runs in CI stops being
+usable for that. The same goes for a single-file run while iterating.
+
+`npm run test:e2e` needs the prod Docker image, which currently won't build on this machine (see the Avast
+note below). Treat E2E as CI-verified until that's fixed, and say so plainly rather than implying a spec
+passed locally when it never ran.
+
 **Docker:** per-app multi-stage Dockerfiles (`base → deps → dev`/`builder → runner`) live inside each app
 (`apps/server/Dockerfile`). Orchestration/deploy config lives in `infra/`: `compose.yaml` is the dev stack
 (`target: dev`, hot reload); `compose.e2e.yaml` builds the `runner` target — the actual production image —
@@ -164,3 +177,4 @@ arguments to `toDto` on purpose; collapsing them reports every feed item as lock
 - Never mention spec section numbers in code. Cite them in docs and plans instead.
 - Add `console.*` tracing to API calls, service methods, and middleware during development — request
   path/method, payload, status, errors. Gate with `if (process.env.DEBUG)` to keep production quiet.
+  - Avoid from long comments in the code, if you feel that a comments is necessarry write 2 lines max.
