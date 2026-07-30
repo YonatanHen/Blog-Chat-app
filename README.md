@@ -117,6 +117,66 @@ npm run seed               # demo data + a demo account
 The client is on http://localhost:5173, proxying `/api` to the API on http://localhost:3000/api/v1 —
 same origin as prod, so the session cookie behaves identically in dev.
 
+### Running the stack with Docker Compose directly
+
+`npm run dev` is a thin wrapper. The underlying command, and the rest of the day-to-day set:
+
+```bash
+# Start everything with hot reload (api, client, mongo, redis). Foreground.
+docker compose -f infra/compose.yaml --project-directory . watch
+
+# Or detached, without file watching
+docker compose -f infra/compose.yaml --project-directory . up -d
+
+docker compose -f infra/compose.yaml --project-directory . ps
+docker compose -f infra/compose.yaml --project-directory . logs -f api
+docker compose -f infra/compose.yaml --project-directory . down        # stop
+docker compose -f infra/compose.yaml --project-directory . down -v     # stop and wipe the volumes
+```
+
+**`--project-directory .` is not optional, and it must be run from the repo root.** The compose file's
+`context`, `develop.watch` and `secrets` paths are written relative to the repo root, but Compose resolves
+them relative to the compose file's own directory — `infra/`. Omit the flag and the build context is wrong.
+
+**Use `watch`, not `up -d`, while developing.** Containers bake their source at build time, so a detached
+stack keeps serving the code from whenever it was built. `restart` does not help — it restarts the same
+stale image. If an edit isn't showing up, that's why:
+
+```bash
+docker compose -f infra/compose.yaml --project-directory . up -d --build   # force a rebuild
+```
+
+A change to `package.json` or `package-lock.json` forces a full rebuild even under `watch`, because
+dependencies are installed into the image rather than synced.
+
+| Service | Port | Notes |
+|---|---|---|
+| `client` | 5173 | Vite dev server; proxies `/api` and the Socket.io upgrade to `api` |
+| `api` | 3000 | Express + Socket.io |
+| `mongo` | 27019 → 27017 | Bound to `127.0.0.1` only |
+| `redis` | 6379 | Bound to `127.0.0.1` only |
+
+**The production image**, which is what CI runs the E2E against and what Render deploys, is a different
+stack — `target: runner` rather than `target: dev`, with the client's built bundle served by the API
+rather than by Vite:
+
+```bash
+docker compose -f infra/compose.e2e.yaml --project-directory . up --build --wait
+npm run test:e2e
+docker compose -f infra/compose.e2e.yaml --project-directory . down -v
+```
+
+**If a build fails** with `UNABLE_TO_VERIFY_LEAF_SIGNATURE` or npm's `Exit handler never called!`, local
+TLS interception is breaking `npm ci` inside the container. `infra/compose.override.yaml` (gitignored)
+feeds the exported root CA in as a build secret, and because this repo always passes `-f` explicitly,
+Compose will **not** auto-merge it — pass it explicitly too:
+
+```bash
+docker compose --project-directory . -f infra/compose.yaml -f infra/compose.override.yaml watch
+```
+
+Never bake a CA certificate into an image, and never commit one.
+
 ### Trying the chat
 
 Chat needs two signed-in users, so open a second **incognito/private** window rather than a second tab —
