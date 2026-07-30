@@ -1,7 +1,7 @@
 import { slugify } from '@blog/zod-shared'
 import mongoose from 'mongoose'
-import { loadEnv } from '../lib/env.js'
 import { connectDb } from '../lib/db.js'
+import { resolveSeedTarget } from './seed-target.js'
 import { userService } from '../lib/services/user.js'
 import { CommentModel } from '../models/comment.js'
 import { LikeModel } from '../models/like.js'
@@ -43,8 +43,11 @@ const POSTS = [
 ]
 
 async function seed(): Promise<void> {
-  const env = loadEnv()
-  await connectDb(env.MONGODB_URI)
+  // Not loadEnv(): seeding needs a Mongo URI and nothing else, and requiring
+  // SESSION_SECRET/REDIS_URL to reseed was friction with no safety value.
+  const target = resolveSeedTarget(process.argv.slice(2), process.env)
+  console.log(`Seeding ${target.isProd ? 'PRODUCTION' : 'local'} database: ${target.host}`)
+  await connectDb(target.uri)
   // The unique indexes are layer 3 of the authorization model — build them.
   await mongoose.syncIndexes()
 

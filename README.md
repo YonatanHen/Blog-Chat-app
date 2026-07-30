@@ -132,7 +132,7 @@ this deployment can offer, so a missing credential never produces a button that 
 cp .env.example .env       # then fill in SESSION_SECRET
 npm install
 npm run dev                # docker compose watch — api, client, mongo, redis
-npm run seed               # demo data + a demo account
+npm run seed               # demo data + a demo account (local only)
 ```
 
 The client is on http://localhost:5173, proxying `/api` to the API on http://localhost:3000/api/v1 —
@@ -205,7 +205,7 @@ two tabs share one session and you would be talking to yourself.
 
 ```bash
 npm run dev                # wait for all four containers to report healthy
-npm run seed               # creates demo/reader; prints the shared password
+npm run seed               # creates demo/reader; prints the shared password (local only)
 ```
 
 1. Sign in as `demo` at http://localhost:5173/login, open **Chat** in the nav.
@@ -267,7 +267,8 @@ is a query error) and degrades to the unfiltered feed instead.
 | Command | What it does |
 |---|---|
 | `npm run dev` | Full stack via `docker compose watch`, hot reload |
-| `npm run seed` | Wipe and reseed the demo dataset |
+| `npm run seed` | Wipe and reseed the **local** dataset. Ignores `MONGODB_URI`, so it can never reach production |
+| `npm run seed:prod` | Reseed **production**. Requires `MONGODB_URI` and refuses a local one |
 | `npm run typecheck` | Per-workspace `tsc --noEmit` — CI runs this on every PR |
 | `npm run lint` | ESLint (flat config) — CI runs this on every PR |
 | `npm run test` | Vitest unit + Supertest integration |
