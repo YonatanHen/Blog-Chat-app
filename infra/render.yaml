@@ -1,10 +1,14 @@
 # Production infrastructure as code (spec §7, §12).
-# No apps/realtime service: Socket.io runs inside blogchat-api, sharing its process and
-# origin, so realtime chat needs no service of its own, no env var, and no CORS. See
-# docs/superpowers/specs/2026-07-29-realtime-chat-design.md.
+# No apps/realtime service: Socket.io runs inside the web service, sharing its process
+# and origin, so realtime chat needs no service of its own, no env var, and no CORS.
+# See docs/superpowers/specs/2026-07-29-realtime-chat-design.md.
 services:
   - type: web
-    name: blogchat-api
+    # Names the existing production service so the deploy keeps
+    # blog-chat-app.onrender.com rather than minting a new subdomain.
+    name: blog-chat-app
+    # master is production and auto-deploys. staging is never deployed.
+    branch: master
     runtime: docker
     dockerfilePath: ./apps/server/Dockerfile
     dockerContext: .
@@ -55,6 +59,8 @@ services:
         value: 3
       - key: DEMO_MAX_COMMENTS_PER_POST
         value: 10
+      # Internal connection string, injected by Render — never written down.
+      # Requires this service and the Key Value instance to share a region.
       - key: REDIS_URL
         fromService:
           type: keyvalue
