@@ -36,16 +36,9 @@ services:
         sync: false
       - key: CLOUDINARY_API_SECRET
         sync: false
-      # OAuth, optional and independent per provider. Register the callback as
-      # https://<your-domain>/api/v1/auth/<provider>/callback and set
-      # PUBLIC_ORIGIN to that same origin.
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET
-        sync: false
-      - key: FACEBOOK_APP_ID
-        sync: false
-      - key: FACEBOOK_APP_SECRET
         sync: false
       # Only needed for a CUSTOM domain. Left unset, the API falls back to
       # RENDER_EXTERNAL_URL, which Render injects as the service's real URL — so
