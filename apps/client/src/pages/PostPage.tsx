@@ -6,8 +6,10 @@ import { useMe } from '../hooks/use-auth.js'
 import { CommentSection } from '../components/patterns/CommentSection.js'
 import { EmptyState } from '../components/patterns/EmptyState.js'
 import { LikeButton } from '../components/patterns/LikeButton.js'
+import { PostTile } from '../components/patterns/PostTile.js'
 import { Button } from '../components/ui/button.js'
 import { Skeleton } from '../components/ui/skeleton.js'
+import { formatDate } from '../lib/format-date.js'
 
 /**
  * The post detail page. `post.gated` is the server's verdict that this reader is
@@ -29,13 +31,21 @@ export function PostPage() {
   const isOwner = me?.id === post.author.id
 
   return (
-    <article className="flex flex-col gap-4">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">{post.title}</h1>
-        <p className="text-sm text-[var(--muted-foreground)]">by {post.author.username}</p>
+    <article className="flex max-w-3xl flex-col gap-6">
+      <header className="flex flex-col gap-3">
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs tracking-[0.09em] text-[var(--ink-faint)] uppercase tabular-nums">
+          <time dateTime={post.createdAt}>{formatDate(post.createdAt)}</time>
+          <span aria-hidden="true">·</span>
+          <span>{post.author.username}</span>
+        </p>
+        <h1 className="font-display text-[clamp(2rem,5vw,3.25rem)] leading-[0.95] tracking-[-0.04em] text-balance">
+          {post.title}
+        </h1>
       </header>
 
-      <div className="whitespace-pre-wrap">{post.body}</div>
+      <PostTile slug={post.slug} className="aspect-[21/9]" />
+
+      <div className="max-w-[68ch] text-lg leading-relaxed whitespace-pre-wrap">{post.body}</div>
 
       {post.gated && (
         <p className="rounded bg-[var(--muted)] p-4 text-sm">
@@ -47,19 +57,16 @@ export function PostPage() {
       )}
 
       {post.tags.length > 0 && (
-        <ul className="flex flex-wrap gap-2">
+        <ul className="flex flex-wrap gap-1.5 font-mono text-[0.68rem] tracking-[0.09em] uppercase">
           {post.tags.map((tag) => (
-            <li
-              key={tag}
-              className="rounded bg-[var(--muted)] px-2 py-0.5 text-xs text-[var(--muted-foreground)]"
-            >
+            <li key={tag} className="bg-[var(--primary-wash)] px-1.5 py-0.5 text-[var(--primary)]">
               {tag}
             </li>
           ))}
         </ul>
       )}
 
-      <div className="flex items-center gap-4 text-sm text-[var(--muted-foreground)]">
+      <div className="flex items-center gap-4 border-t border-[var(--border)] pt-5 text-sm text-[var(--muted-foreground)]">
         <LikeButton slug={post.slug} likeCount={post.likeCount} />
         {isOwner && (
           <>

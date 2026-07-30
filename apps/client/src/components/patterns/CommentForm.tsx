@@ -93,7 +93,7 @@ export function CommentForm({
       ) : (
         <div
           role="tabpanel"
-          className="min-h-32 rounded-md border border-[var(--border)] p-3 text-sm"
+          className="min-h-32 border border-[var(--border)] p-3 text-sm"
         >
           {body.trim() ? (
             <MarkdownPreview source={body} />

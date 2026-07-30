@@ -6,7 +6,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<H
     <textarea
       ref={ref}
       className={cn(
-        'min-h-32 w-full rounded-md border border-[var(--border)] bg-transparent p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]',
+        'min-h-32 w-full rounded-none border border-[var(--border)] bg-transparent p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]',
         className,
       )}
       {...props}

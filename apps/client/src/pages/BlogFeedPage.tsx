@@ -45,13 +45,18 @@ export function BlogFeedPage() {
 
   const handleSearch = (next: string) => setTerm(next)
 
+  // Only the unfiltered feed has a lead story. Among search results the first
+  // hit is just the first hit, so promoting it would be a false claim.
+  const lead = !debouncedTerm && posts?.length ? posts[0] : undefined
+  const rest = lead ? posts!.slice(1) : (posts ?? [])
+
   let content: ReactNode
   if (isPending) {
     content = (
-      <div className="flex flex-col gap-4">
-        <Skeleton className="h-32" />
-        <Skeleton className="h-32" />
-        <Skeleton className="h-32" />
+      <div className="grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+        <Skeleton className="aspect-[16/10]" />
+        <Skeleton className="aspect-[16/10]" />
+        <Skeleton className="aspect-[16/10]" />
       </div>
     )
   } else if (isError) {
@@ -62,21 +67,48 @@ export function BlogFeedPage() {
     )
   } else {
     content = (
-      <div className="flex flex-col gap-4">
-        {posts.map((post) => (
+      <div className="grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+        {rest.map((post) => (
           <PostCard key={post.id} post={post} />
         ))}
       </div>
     )
   }
 
-  // The search box is outside every branch on purpose: it must stay on screen
-  // while results load and, above all, when a search returns nothing — hiding
-  // it there would leave the reader stranded with no way to change the term.
+  // The band header carries the search box, and both sit outside every branch
+  // on purpose: the box must stay on screen while results load and, above all,
+  // when a search returns nothing — hiding it there would leave the reader
+  // stranded with no way to change the term.
   return (
-    <div className="flex flex-col gap-6">
-      <SearchBar value={term} onChange={handleSearch} />
-      {content}
+    <div className="flex flex-col gap-12">
+      <div className="flex flex-col gap-5">
+        <h1 className="font-display text-[clamp(3rem,8vw,6rem)] leading-[0.86] tracking-[-0.045em] text-balance">
+          The Blog
+        </h1>
+        <p className="max-w-[46ch] text-lg text-[var(--muted-foreground)]">
+          Notes from rebuilding a five-year-old MERN app as an Express and React monorepo — one
+          decision at a time.
+        </p>
+      </div>
+
+      {lead && <PostCard post={lead} featured />}
+
+      <section className="flex flex-col gap-6">
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-[var(--border)] pb-3">
+          <h2 className="flex items-baseline gap-3 font-mono text-xs tracking-[0.11em] text-[var(--ink-faint)] uppercase">
+            {debouncedTerm ? 'Results' : 'Recent writing'}
+            {!isPending && !isError && (
+              <span className="tabular-nums">
+                {rest.length} {rest.length === 1 ? 'post' : 'posts'}
+              </span>
+            )}
+          </h2>
+          <div className="w-full sm:w-64">
+            <SearchBar value={term} onChange={handleSearch} />
+          </div>
+        </div>
+        {content}
+      </section>
     </div>
   )
 }

@@ -101,9 +101,12 @@ client-side `Array.filter`. See "Search semantics" below for the word-matching b
 - **Search** — full-text search plus tag filtering over the feed, debounced, bookmarkable via the URL.
 - **Realtime chat** — one room, signed-in only, with presence and typing indicators; recent history is
   loaded from Redis on join, and messages live only in Redis, never in MongoDB.
+- **Generated cover art** — every post gets a deterministic canvas drawing keyed to its slug, so the feed
+  is image-led with no upload pipeline and no stored assets.
 
-**Not yet built (by design, not oversight):** OAuth login (planned P6) and media/avatar uploads. See the
-phase table in `docs/superpowers/specs/2026-07-16-express-react-rebuild-design.md` §13 for what's next.
+**Not yet built (by design, not oversight):** OAuth login (planned P6) and media/avatar uploads — post
+covers are generated placeholders until those land. See the phase table in
+`docs/superpowers/specs/2026-07-16-express-react-rebuild-design.md` §13 for what's next.
 
 ## Quick start
 
