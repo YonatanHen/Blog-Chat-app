@@ -1,11 +1,3 @@
-# Blog-Chat
-
-> **Two codebases live in this repo.** `master` is the original 2021 MERN (CRA + Redux + Express +
-> Socket.io) app, still live in production. Everything below describes the from-scratch rebuild on
-> `staging` — Express + React (Vite) + TypeScript — which is what you get from a fresh clone. See
-> `CLAUDE.md` and `docs/superpowers/specs/2026-07-16-express-react-rebuild-design.md` for the full
-> design rationale and phase history.
-
 ## About
 
 A MERN blog + chat app. It reimplements every real feature of the legacy app — session auth, posts,
