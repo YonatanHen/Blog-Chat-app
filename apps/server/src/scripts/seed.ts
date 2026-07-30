@@ -14,30 +14,30 @@ const DEMO_PASSWORD = 'demo-password-1234'
 
 const POSTS = [
   {
-    title: 'Rebuilding a Five-Year-Old MERN App',
-    tags: ['engineering', 'react'],
+    title: 'Why the Sky Is Blue and the Sunset Is Red',
+    tags: ['science', 'nature'],
     body: [
-      'This blog is a rebuild of a MERN app I wrote five years ago.',
-      'The original had five authorization holes, a Redux store that cached server state by hand, and a Dockerfile that never worked. Every one of those is a test in this codebase now.',
-      'The rebuild is an Express REST API with a React SPA in front of it. Not because the old stack was slow — because the new one is explicit.',
+      "Sunlight looks white, but it's every color mixed together, and each color travels through air as a wave of a different length. Blue light has a short wavelength and scatters off air molecules far more easily than red does.",
+      "At midday the sun is overhead and its light takes the shortest path through the atmosphere, so that scattered blue reaches your eyes from every direction — the whole sky glows blue.",
+      "At sunset the light travels through much more atmosphere at a low angle. Most of the blue scatters away long before it reaches you, leaving the longer red and orange wavelengths to dominate what's left.",
     ].join('\n\n'),
   },
   {
-    title: 'Why Identity Never Comes From The Request Body',
-    tags: ['security'],
+    title: 'How Coffee Went From an Ethiopian Hillside to a Global Habit',
+    tags: ['history', 'food'],
     body: [
-      'The legacy app had an endpoint that took a user id and a new password, both from the request body, and applied them.',
-      'That is an account takeover, not a bug. Anyone could rewrite anyone. The fix is one sentence: identity always comes from the session, never from a body field.',
-      'Every mutation in this API compares req.session.userId to the resource owner, and there is a test for each of the five holes the old app had.',
+      'Legend credits a goat herder named Kaldi, who noticed his goats grew unusually energetic after eating berries from a certain tree, and brought them to a local monastery to ask what they were.',
+      'Whatever really happened in that highland region of Ethiopia, coffee cultivation had spread to Yemen by the 15th century, where it was first roasted and brewed roughly the way it is today.',
+      "From Yemeni ports it moved into the Ottoman Empire, then into Europe through Venetian trade routes in the 1600s, arriving in a city near you a few centuries later as the thing that gets you through a Monday.",
     ].join('\n\n'),
   },
   {
-    title: 'Gating Content At The Serialization Boundary',
-    tags: ['engineering', 'security'],
+    title: 'The Monarch Butterfly Migration Nobody Fully Explained Until Recently',
+    tags: ['nature', 'biology'],
     body: [
-      'A registration wall implemented in a component is a suggestion. The body is still in the JSON, one DevTools tab away.',
-      'If you are reading this paragraph you are signed in — the API never serialized it otherwise.',
-      'The rule lives in postService.getBySlug, which does not copy the body into its return value when the reader is anonymous. There is nothing to find in the response because it was never put there.',
+      "Monarch butterflies in eastern North America fly up to 3,000 miles to a handful of specific forests in central Mexico each winter, despite no single butterfly ever having made the round trip before.",
+      "The butterflies that arrive in Mexico are three or four generations removed from the ones that left the previous spring, so the route can't be memorized by an individual — it has to be encoded some other way.",
+      "Researchers eventually traced the compass to a combination of the sun's position and an internal circadian clock, sensed through antennae that appear to also register the Earth's magnetic field as a backup on cloudy days.",
     ].join('\n\n'),
   },
 ]
