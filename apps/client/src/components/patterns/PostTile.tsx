@@ -29,7 +29,9 @@ function makeRng(seed: number): () => number {
 // #RRGGBB -> rgba(), so one pen token can serve both the wash and the linework.
 function rgba(hex: string, alpha: number): string {
   let v = hex.trim().replace('#', '')
-  if (v.length === 3) v = v[0] + v[0] + v[1] + v[1] + v[2] + v[2]
+  // Doubling each char rather than indexing: under noUncheckedIndexedAccess
+  // every v[n] is string | undefined, which this expression cannot use.
+  if (v.length === 3) v = v.replace(/./g, (c) => c + c)
   const n = Number.parseInt(v, 16)
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`
 }
@@ -181,8 +183,12 @@ export function PostTile({
       // Three independent hashes: sharing one made motif and pen move together,
       // so neighbouring posts kept drawing the same figure in the same colour.
       const seed = hash(slug)
-      const motif = MOTIFS[hash(`${slug}#motif`) % MOTIFS.length]
-      const pen = css.getPropertyValue(PENS[hash(`${slug}#pen`) % PENS.length]) || '#0f5d57'
+      // The `??` fallbacks are unreachable — a positive modulo is always in
+      // range — but noUncheckedIndexedAccess cannot know that, and asserting
+      // non-null would hide a real out-of-range bug if these lists ever change.
+      const motif = MOTIFS[hash(`${slug}#motif`) % MOTIFS.length] ?? arcs
+      const penToken = PENS[hash(`${slug}#pen`) % PENS.length] ?? PENS[0]
+      const pen = css.getPropertyValue(penToken) || '#0f5d57'
       const wash = Number.parseFloat(css.getPropertyValue('--tile-wash')) || 0.07
       const line = Number.parseFloat(css.getPropertyValue('--tile-line')) || 0.72
 
