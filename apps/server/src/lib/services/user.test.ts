@@ -269,11 +269,14 @@ describe('userService.remove', () => {
     const { id: otherId } = await signup({ username: 'other', email: 'other@example.com' })
 
     // The user's own post, plus another user commenting on it.
-    const ownPost = await postService.create({ title: 'My post', body: 'hello world' }, id)
+    const ownPost = await postService.create({ title: 'My post', body: 'hello world', tags: [] }, id)
     await CommentModel.create({ post: ownPost.id, author: otherId, body: 'nice post' })
 
     // Another user's post, on which the target user comments and likes.
-    const otherPost = await postService.create({ title: 'Other post', body: 'hello world' }, otherId)
+    const otherPost = await postService.create(
+      { title: 'Other post', body: 'hello world', tags: [] },
+      otherId,
+    )
     await CommentModel.create({ post: otherPost.id, author: id, body: 'nice post' })
     await LikeModel.create({ post: otherPost.id, user: id })
 
