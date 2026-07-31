@@ -9,6 +9,7 @@ import { RequireAuth } from '../components/patterns/RequireAuth.js'
 import { Button } from '../components/ui/button.js'
 import { Input } from '../components/ui/input.js'
 import { Label } from '../components/ui/label.js'
+import { PasswordInput } from '../components/ui/password-input.js'
 import { Skeleton } from '../components/ui/skeleton.js'
 import { useMe } from '../hooks/use-auth.js'
 import { useDeleteUser, useUpdateUser, useUserProfile } from '../hooks/use-users.js'
@@ -71,12 +72,20 @@ function AccountPageContent() {
           <Label htmlFor="delete-confirm">
             {hasPassword ? 'Enter your password to confirm' : 'Type your username to confirm'}
           </Label>
-          <Input
-            id="delete-confirm"
-            type={hasPassword ? 'password' : 'text'}
-            value={confirmValue}
-            onChange={(e) => setConfirmValue(e.target.value)}
-          />
+          {hasPassword ? (
+            <PasswordInput
+              id="delete-confirm"
+              value={confirmValue}
+              onChange={(e) => setConfirmValue(e.target.value)}
+            />
+          ) : (
+            <Input
+              id="delete-confirm"
+              type="text"
+              value={confirmValue}
+              onChange={(e) => setConfirmValue(e.target.value)}
+            />
+          )}
         </div>
         <Button
           variant="destructive"

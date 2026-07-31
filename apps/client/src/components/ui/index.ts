@@ -1,5 +1,6 @@
 export { Button, type ButtonProps } from './button.js'
 export { Input } from './input.js'
+export { PasswordInput } from './password-input.js'
 export { Label } from './label.js'
 export { Textarea } from './textarea.js'
 export { Card } from './card.js'
