@@ -7,6 +7,8 @@ import { EditPostPage } from './pages/EditPostPage.js'
 import { LoginPage } from './pages/LoginPage.js'
 import { SignupPage } from './pages/SignupPage.js'
 import { ChatPage } from './pages/ChatPage.js'
+import { AccountPage } from './pages/AccountPage.js'
+import { UserProfilePage } from './pages/UserProfilePage.js'
 
 export const router = createBrowserRouter([
   {
@@ -23,6 +25,8 @@ export const router = createBrowserRouter([
       { path: '/login', element: <LoginPage /> },
       { path: '/signup', element: <SignupPage /> },
       { path: '/chat', element: <ChatPage /> },
+      { path: '/account', element: <AccountPage /> },
+      { path: '/users/:id', element: <UserProfilePage /> },
     ],
   },
 ])

@@ -1,8 +1,12 @@
-import { ConflictError, NotFoundError, ValidationError } from '../errors.js'
+import { ConflictError, NotFoundError, UnauthorizedError, ValidationError } from '../errors.js'
 import { UserModel } from '../../models/user.js'
+import { CommentModel } from '../../models/comment.js'
+import { LikeModel } from '../../models/like.js'
+import { PostModel } from '../../models/post.js'
 import { describe, expect, it } from 'vitest'
 import { useTestDb } from '../../test/helpers.js'
 import { userService } from './user.js'
+import { postService } from './post.js'
 
 useTestDb()
 
@@ -79,7 +83,7 @@ describe('userService.verifyCredentials', () => {
 })
 
 describe('userService.getPublicProfile', () => {
-  it('never exposes the password hash or the email', async () => {
+  it('never exposes the password hash or the email to a non-owner viewer', async () => {
     const { id } = await signup()
     const profile = await userService.getPublicProfile(id)
     expect(profile).not.toHaveProperty('password')
@@ -93,6 +97,32 @@ describe('userService.getPublicProfile', () => {
 
   it('throws NotFoundError for a malformed id rather than a cast error', async () => {
     await expect(userService.getPublicProfile('not-an-objectid')).rejects.toThrow(NotFoundError)
+  })
+
+  it('includes email, hasPassword and oauthProvider only when the viewer is the owner', async () => {
+    const { id } = await signup()
+    const own = (await userService.getPublicProfile(id, id)) as {
+      email: string
+      hasPassword: boolean
+      oauthProvider: string | null
+    }
+    expect(own.email).toBe('y@example.com')
+    expect(own.hasPassword).toBe(true)
+    expect(own.oauthProvider).toBeNull()
+
+    const other = await userService.getPublicProfile(id, '507f1f77bcf86cd799439011')
+    expect(other).not.toHaveProperty('email')
+  })
+
+  it('reports oauthProvider google for a Google-linked account', async () => {
+    const oauthUser = await UserModel.create({
+      username: 'oauth',
+      email: 'o@example.com',
+      googleId: 'g-123',
+    })
+    const id = oauthUser._id.toString()
+    const profile = (await userService.getPublicProfile(id, id)) as { oauthProvider: string | null }
+    expect(profile.oauthProvider).toBe('google')
   })
 })
 
@@ -123,5 +153,138 @@ describe('userService.updateProfile — image validation', () => {
     await expect(
       userService.updateProfile(id, { image: 'someone-elses/folder/x' }),
     ).rejects.toThrow(ValidationError)
+  })
+})
+
+describe('userService.updateProfile — username', () => {
+  it('lets a user rename themselves', async () => {
+    const { id } = await signup()
+    const profile = await userService.updateProfile(id, { username: 'renamed' })
+    expect(profile.username).toBe('renamed')
+  })
+
+  it('throws ConflictError when the new username is already taken', async () => {
+    const { id } = await signup()
+    await signup({ username: 'taken', email: 'taken@example.com' })
+    await expect(userService.updateProfile(id, { username: 'taken' })).rejects.toThrow(ConflictError)
+  })
+})
+
+describe('userService.updateProfile — email', () => {
+  it('lets a local user change their email', async () => {
+    const { id } = await signup()
+    const profile = await userService.updateProfile(id, { email: 'new@example.com' })
+    expect(profile.email).toBe('new@example.com')
+  })
+
+  it('throws ConflictError when the new email is already registered', async () => {
+    const { id } = await signup()
+    await signup({ username: 'other', email: 'taken@example.com' })
+    await expect(userService.updateProfile(id, { email: 'taken@example.com' })).rejects.toThrow(
+      ConflictError,
+    )
+  })
+
+  it('rejects an email change for a Google-linked account', async () => {
+    const oauthUser = await UserModel.create({
+      username: 'oauth',
+      email: 'o@example.com',
+      googleId: 'g-123',
+    })
+    const id = oauthUser._id.toString()
+    await expect(userService.updateProfile(id, { email: 'new@example.com' })).rejects.toThrow(
+      ValidationError,
+    )
+    expect((await UserModel.findById(id))!.email).toBe('o@example.com')
+  })
+})
+
+describe('userService.updateProfile — password', () => {
+  it('requires the current password to change an existing one', async () => {
+    const { id } = await signup()
+    await expect(
+      userService.updateProfile(id, { password: 'brand-new-password' }),
+    ).rejects.toThrow(UnauthorizedError)
+  })
+
+  it('rejects a wrong current password', async () => {
+    const { id } = await signup()
+    await expect(
+      userService.updateProfile(id, { currentPassword: 'nope', password: 'brand-new-password' }),
+    ).rejects.toThrow(UnauthorizedError)
+  })
+
+  it('accepts a correct current password and re-hashes the new one', async () => {
+    const { id } = await signup()
+    await userService.updateProfile(id, {
+      currentPassword: 'correct-horse',
+      password: 'brand-new-password',
+    })
+    expect(await userService.verifyCredentials('yonatan', 'brand-new-password')).not.toBeNull()
+  })
+
+  it('lets an OAuth account set its first password without a currentPassword', async () => {
+    const oauthUser = await UserModel.create({
+      username: 'oauth',
+      email: 'o@example.com',
+      googleId: 'g-123',
+    })
+    const id = oauthUser._id.toString()
+    await userService.updateProfile(id, { password: 'first-password' })
+    expect(await userService.verifyCredentials('oauth', 'first-password')).not.toBeNull()
+  })
+})
+
+describe('userService.remove', () => {
+  it('rejects deletion with a wrong current password and leaves the account intact', async () => {
+    const { id } = await signup()
+    await expect(userService.remove(id, { currentPassword: 'wrong' })).rejects.toThrow(
+      UnauthorizedError,
+    )
+    expect(await UserModel.findById(id)).not.toBeNull()
+  })
+
+  it('deletes the account given the correct current password', async () => {
+    const { id } = await signup()
+    await userService.remove(id, { currentPassword: 'correct-horse' })
+    expect(await UserModel.findById(id)).toBeNull()
+  })
+
+  it('deletes an OAuth (no-password) account given a matching username confirmation', async () => {
+    const oauthUser = await UserModel.create({
+      username: 'oauth',
+      email: 'o@example.com',
+      googleId: 'g-123',
+    })
+    const id = oauthUser._id.toString()
+    await expect(
+      userService.remove(id, { usernameConfirmation: 'wrong-name' }),
+    ).rejects.toThrow(UnauthorizedError)
+    await userService.remove(id, { usernameConfirmation: 'oauth' })
+    expect(await UserModel.findById(id)).toBeNull()
+  })
+
+  it('cascades: deletes the user\'s own posts, their likes/comments on other posts, and other people\'s comments on the user\'s own posts', async () => {
+    const { id } = await signup()
+    const { id: otherId } = await signup({ username: 'other', email: 'other@example.com' })
+
+    // The user's own post, plus another user commenting on it.
+    const ownPost = await postService.create({ title: 'My post', body: 'hello world' }, id)
+    await CommentModel.create({ post: ownPost.id, author: otherId, body: 'nice post' })
+
+    // Another user's post, on which the target user comments and likes.
+    const otherPost = await postService.create({ title: 'Other post', body: 'hello world' }, otherId)
+    await CommentModel.create({ post: otherPost.id, author: id, body: 'nice post' })
+    await LikeModel.create({ post: otherPost.id, user: id })
+
+    await userService.remove(id, { currentPassword: 'correct-horse' })
+
+    expect(await PostModel.findById(ownPost.id)).toBeNull()
+    expect(await CommentModel.countDocuments({ post: ownPost.id })).toBe(0)
+    expect(await CommentModel.countDocuments({ author: id })).toBe(0)
+    expect(await LikeModel.countDocuments({ user: id })).toBe(0)
+    // The other user and their post are untouched.
+    expect(await PostModel.findById(otherPost.id)).not.toBeNull()
+    expect(await UserModel.findById(otherId)).not.toBeNull()
   })
 })

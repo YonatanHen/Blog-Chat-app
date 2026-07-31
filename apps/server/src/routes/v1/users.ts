@@ -1,4 +1,4 @@
-import { UpdateUserSchema } from '@blog/zod-shared'
+import { DeleteUserSchema, UpdateUserSchema } from '@blog/zod-shared'
 import { ForbiddenError } from '../../lib/errors.js'
 import { Router, type RequestHandler } from 'express'
 import { userService } from '../../lib/services/user.js'
@@ -24,7 +24,7 @@ const requireSelf: RequestHandler<{ id: string }> = (req, _res, next) => {
 }
 
 usersRouter.get('/:id', async (req, res) => {
-  res.json(await userService.getPublicProfile(req.params.id))
+  res.json(await userService.getPublicProfile(req.params.id, req.session.userId))
 })
 
 usersRouter.patch(
@@ -33,12 +33,22 @@ usersRouter.patch(
   requireSelf,
   validate(UpdateUserSchema),
   async (req, res) => {
-    res.json(await userService.updateProfile(req.params.id, req.body))
+    const profile = await userService.updateProfile(req.params.id, req.body)
+    // GET /auth/me reads req.session.username directly, not the DB — without
+    // this the header keeps showing the old username until the next login.
+    req.session.username = profile.username
+    res.json(profile)
   },
 )
 
-usersRouter.delete('/:id', requireAuth, requireSelf, async (req, res) => {
-  await userService.remove(req.params.id)
-  req.session.destroy(() => {})
-  res.status(204).end()
-})
+usersRouter.delete(
+  '/:id',
+  requireAuth,
+  requireSelf,
+  validate(DeleteUserSchema),
+  async (req, res) => {
+    await userService.remove(req.params.id, req.body)
+    req.session.destroy(() => {})
+    res.status(204).end()
+  },
+)
