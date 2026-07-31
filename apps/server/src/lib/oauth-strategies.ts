@@ -1,5 +1,4 @@
 import passport from 'passport'
-import { Strategy as FacebookStrategy } from 'passport-facebook'
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20'
 import { oauthService, type OAuthProfile, type OAuthProvider } from './services/oauth.js'
 
@@ -34,11 +33,9 @@ function firstEmail(emails: PassportEmail[] | undefined): { email?: string } {
 export function registerOAuthStrategies(env: {
   GOOGLE_CLIENT_ID?: string
   GOOGLE_CLIENT_SECRET?: string
-  FACEBOOK_APP_ID?: string
-  FACEBOOK_APP_SECRET?: string
   PUBLIC_ORIGIN: string
 }): ConfiguredProviders {
-  const configured: ConfiguredProviders = { google: false, facebook: false }
+  const configured: ConfiguredProviders = { google: false }
 
   if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
     passport.use(
@@ -65,35 +62,6 @@ export function registerOAuthStrategies(env: {
       ),
     )
     configured.google = true
-  }
-
-  if (env.FACEBOOK_APP_ID && env.FACEBOOK_APP_SECRET) {
-    passport.use(
-      new FacebookStrategy(
-        {
-          clientID: env.FACEBOOK_APP_ID,
-          clientSecret: env.FACEBOOK_APP_SECRET,
-          callbackURL: `${env.PUBLIC_ORIGIN}${callbackPath('facebook')}`,
-          // Facebook returns no email unless it is asked for by name.
-          profileFields: ['id', 'displayName', 'emails'],
-        },
-        async (_accessToken, _refreshToken, profile, done) => {
-          try {
-            const { email } = firstEmail(profile.emails as PassportEmail[] | undefined)
-            const resolved: OAuthProfile = {
-              provider: 'facebook',
-              providerId: profile.id,
-              email,
-              displayName: profile.displayName,
-            }
-            done(null, await oauthService.findOrCreate(resolved))
-          } catch (err) {
-            done(err as Error)
-          }
-        },
-      ),
-    )
-    configured.facebook = true
   }
 
   return configured

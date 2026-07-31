@@ -15,7 +15,7 @@ export type UserProfile = {
   createdAt: string
   email?: string
   hasPassword?: boolean
-  oauthProvider?: 'google' | 'facebook' | null
+  oauthProvider?: 'google' | null
 }
 
 export const usersApi = {

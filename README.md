@@ -108,11 +108,6 @@ message naming which limit was hit — the app is not broken, it is full. Limits
 (`DEMO_MAX_*`), enforced in the service layer, and scoped per owner so no single visitor can consume
 everyone else's allowance.
 
-**Not yet built (by design, not oversight):** Facebook sign-in and avatar uploads. The Facebook strategy is
-written and dormant — it needs only credentials — but Facebook's HTTPS redirect requirement makes it poor
-value for a demo, so only Google is wired up. See the phase table in
-`docs/superpowers/specs/2026-07-16-express-react-rebuild-design.md` §13 for what's next.
-
 Both integrations are optional infrastructure. With no `CLOUDINARY_*` variables the API still boots, the
 upload endpoint reports 503, and every post falls back to its generated cover. With no `GOOGLE_*`
 variables there is simply no Google button — `GET /api/v1/auth/providers` tells the client which providers

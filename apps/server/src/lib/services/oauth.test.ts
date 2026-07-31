@@ -47,17 +47,6 @@ describe('oauthService.findOrCreate', () => {
     expect(await UserModel.countDocuments()).toBe(1)
   })
 
-  it('keeps google and facebook identities on separate accounts when emails differ', async () => {
-    const g = await oauthService.findOrCreate(googleProfile())
-    const f = await oauthService.findOrCreate({
-      provider: 'facebook',
-      providerId: 'f-1',
-      email: 'grace@example.com',
-      displayName: 'Grace Hopper',
-    })
-    expect(f.id).not.toBe(g.id)
-  })
-
   describe('account linking — always refused on email match', () => {
     // SECURITY REGRESSION TEST. This app's local signup has no email-verification
     // step, so nothing stops an attacker from registering a victim's real email
@@ -87,32 +76,27 @@ describe('oauthService.findOrCreate', () => {
       expect(stillLogsIn?.id).toBe(existing.id)
     })
 
-    it('refuses to link a second provider onto an account created via the first', async () => {
+    it('refuses to link a second identity onto an account already created via OAuth', async () => {
       const first = await oauthService.findOrCreate(googleProfile())
 
       await expect(
-        oauthService.findOrCreate({
-          provider: 'facebook',
-          providerId: 'f-9',
-          email: 'ada@example.com',
-          displayName: 'Ada',
-        }),
+        oauthService.findOrCreate(googleProfile({ providerId: 'g-9', displayName: 'Ada' })),
       ).rejects.toThrow(ConflictError)
 
       const doc = await UserModel.findById(first.id)
       expect(doc?.googleId).toBe('g-1')
-      expect(doc?.facebookId).toBeUndefined()
       expect(await UserModel.countDocuments()).toBe(1)
     })
   })
 
-  // Facebook lets a user deny the email scope. Without an address we can neither
-  // dedupe nor ever reach them, so a half-account must not be created.
+  // Google can withhold email when the user denies the scope. Without an
+  // address we can neither dedupe nor ever reach them, so a half-account must
+  // not be created.
   it('refuses a profile that shared no email', async () => {
     await expect(
       oauthService.findOrCreate({
-        provider: 'facebook',
-        providerId: 'f-2',
+        provider: 'google',
+        providerId: 'g-2',
         displayName: 'No Email',
       }),
     ).rejects.toThrow(ConflictError)

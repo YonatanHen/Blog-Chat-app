@@ -4,14 +4,14 @@ import { buildTestApp, useTestDb } from '../../test/helpers.js'
 
 useTestDb()
 
-// The test env sets no GOOGLE_* or FACEBOOK_* credentials, so both providers are
-// disabled here. That is the point: the app must serve every other route
-// normally with no OAuth apps registered at all.
+// The test env sets no GOOGLE_* credentials, so the provider is disabled here.
+// That is the point: the app must serve every other route normally with no
+// OAuth apps registered at all.
 describe('GET /api/v1/auth/providers', () => {
-  it('reports both providers disabled when unconfigured', async () => {
+  it('reports the provider disabled when unconfigured', async () => {
     const res = await request(buildTestApp()).get('/api/v1/auth/providers')
     expect(res.status).toBe(200)
-    expect(res.body).toEqual({ google: false, facebook: false })
+    expect(res.body).toEqual({ google: false })
   })
 
   it('needs no session — the sign-in page asks before anyone is signed in', async () => {
@@ -21,14 +21,14 @@ describe('GET /api/v1/auth/providers', () => {
 })
 
 describe('disabled provider routes', () => {
-  it.each(['google', 'facebook'])('reports 503 rather than redirecting for %s', async (provider) => {
-    const res = await request(buildTestApp()).get(`/api/v1/auth/${provider}`)
+  it('reports 503 rather than redirecting for google', async () => {
+    const res = await request(buildTestApp()).get('/api/v1/auth/google')
     expect(res.status).toBe(503)
     expect(res.body.error.message).toMatch(/not enabled/i)
   })
 
-  it.each(['google', 'facebook'])('reports 503 on the %s callback too', async (provider) => {
-    const res = await request(buildTestApp()).get(`/api/v1/auth/${provider}/callback`)
+  it('reports 503 on the google callback too', async () => {
+    const res = await request(buildTestApp()).get('/api/v1/auth/google/callback')
     expect(res.status).toBe(503)
   })
 })

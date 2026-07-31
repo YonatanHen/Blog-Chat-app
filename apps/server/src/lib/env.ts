@@ -23,8 +23,6 @@ const EnvSchema = z.object({
   // Independently optional — no credentials means no button, not a broken one.
   GOOGLE_CLIENT_ID: optionalSecret,
   GOOGLE_CLIENT_SECRET: optionalSecret,
-  FACEBOOK_APP_ID: optionalSecret,
-  FACEBOOK_APP_SECRET: optionalSecret,
   /** Origin the OAuth callback URLs are built from. */
   PUBLIC_ORIGIN: z.string().url().default('http://localhost:5173'),
   // Demo capacity caps (spec §3). Defaulted, so an unconfigured deploy is
@@ -39,7 +37,6 @@ const EnvSchema = z.object({
     const groups = [
       ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'],
       ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'],
-      ['FACEBOOK_APP_ID', 'FACEBOOK_APP_SECRET'],
     ] as const
     for (const keys of groups) {
       const present = keys.filter((k) => env[k] !== undefined)
