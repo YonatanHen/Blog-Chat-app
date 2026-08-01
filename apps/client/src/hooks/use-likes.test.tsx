@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderHook, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { useLikePost } from './use-likes.js'
+import { useLikePost, useUnlikePost } from './use-likes.js'
 import { queryKeys } from '../lib/query-client.js'
 import type { Post } from '../api/posts.js'
 
@@ -43,6 +43,16 @@ describe('useLikePost', () => {
     result.current.mutate()
     await waitFor(() =>
       expect(client.getQueryData<Post>(queryKeys.posts.detail('s'))?.likeCount).toBe(3),
+    )
+  })
+
+  it('flips liked to true immediately, before the request resolves', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {}))) // never resolves
+    const { client, wrapper } = makeWrapper()
+    const { result } = renderHook(() => useLikePost('s'), { wrapper })
+    result.current.mutate()
+    await waitFor(() =>
+      expect(client.getQueryData<Post>(queryKeys.posts.detail('s'))?.liked).toBe(true),
     )
   })
 
@@ -91,5 +101,93 @@ describe('useLikePost', () => {
     await waitFor(() => expect(result.current.isError).toBe(true))
     const list = client.getQueryData<Post[]>(queryKeys.posts.list({}))
     expect(list?.[0]?.likeCount).toBe(2)
+  })
+})
+
+const likedPost: Post = { ...post, liked: true }
+
+function makeLikedWrapper() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
+  client.setQueryData(queryKeys.posts.detail('s'), likedPost)
+  client.setQueryData(queryKeys.posts.list({}), [likedPost])
+  const wrapper = ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  )
+  return { client, wrapper }
+}
+
+// Mirrors the useLikePost suite above: same optimistic/rollback shape, just
+// starting from a liked post and moving the other way.
+describe('useUnlikePost', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('decrements likeCount immediately, before the request resolves', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {}))) // never resolves
+    const { client, wrapper } = makeLikedWrapper()
+    const { result } = renderHook(() => useUnlikePost('s'), { wrapper })
+    result.current.mutate()
+    await waitFor(() =>
+      expect(client.getQueryData<Post>(queryKeys.posts.detail('s'))?.likeCount).toBe(1),
+    )
+  })
+
+  it('flips liked to false immediately, before the request resolves', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {}))) // never resolves
+    const { client, wrapper } = makeLikedWrapper()
+    const { result } = renderHook(() => useUnlikePost('s'), { wrapper })
+    result.current.mutate()
+    await waitFor(() =>
+      expect(client.getQueryData<Post>(queryKeys.posts.detail('s'))?.liked).toBe(false),
+    )
+  })
+
+  it('rolls back likeCount and liked if the request fails', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(JSON.stringify({ error: { message: 'nope' } }), { status: 500 }),
+        ),
+    )
+    const { client, wrapper } = makeLikedWrapper()
+    const { result } = renderHook(() => useUnlikePost('s'), { wrapper })
+    result.current.mutate()
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    const detail = client.getQueryData<Post>(queryKeys.posts.detail('s'))
+    expect(detail?.likeCount).toBe(2)
+    expect(detail?.liked).toBe(true)
+  })
+
+  it("also decrements the feed's cached copy of this post", async () => {
+    vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {}))) // never resolves
+    const { client, wrapper } = makeLikedWrapper()
+    const { result } = renderHook(() => useUnlikePost('s'), { wrapper })
+    result.current.mutate()
+    await waitFor(() => {
+      const list = client.getQueryData<Post[]>(queryKeys.posts.list({}))
+      expect(list?.[0]?.likeCount).toBe(1)
+      expect(list?.[0]?.liked).toBe(false)
+    })
+  })
+
+  it("rolls back the feed's cached copy too, alongside the detail cache", async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(JSON.stringify({ error: { message: 'nope' } }), { status: 500 }),
+        ),
+    )
+    const { client, wrapper } = makeLikedWrapper()
+    const { result } = renderHook(() => useUnlikePost('s'), { wrapper })
+    result.current.mutate()
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    const list = client.getQueryData<Post[]>(queryKeys.posts.list({}))
+    expect(list?.[0]?.likeCount).toBe(2)
+    expect(list?.[0]?.liked).toBe(true)
   })
 })

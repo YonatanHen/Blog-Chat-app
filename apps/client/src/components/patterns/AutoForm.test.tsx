@@ -83,6 +83,18 @@ describe('AutoForm', () => {
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ tags: ['keep'] }))
   })
 
+  it('submits a blank optional field as absent, not empty, so it never fails a value-only check like min-length', () => {
+    const onSubmit = vi.fn()
+    const withOptionalPassword = schema.extend({
+      password: z.string().min(8, 'Password must be at least 8 characters').optional(),
+    })
+    render(<AutoForm schema={withOptionalPassword} onSubmit={onSubmit} />)
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'A valid title' } })
+    fireEvent.click(screen.getByText('Save'))
+    expect(screen.queryByText('Password must be at least 8 characters')).not.toBeInTheDocument()
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ password: undefined }))
+  })
+
   it('seeds the form from initialValues', () => {
     render(
       <AutoForm
