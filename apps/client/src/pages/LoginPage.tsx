@@ -4,6 +4,7 @@ import { OAuthButtons } from '../components/patterns/OAuthButtons.js'
 import { Button } from '../components/ui/button.js'
 import { Input } from '../components/ui/input.js'
 import { Label } from '../components/ui/label.js'
+import { PasswordInput } from '../components/ui/password-input.js'
 import { useLogin } from '../hooks/use-auth.js'
 
 export function LoginPage() {
@@ -49,9 +50,8 @@ export function LoginPage() {
 
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
-            <Input
+            <PasswordInput
               id="password"
-              type="password"
               placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

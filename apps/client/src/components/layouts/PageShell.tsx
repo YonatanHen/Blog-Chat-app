@@ -39,7 +39,9 @@ export function PageShell({ children }: { children: React.ReactNode }) {
                   New post
                 </NavLink>
                 <span aria-hidden="true" className="h-4 w-px bg-[var(--border)]" />
-                <span className="text-[var(--ink-faint)]">{me.username}</span>
+                <Link to="/account" className="text-[var(--ink-faint)] hover:text-[var(--foreground)]">
+                  {me.username}
+                </Link>
                 {/* There is no /logout route — logging out is a POST, not a
                     page. Navigating there rendered a dead end. */}
                 <button

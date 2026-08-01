@@ -36,7 +36,9 @@ export function PostPage() {
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs tracking-[0.09em] text-[var(--ink-faint)] uppercase tabular-nums">
           <time dateTime={post.createdAt}>{formatDate(post.createdAt)}</time>
           <span aria-hidden="true">·</span>
-          <span>{post.author.username}</span>
+          <Link to={`/users/${post.author.id}`} className="hover:text-[var(--foreground)]">
+            {post.author.username}
+          </Link>
         </p>
         <h1 className="font-display text-[clamp(2rem,5vw,3.25rem)] leading-[0.95] tracking-[-0.04em] text-balance">
           {post.title}

@@ -3,9 +3,18 @@
 // apps/client/src/components/patterns/CommentForm.test.tsx does.
 import '@testing-library/jest-dom/vitest'
 import type { ChatMessage } from '@blog/zod-shared'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render as rtlRender, screen, type RenderOptions } from '@testing-library/react'
+import type { ReactElement } from 'react'
+import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ChatStatus, ChatUser } from '../../hooks/use-chat.js'
+
+// Every ChatRoom render needs a Router context now that author names link to
+// /users/:id — wrapped once here rather than passing { wrapper: MemoryRouter }
+// at every call site below.
+function render(ui: ReactElement, options?: RenderOptions) {
+  return rtlRender(ui, { wrapper: MemoryRouter, ...options })
+}
 
 // Mocked so each test can drive ChatRoom through a specific hook state
 // directly, instead of exercising the real socket.

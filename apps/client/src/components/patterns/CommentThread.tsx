@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router'
 import { toast } from 'sonner'
 import { ApiError } from '../../api/client.js'
 import { useMe } from '../../hooks/use-auth.js'
@@ -54,7 +55,10 @@ function CommentItem({ slug, node, depth }: { slug: string; node: CommentNode; d
     <li className="flex flex-col gap-2">
       <article className="flex flex-col gap-1 border border-[var(--border)] p-3">
         <header className="text-xs text-[var(--muted-foreground)]">
-          {node.author.username} · {new Date(node.createdAt).toLocaleDateString()}
+          <Link to={`/users/${node.author.id}`} className="hover:text-[var(--foreground)]">
+            {node.author.username}
+          </Link>{' '}
+          · {new Date(node.createdAt).toLocaleDateString()}
         </header>
 
         {editing ? (
