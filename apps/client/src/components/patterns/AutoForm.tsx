@@ -85,9 +85,13 @@ export function AutoForm<S extends ZodObject<ZodRawShape>>({
 }) {
   // Derived once, up front: `schema.shape` is indexed by an open `string` key,
   // so re-reading it per render would fight `noUncheckedIndexedAccess`.
-  const fields: { key: string; kind: FieldKind }[] = Object.entries(schema.shape).map(
-    ([key, fieldSchema]) => ({ key, kind: fieldKind(key, fieldSchema) }),
-  )
+  const fields: { key: string; kind: FieldKind; optional: boolean }[] = Object.entries(
+    schema.shape,
+  ).map(([key, fieldSchema]) => ({
+    key,
+    kind: fieldKind(key, fieldSchema),
+    optional: fieldSchema.isOptional(),
+  }))
 
   const [values, setValues] = useState<Record<string, string | boolean | string[] | null>>(() => {
     const initial = (initialValues ?? {}) as Record<string, unknown>
@@ -112,14 +116,23 @@ export function AutoForm<S extends ZodObject<ZodRawShape>>({
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   // `tags` is already held as an array by TagsInput, so nothing is parsed out of
-  // a raw string here — the state shape per field kind is the parsed shape.
-  function parsedValue(key: string): unknown {
-    return values[key]
+  // a raw string here — the state shape per field kind is the parsed shape. An
+  // untouched optional text field stays '' in local state; sent as-is it fails
+  // schema checks meant only for a value someone actually typed (e.g. password's
+  // min-length), so a blank optional field reports absent, not empty.
+  function parsedValue(key: string, kind: FieldKind, optional: boolean): unknown {
+    const value = values[key]
+    if (optional && value === '' && (kind === 'text' || kind === 'textarea' || kind === 'password')) {
+      return undefined
+    }
+    return value
   }
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    const candidate = Object.fromEntries(fields.map(({ key }) => [key, parsedValue(key)]))
+    const candidate = Object.fromEntries(
+      fields.map(({ key, kind, optional }) => [key, parsedValue(key, kind, optional)]),
+    )
     const result = schema.safeParse(candidate)
     if (!result.success) {
       setErrors(
