@@ -50,7 +50,7 @@ preserving the project's identity: a MERN blog with real-time chat.
 | Database | **MongoDB + Mongoose 8** | Keeps the "MERN" identity, limits simultaneous learning curves. |
 | Type safety | **Zod** | Compensates for Mongoose's weak typing. Validates at runtime, infers TS types. One source of truth, shared client↔server. |
 | Auth | **`express-session` + `connect-redis`** | httpOnly cookie holding a session ID; data in Redis. Hand-rolled enough to explain in an interview, standard enough to be correct. |
-| OAuth providers | **Google, Facebook** via Passport (P6) | No GitHub (explicitly not wanted). |
+| OAuth providers | **Google** via Passport (P6) | No GitHub (explicitly not wanted). |
 | Ephemeral store | **Redis** (Render Key Value in prod, container locally) | Session store and chat buffer. See §7. *(Rate limiting dropped 2026-07-29; presence is in-memory, not Redis.)* |
 | Realtime | **Socket.io inside `apps/server`** | *Revised 2026-07-29 — was a standalone `apps/realtime` service.* Same process, same origin, so the socket reads the session directly. See §5. |
 | Hosting (prod) | **Render** | Long-lived containers. |
@@ -691,7 +691,7 @@ parallel agents.
 | **P3** | `dev/comments-markdown` | Threaded comments, Markdown editor + preview, `AutoForm`. (Gating shipped in P2 and needs no flag — see §6.) |
 | **P4** | `dev/realtime-chat` | Socket.io **inside `apps/server`**, authenticated by the existing session, Redis message buffer, in-memory presence + typing indicators. *(Revised 2026-07-29 — was a standalone `apps/realtime` service with signed handshake tickets; see §5 and `2026-07-29-realtime-chat-design.md`.)* |
 | **P5** | `dev/media-and-search` | Signed Cloudinary uploads, avatars + cover images, tags, MongoDB full-text search. |
-| **P6** | `dev/oauth-polish` | Google + Facebook OAuth via Passport, Redis rate limiting, README + architecture diagram, demo account, final visual polish. |
+| **P6** | `dev/oauth-polish` | Google OAuth via Passport, Redis rate limiting, README + architecture diagram, demo account, final visual polish. |
 
 **Splitting API and client into P1/P2 is deliberate:** P1 alone is a working, tested, deployed REST API — which
 is the artifact a backend interview is actually about, and it exists standalone rather than as a byproduct of

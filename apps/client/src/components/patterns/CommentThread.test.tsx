@@ -4,6 +4,7 @@
 import '@testing-library/jest-dom/vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { buildCommentTree, CommentThread } from './CommentThread.js'
 import { queryKeys } from '../../lib/query-client.js'
@@ -67,7 +68,9 @@ function renderThread(comments: Comment[], me: AuthUser | null) {
   client.setQueryData(queryKeys.me, me)
   return render(
     <QueryClientProvider client={client}>
-      <CommentThread slug="my-post" comments={buildCommentTree(comments)} />
+      <MemoryRouter>
+        <CommentThread slug="my-post" comments={buildCommentTree(comments)} />
+      </MemoryRouter>
     </QueryClientProvider>,
   )
 }

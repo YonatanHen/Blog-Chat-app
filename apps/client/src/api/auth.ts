@@ -6,7 +6,7 @@ import { DEBUG } from '../lib/constants.js'
 export type User = { id: string; username: string; email: string }
 
 /** Which federated sign-in options this deployment can actually offer. */
-export type AuthProviders = { google: boolean; facebook: boolean }
+export type AuthProviders = { google: boolean }
 
 export const authApi = {
   signup: (input: z.infer<typeof SignupSchema>) => {

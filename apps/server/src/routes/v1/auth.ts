@@ -29,8 +29,6 @@ function configuredProviders(): ConfiguredProviders {
   providers ??= registerOAuthStrategies({
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
-    FACEBOOK_APP_ID: process.env.FACEBOOK_APP_ID,
-    FACEBOOK_APP_SECRET: process.env.FACEBOOK_APP_SECRET,
     PUBLIC_ORIGIN: resolvePublicOrigin(),
   })
   return providers
@@ -45,47 +43,45 @@ authRouter.get('/providers', (_req, res) => {
   res.json(configuredProviders())
 })
 
-for (const provider of ['google', 'facebook'] as const) {
-  const scope = provider === 'google' ? ['profile', 'email'] : ['email']
+const provider = 'google'
 
-  authRouter.get(`/${provider}`, (req, res, next) => {
-    if (!configuredProviders()[provider]) {
-      throw new ServiceUnavailableError(`Signing in with ${provider} is not enabled here.`)
-    }
-    // session: false — Passport does the handshake, we own the session.
-    passport.authenticate(provider, { scope, session: false })(req, res, next)
-  })
+authRouter.get(`/${provider}`, (req, res, next) => {
+  if (!configuredProviders()[provider]) {
+    throw new ServiceUnavailableError(`Signing in with ${provider} is not enabled here.`)
+  }
+  // session: false — Passport does the handshake, we own the session.
+  passport.authenticate(provider, { scope: ['profile', 'email'], session: false })(req, res, next)
+})
 
-  authRouter.get(`/${provider}/callback`, (req, res, next) => {
-    if (!configuredProviders()[provider]) {
-      throw new ServiceUnavailableError(`Signing in with ${provider} is not enabled here.`)
-    }
-    passport.authenticate(
-      provider,
-      { session: false, failureRedirect: '/login?error=oauth' },
-      async (err: unknown, user?: { id: string; username: string }) => {
-        // The provider bounced us, or findOrCreate refused to link — send the
-        // reader back to the form with a message instead of a raw 500.
-        if (err || !user) {
-          const message = err instanceof Error ? err.message : 'Could not sign you in.'
-          console.warn(`[AUTH] ${provider} sign-in failed:`, message)
-          return res.redirect(`/login?error=${encodeURIComponent(message)}`)
-        }
-        try {
-          // Same order as password login: regenerate BEFORE writing identity, so
-          // a planted session id cannot end up authenticated.
-          await regenerateSession(req)
-          req.session.userId = user.id
-          req.session.username = user.username
-          console.info(`[AUTH] ${provider} sign-in successful:`, { id: user.id })
-          res.redirect('/')
-        } catch (sessionErr) {
-          next(sessionErr)
-        }
-      },
-    )(req, res, next)
-  })
-}
+authRouter.get(`/${provider}/callback`, (req, res, next) => {
+  if (!configuredProviders()[provider]) {
+    throw new ServiceUnavailableError(`Signing in with ${provider} is not enabled here.`)
+  }
+  passport.authenticate(
+    provider,
+    { session: false, failureRedirect: '/login?error=oauth' },
+    async (err: unknown, user?: { id: string; username: string }) => {
+      // The provider bounced us, or findOrCreate refused to link — send the
+      // reader back to the form with a message instead of a raw 500.
+      if (err || !user) {
+        const message = err instanceof Error ? err.message : 'Could not sign you in.'
+        console.warn(`[AUTH] ${provider} sign-in failed:`, message)
+        return res.redirect(`/login?error=${encodeURIComponent(message)}`)
+      }
+      try {
+        // Same order as password login: regenerate BEFORE writing identity, so
+        // a planted session id cannot end up authenticated.
+        await regenerateSession(req)
+        req.session.userId = user.id
+        req.session.username = user.username
+        console.info(`[AUTH] ${provider} sign-in successful:`, { id: user.id })
+        res.redirect('/')
+      } catch (sessionErr) {
+        next(sessionErr)
+      }
+    },
+  )(req, res, next)
+})
 
 authRouter.post('/signup', validate(SignupSchema), async (req, res) => {
   console.log('[AUTH] POST /signup', { username: req.body.username, email: req.body.email })

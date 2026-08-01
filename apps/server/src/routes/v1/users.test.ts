@@ -25,12 +25,20 @@ describe('GET /api/v1/users/:id', () => {
     expect(res.body.username).toBe('author')
   })
 
-  it('never exposes the password hash or the email', async () => {
+  it('never exposes the password hash or the email to a non-owner viewer', async () => {
     const a = app()
     const { id } = await signedInAgent(a, 'author')
     const res = await request(a).get(`/api/v1/users/${id}`)
     expect(res.text).not.toContain('$2a$')
     expect(res.text).not.toContain('@example.com')
+  })
+
+  it('includes email and hasPassword when the viewer is the owner', async () => {
+    const { agent, id } = await signedInAgent(app(), 'author')
+    const res = await agent.get(`/api/v1/users/${id}`)
+    expect(res.body.email).toBe('author@example.com')
+    expect(res.body.hasPassword).toBe(true)
+    expect(res.body.oauthProvider).toBeNull()
   })
 
   it('returns 404 for an unknown id', async () => {
@@ -82,24 +90,59 @@ describe('PATCH /api/v1/users/:id', () => {
 
   it('hashes a new password rather than storing it plaintext', async () => {
     const { agent, id } = await signedInAgent(app(), 'author')
-    await agent.patch(`/api/v1/users/${id}`).send({ password: 'a-brand-new-password' })
+    await agent
+      .patch(`/api/v1/users/${id}`)
+      .send({ currentPassword: 'correct-horse', password: 'a-brand-new-password' })
     const stored = (await UserModel.findById(id))!.password!
     expect(stored).not.toBe('a-brand-new-password')
     expect(await bcrypt.compare('a-brand-new-password', stored)).toBe(true)
   })
 
-  it('ignores a username field — usernames are not editable here', async () => {
+  it('rejects a password change with a wrong current password', async () => {
+    const { agent, id } = await signedInAgent(app(), 'author')
+    const res = await agent
+      .patch(`/api/v1/users/${id}`)
+      .send({ currentPassword: 'wrong', password: 'a-brand-new-password' })
+    expect(res.status).toBe(401)
+  })
+
+  it('lets a user change their own username', async () => {
+    const { agent, id } = await signedInAgent(app(), 'author')
+    const res = await agent.patch(`/api/v1/users/${id}`).send({ username: 'renamed' })
+    expect(res.status).toBe(200)
+    expect(res.body.username).toBe('renamed')
+    expect((await UserModel.findById(id))!.username).toBe('renamed')
+  })
+
+  it('returns 409 for a username that is already taken', async () => {
+    const a = app()
+    await signedInAgent(a, 'taken')
+    const { agent, id } = await signedInAgent(a, 'author')
+    const res = await agent.patch(`/api/v1/users/${id}`).send({ username: 'taken' })
+    expect(res.status).toBe(409)
+  })
+
+  it('updates the session so GET /auth/me reflects a new username without re-login', async () => {
     const { agent, id } = await signedInAgent(app(), 'author')
     await agent.patch(`/api/v1/users/${id}`).send({ username: 'renamed' })
-    expect((await UserModel.findById(id))!.username).toBe('author')
+    const me = await agent.get('/api/v1/auth/me')
+    expect(me.body.username).toBe('renamed')
   })
 })
 
 describe('DELETE /api/v1/users/:id', () => {
-  it('lets a user delete their own account', async () => {
+  it('lets a user delete their own account with the correct current password', async () => {
     const { agent, id } = await signedInAgent(app(), 'author')
-    expect((await agent.delete(`/api/v1/users/${id}`)).status).toBe(204)
+    const res = await agent.delete(`/api/v1/users/${id}`).send({ currentPassword: 'correct-horse' })
+    expect(res.status).toBe(204)
     expect(await UserModel.findById(id)).toBeNull()
+  })
+
+  it('rejects deletion with a wrong current password and keeps the account', async () => {
+    const { agent, id } = await signedInAgent(app(), 'author')
+    const res = await agent.delete(`/api/v1/users/${id}`).send({ currentPassword: 'wrong' })
+    expect(res.status).toBe(401)
+    expect(await UserModel.findById(id)).not.toBeNull()
   })
 
   it('REGRESSION: a user cannot delete another user (legacy user.js:60)', async () => {
@@ -107,7 +150,10 @@ describe('DELETE /api/v1/users/:id', () => {
     const { id: victimId } = await signedInAgent(a, 'victim')
     const { agent: attacker } = await signedInAgent(a, 'attacker')
 
-    expect((await attacker.delete(`/api/v1/users/${victimId}`)).status).toBe(403)
+    expect(
+      (await attacker.delete(`/api/v1/users/${victimId}`).send({ currentPassword: 'correct-horse' }))
+        .status,
+    ).toBe(403)
     expect(await UserModel.findById(victimId)).not.toBeNull()
   })
 

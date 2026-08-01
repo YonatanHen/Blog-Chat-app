@@ -1,7 +1,11 @@
-import { type Signup, type UpdateUser } from '@blog/zod-shared'
-import { ConflictError, NotFoundError } from '../errors.js'
+import { type DeleteUser, type Signup, type UpdateUser } from '@blog/zod-shared'
+import { ConflictError, NotFoundError, UnauthorizedError, ValidationError } from '../errors.js'
 import { assertUserSlotFree } from '../demo-limits.js'
 import { UserModel } from '../../models/user.js'
+import { CommentModel } from '../../models/comment.js'
+import { LikeModel } from '../../models/like.js'
+import { PostModel } from '../../models/post.js'
+import { postService } from './post.js'
 import { publicIdFrom } from './upload.js'
 import bcrypt from 'bcryptjs'
 import { Types } from 'mongoose'
@@ -14,6 +18,13 @@ export type PublicUser = {
   bio?: string
   image?: string
   createdAt: Date
+}
+
+/** Only ever returned to the account owner — see `getPublicProfile`'s viewerId gate. */
+export type PrivateUser = PublicUser & {
+  email: string
+  hasPassword: boolean
+  oauthProvider: 'google' | null
 }
 
 /** MongoServerError code for a unique-index violation. */
@@ -86,7 +97,12 @@ export const userService = {
     return { id: user._id.toString(), username: user.username }
   },
 
-  async getPublicProfile(id: string): Promise<PublicUser> {
+  /**
+   * `viewerId` gates the private fields (email, password/OAuth status) the
+   * same way `postService.getBySlug`'s `viewerId` gates a post's full body —
+   * only the account owner ever sees them; everyone else gets `PublicUser`.
+   */
+  async getPublicProfile(id: string, viewerId?: string): Promise<PublicUser | PrivateUser> {
     // A malformed id would otherwise throw a CastError and surface as a 500.
     if (!Types.ObjectId.isValid(id)) throw new NotFoundError('User not found.')
 
@@ -95,19 +111,42 @@ export const userService = {
 
     // Built field by field, not by deleting from the document: a whitelist
     // cannot leak a field added to the schema later.
-    return {
+    const publicView: PublicUser = {
       id: user._id.toString(),
       username: user.username,
       bio: user.bio ?? undefined,
       image: user.image ?? undefined,
       createdAt: user.createdAt,
     }
+    if (viewerId !== id) return publicView
+
+    return {
+      ...publicView,
+      email: user.email,
+      hasPassword: Boolean(user.password),
+      oauthProvider: user.googleId ? 'google' : null,
+    }
   },
 
-  async updateProfile(id: string, input: UpdateUser): Promise<PublicUser> {
+  async updateProfile(id: string, input: UpdateUser): Promise<PrivateUser> {
     if (!Types.ObjectId.isValid(id)) throw new NotFoundError('User not found.')
     const user = await UserModel.findById(id)
     if (!user) throw new NotFoundError('User not found.')
+
+    // A new value to SET, never used to look up which account this is — that
+    // stays fixed to `id` throughout. See the schema comment in zod-shared.
+    if (input.username !== undefined) user.username = input.username
+
+    if (input.email !== undefined) {
+      // Locked, not merely defaulted: changing it would let the stored email
+      // drift from the Google-verified one oauthService.findOrCreate keys on.
+      if (user.googleId) {
+        throw new ValidationError('Invalid input.', {
+          email: ["Email is managed by your Google account and can't be changed."],
+        })
+      }
+      user.email = input.email
+    }
 
     if (input.bio !== undefined) user.bio = input.bio
     // Re-checked here, not trusted from the body: the browser reports what
@@ -116,19 +155,57 @@ export const userService = {
     if (input.image !== undefined) {
       user.image = input.image ? publicIdFrom(input.image, 'image') : undefined
     }
+
     // Only when explicitly provided. The legacy handler compared the plaintext
     // field to the stored hash, so every profile save reset the password.
     if (input.password !== undefined) {
+      if (user.password) {
+        // Changing an existing password requires proving you know it — a
+        // hijacked session should not be able to silently lock the owner out.
+        const currentValid =
+          input.currentPassword !== undefined &&
+          (await bcrypt.compare(input.currentPassword, user.password))
+        if (!currentValid) throw new UnauthorizedError('Current password is incorrect.')
+      }
+      // Else: an OAuth account setting its first password — nothing to verify
+      // against, this is the "add local login" path, not a change.
       user.password = await bcrypt.hash(input.password, BCRYPT_COST)
     }
 
-    await user.save()
-    return this.getPublicProfile(id)
+    try {
+      await user.save()
+    } catch (err) {
+      if (isDuplicateKeyError(err)) {
+        throw new ConflictError(
+          err.keyPattern?.username ? 'That username is taken.' : 'That email is already registered.',
+        )
+      }
+      throw err
+    }
+
+    return (await this.getPublicProfile(id, id)) as PrivateUser
   },
 
-  async remove(id: string): Promise<void> {
+  async remove(id: string, confirmation: DeleteUser): Promise<void> {
     if (!Types.ObjectId.isValid(id)) throw new NotFoundError('User not found.')
-    const result = await UserModel.findByIdAndDelete(id)
-    if (!result) throw new NotFoundError('User not found.')
+    const user = await UserModel.findById(id)
+    if (!user) throw new NotFoundError('User not found.')
+
+    const confirmed = user.password
+      ? confirmation.currentPassword !== undefined &&
+        (await bcrypt.compare(confirmation.currentPassword, user.password))
+      : confirmation.usernameConfirmation === user.username
+    if (!confirmed) throw new UnauthorizedError('Confirmation did not match.')
+
+    const authorId = new Types.ObjectId(id)
+    // Each post's own likes/comments cascade for free via postService.remove.
+    const posts = await PostModel.find({ author: authorId }).select('slug')
+    for (const post of posts) await postService.remove(post.slug)
+    // Catches this user's activity on OTHER people's posts, which the loop
+    // above never touches.
+    await CommentModel.deleteMany({ author: authorId })
+    await LikeModel.deleteMany({ user: authorId })
+
+    await UserModel.findByIdAndDelete(id)
   },
 }

@@ -14,7 +14,7 @@ const schema = z.object({
 })
 
 function addTag(tag: string) {
-  const input = screen.getByLabelText('tags')
+  const input = screen.getByLabelText('Tags')
   fireEvent.change(input, { target: { value: tag } })
   fireEvent.keyDown(input, { key: 'Enter' })
 }
@@ -24,15 +24,15 @@ describe('AutoForm', () => {
 
   it('renders one labeled field per schema key', () => {
     render(<AutoForm schema={schema} onSubmit={vi.fn()} />)
-    expect(screen.getByLabelText('title')).toBeInTheDocument()
-    expect(screen.getByLabelText('draft')).toBeInTheDocument()
-    expect(screen.getByLabelText('tags')).toBeInTheDocument()
+    expect(screen.getByLabelText('Title')).toBeInTheDocument()
+    expect(screen.getByLabelText('Draft')).toBeInTheDocument()
+    expect(screen.getByLabelText('Tags')).toBeInTheDocument()
   })
 
   it('derives the control from the schema type, not the field name', () => {
     render(<AutoForm schema={schema} onSubmit={vi.fn()} />)
-    expect(screen.getByLabelText('draft')).toHaveAttribute('type', 'checkbox')
-    expect(screen.getByLabelText('tags')).toHaveAttribute('type', 'text')
+    expect(screen.getByLabelText('Draft')).toHaveAttribute('type', 'checkbox')
+    expect(screen.getByLabelText('Tags')).toHaveAttribute('type', 'text')
   })
 
   // `.partial()` wraps every field in ZodOptional *outside* the ZodDefault that
@@ -41,11 +41,11 @@ describe('AutoForm', () => {
   it('still derives field kinds through a .partial() schema', () => {
     const onSubmit = vi.fn()
     render(<AutoForm schema={schema.partial()} onSubmit={onSubmit} />)
-    expect(screen.getByLabelText('draft')).toHaveAttribute('type', 'checkbox')
+    expect(screen.getByLabelText('Draft')).toHaveAttribute('type', 'checkbox')
 
     addTag('express')
     addTag('testing')
-    fireEvent.change(screen.getByLabelText('title'), { target: { value: 'A valid title' } })
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'A valid title' } })
     fireEvent.click(screen.getByText('Save'))
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ tags: ['express', 'testing'] }))
   })
@@ -53,7 +53,7 @@ describe('AutoForm', () => {
   it('shows the schema error message and does not call onSubmit for invalid input', () => {
     const onSubmit = vi.fn()
     render(<AutoForm schema={schema} onSubmit={onSubmit} />)
-    fireEvent.change(screen.getByLabelText('title'), { target: { value: 'ab' } })
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'ab' } })
     fireEvent.click(screen.getByText('Save'))
     expect(screen.getByText('Title must be at least 3 characters')).toBeInTheDocument()
     expect(onSubmit).not.toHaveBeenCalled()
@@ -62,7 +62,7 @@ describe('AutoForm', () => {
   it('submits the tags added one at a time as a string array', () => {
     const onSubmit = vi.fn()
     render(<AutoForm schema={schema} onSubmit={onSubmit} />)
-    fireEvent.change(screen.getByLabelText('title'), { target: { value: 'A valid title' } })
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'A valid title' } })
     addTag('express')
     addTag('testing')
     expect(screen.getByText('express')).toBeInTheDocument()
@@ -75,7 +75,7 @@ describe('AutoForm', () => {
   it('drops a tag removed with its × button', () => {
     const onSubmit = vi.fn()
     render(<AutoForm schema={schema} onSubmit={onSubmit} />)
-    fireEvent.change(screen.getByLabelText('title'), { target: { value: 'A valid title' } })
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'A valid title' } })
     addTag('keep')
     addTag('drop')
     fireEvent.click(screen.getByLabelText('Remove tag drop'))
@@ -92,11 +92,11 @@ describe('AutoForm', () => {
         submitLabel="Save changes"
       />,
     )
-    expect(screen.getByLabelText('title')).toHaveValue('Seeded')
-    expect(screen.getByLabelText('draft')).toBeChecked()
+    expect(screen.getByLabelText('Title')).toHaveValue('Seeded')
+    expect(screen.getByLabelText('Draft')).toBeChecked()
     expect(screen.getByText('a')).toBeInTheDocument()
     expect(screen.getByText('b')).toBeInTheDocument()
-    expect(screen.getByLabelText('tags')).toHaveValue('')
+    expect(screen.getByLabelText('Tags')).toHaveValue('')
     expect(screen.getByText('Save changes')).toBeInTheDocument()
   })
 })

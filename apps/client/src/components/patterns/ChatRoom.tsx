@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router'
 import { Button } from '../ui/button.js'
 import { Input } from '../ui/input.js'
 import { useChat } from '../../hooks/use-chat.js'
@@ -46,7 +47,10 @@ export function ChatRoom() {
           <li key={m.id} className="text-sm">
             {m.author.username ? (
               <>
-                <span className="font-semibold">{m.author.username}</span> {m.body}
+                <Link to={`/users/${m.author.id}`} className="font-semibold hover:underline">
+                  {m.author.username}
+                </Link>{' '}
+                {m.body}
               </>
             ) : (
               m.body

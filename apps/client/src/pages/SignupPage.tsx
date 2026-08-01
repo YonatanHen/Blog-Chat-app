@@ -5,6 +5,7 @@ import { OAuthButtons } from '../components/patterns/OAuthButtons.js'
 import { Button } from '../components/ui/button.js'
 import { Input } from '../components/ui/input.js'
 import { Label } from '../components/ui/label.js'
+import { PasswordInput } from '../components/ui/password-input.js'
 import { useSignup } from '../hooks/use-auth.js'
 import { DEBUG } from '../lib/constants.js'
 import { SignupFormSchema } from '../lib/signup-form-schema.js'
@@ -140,9 +141,8 @@ export function SignupPage() {
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
             <p className="text-xs text-[var(--muted-foreground)]">At least 8 characters</p>
-            <Input
+            <PasswordInput
               id="password"
-              type="password"
               value={password}
               onChange={(e) => {
                 setPassword(e.target.value)
@@ -158,9 +158,8 @@ export function SignupPage() {
           <div className="space-y-2">
             <Label htmlFor="confirmPassword">Confirm password</Label>
             <p className="text-xs text-[var(--muted-foreground)]">Re-enter the same password</p>
-            <Input
+            <PasswordInput
               id="confirmPassword"
-              type="password"
               value={confirmPassword}
               onChange={(e) => {
                 setConfirmPassword(e.target.value)

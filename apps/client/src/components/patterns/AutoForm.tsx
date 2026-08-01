@@ -3,11 +3,18 @@ import { ZodFirstPartyTypeKind, type z, type ZodObject, type ZodRawShape, type Z
 import { Button } from '../ui/button.js'
 import { Input } from '../ui/input.js'
 import { Label } from '../ui/label.js'
+import { PasswordInput } from '../ui/password-input.js'
 import { Textarea } from '../ui/textarea.js'
 import { ImageUpload } from './ImageUpload.js'
 import { TagsInput } from './TagsInput.js'
 
-type FieldKind = 'checkbox' | 'textarea' | 'tags' | 'image' | 'text'
+type FieldKind = 'checkbox' | 'textarea' | 'tags' | 'image' | 'password' | 'text'
+
+/** "currentPassword" -> "Current Password"; "coverImage" -> "Cover Image". */
+function humanize(key: string): string {
+  const spaced = key.replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1)
+}
 
 /**
  * `ZodTypeDef` is the public (near-empty) shape of `_def`; the discriminant and
@@ -53,6 +60,7 @@ function fieldKind(key: string, schema: ZodTypeAny): FieldKind {
   // Keyed by name, not by type: a public ID is a plain string to zod, and a raw
   // text box for one would be unusable — nobody types a Cloudinary ID by hand.
   if (key === 'coverImage' || key === 'avatar') return 'image'
+  if (key.toLowerCase().includes('password')) return 'password'
   return 'text'
 }
 
@@ -129,7 +137,7 @@ export function AutoForm<S extends ZodObject<ZodRawShape>>({
         return (
           <div key={key} className="flex flex-col gap-1">
             {/* ImageUpload renders its own label and controls. */}
-            {kind !== 'image' && <Label htmlFor={key}>{key}</Label>}
+            {kind !== 'image' && <Label htmlFor={key}>{humanize(key)}</Label>}
             {kind === 'image' ? (
               <ImageUpload
                 value={typeof values[key] === 'string' ? (values[key] as string) : null}
@@ -153,6 +161,12 @@ export function AutoForm<S extends ZodObject<ZodRawShape>>({
               />
             ) : kind === 'textarea' ? (
               <Textarea
+                id={key}
+                value={String(values[key] ?? '')}
+                onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
+              />
+            ) : kind === 'password' ? (
+              <PasswordInput
                 id={key}
                 value={String(values[key] ?? '')}
                 onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}

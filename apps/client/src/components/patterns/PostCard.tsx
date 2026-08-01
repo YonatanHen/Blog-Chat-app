@@ -15,7 +15,9 @@ export function PostCard({ post, featured = false }: { post: Post; featured?: bo
     <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs tracking-[0.09em] text-[var(--ink-faint)] uppercase tabular-nums">
       <time dateTime={post.createdAt}>{formatDate(post.createdAt)}</time>
       <span aria-hidden="true">·</span>
-      <span>{post.author.username}</span>
+      <Link to={`/users/${post.author.id}`} className="hover:text-[var(--foreground)]">
+        {post.author.username}
+      </Link>
       <span aria-hidden="true">·</span>
       <span>
         {post.likeCount} {post.likeCount === 1 ? 'like' : 'likes'}
