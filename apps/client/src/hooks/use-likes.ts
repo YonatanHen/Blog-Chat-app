@@ -28,6 +28,7 @@ export function useLikePost(slug: string) {
         queryClient.setQueryData<Post>(queryKeys.posts.detail(slug), {
           ...previousDetail,
           likeCount: previousDetail.likeCount + 1,
+          liked: true,
         })
       }
 
@@ -36,7 +37,9 @@ export function useLikePost(slug: string) {
       // rollback snapshot — this must be captured separately, first.
       const previousLists = queryClient.getQueriesData<Post[]>({ queryKey: queryKeys.posts.lists })
       queryClient.setQueriesData<Post[]>({ queryKey: queryKeys.posts.lists }, (old) =>
-        old?.map((post) => (post.slug === slug ? { ...post, likeCount: post.likeCount + 1 } : post)),
+        old?.map((post) =>
+          post.slug === slug ? { ...post, likeCount: post.likeCount + 1, liked: true } : post,
+        ),
       )
 
       return { previousDetail, previousLists }
@@ -49,6 +52,46 @@ export function useLikePost(slug: string) {
     },
     // Every posts query, not just this detail — the feed's cached lists carry
     // their own copy of likeCount and must catch up too.
+    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.posts.all }),
+  })
+}
+
+/**
+ * Mirrors useLikePost: same optimistic-update/rollback shape, but decrements
+ * likeCount and flips `liked` to false instead of true.
+ */
+export function useUnlikePost(slug: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: () => postsApi.unlike(slug),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.posts.all })
+
+      const previousDetail = queryClient.getQueryData<Post>(queryKeys.posts.detail(slug))
+      if (previousDetail) {
+        queryClient.setQueryData<Post>(queryKeys.posts.detail(slug), {
+          ...previousDetail,
+          likeCount: previousDetail.likeCount - 1,
+          liked: false,
+        })
+      }
+
+      const previousLists = queryClient.getQueriesData<Post[]>({ queryKey: queryKeys.posts.lists })
+      queryClient.setQueriesData<Post[]>({ queryKey: queryKeys.posts.lists }, (old) =>
+        old?.map((post) =>
+          post.slug === slug ? { ...post, likeCount: post.likeCount - 1, liked: false } : post,
+        ),
+      )
+
+      return { previousDetail, previousLists }
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousDetail) {
+        queryClient.setQueryData(queryKeys.posts.detail(slug), context.previousDetail)
+      }
+      context?.previousLists?.forEach(([key, data]) => queryClient.setQueryData(key, data))
+    },
     onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.posts.all }),
   })
 }

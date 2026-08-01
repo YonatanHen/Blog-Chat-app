@@ -26,6 +26,8 @@ export type PostDto = {
   author: PostAuthor
   tags: string[]
   likeCount: number
+  /** This viewer's own like status. Present only when there's a viewerId — see toDto. */
+  liked?: boolean
   coverImage?: string
   /** Derived from `coverImage` at serialization time — see deliveryUrl. */
   coverUrl?: string
@@ -54,7 +56,7 @@ function isPopulated(author: unknown): author is PopulatedAuthor {
 function toDto(
   post: HydratedDocument<Post>,
   likeCount: number,
-  { full, gated }: { full: boolean; gated: boolean },
+  { full, gated, liked }: { full: boolean; gated: boolean; liked?: boolean },
 ): PostDto {
   const author = post.author
   // REGRESSION GUARD (legacy postsList.jsx:12): `body` is required by the schema,
@@ -73,6 +75,7 @@ function toDto(
       : { id: String(author), username: '' },
     tags: post.tags ?? [],
     likeCount,
+    liked,
     coverImage: post.coverImage ?? undefined,
     coverUrl: post.coverImage ? deliveryUrl(post.coverImage) : undefined,
     createdAt: post.createdAt,
@@ -96,6 +99,20 @@ async function uniqueSlug(title: string, excludeId?: Types.ObjectId): Promise<st
 async function countLikes(postId: Types.ObjectId): Promise<number> {
   // Derived, never stored: the legacy `likes: Number` drifted from `likedBy: []`.
   return LikeModel.countDocuments({ post: postId })
+}
+
+/**
+ * One query for the whole page, not one per post: which of these post ids has
+ * this viewer liked. Returns undefined for an anonymous viewer so callers can
+ * tell "no session" apart from "liked none of them".
+ */
+async function likedPostIds(
+  postIds: Types.ObjectId[],
+  viewerId?: string,
+): Promise<Set<string> | undefined> {
+  if (!viewerId || postIds.length === 0) return undefined
+  const likes = await LikeModel.find({ user: viewerId, post: { $in: postIds } }).select('post')
+  return new Set(likes.map((like) => like.post.toString()))
 }
 
 export const postService = {
@@ -140,12 +157,14 @@ export const postService = {
     // in a stable, meaningful order rather than whatever the index yields.
     query.sort(term ? { score: { $meta: 'textScore' }, createdAt: -1 } : { createdAt: -1 })
     const posts = await query
+    const liked = await likedPostIds(posts.map((p) => p._id), viewerId)
 
     return Promise.all(
       posts.map(async (p) =>
         toDto(p, await countLikes(p._id), {
           full: false,
           gated: !viewerId,
+          liked: liked?.has(p._id.toString()),
         }),
       ),
     )
@@ -156,7 +175,8 @@ export const postService = {
     if (!post) throw new NotFoundError('Post not found.')
 
     const full = Boolean(viewerId)
-    return toDto(post, await countLikes(post._id), { full, gated: !full })
+    const liked = await likedPostIds([post._id], viewerId)
+    return toDto(post, await countLikes(post._id), { full, gated: !full, liked: liked?.has(post._id.toString()) })
   },
 
   async create(input: CreatePost, authorId: string): Promise<PostDto> {

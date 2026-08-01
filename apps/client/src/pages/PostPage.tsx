@@ -69,7 +69,7 @@ export function PostPage() {
       )}
 
       <div className="flex items-center gap-4 border-t border-[var(--border)] pt-5 text-sm text-[var(--muted-foreground)]">
-        <LikeButton slug={post.slug} likeCount={post.likeCount} />
+        <LikeButton slug={post.slug} likeCount={post.likeCount} liked={post.liked} />
         {isOwner && (
           <>
             <Link to={`/blog/${post.slug}/edit`} className="underline">
