@@ -12,6 +12,8 @@ export type Post = {
   author: { id: string; username: string }
   tags: string[]
   likeCount: number
+  /** This viewer's own like status. Absent for an anonymous viewer. */
+  liked?: boolean
   coverImage?: string
   /** Delivery URL derived server-side from coverImage. Absent when there is no cover. */
   coverUrl?: string

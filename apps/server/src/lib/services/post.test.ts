@@ -85,6 +85,32 @@ describe('postService.list', () => {
     expect(post!.body).toBe('Para one.\n\nPara two.')
     expect(JSON.stringify(post)).not.toContain('Para three')
   })
+
+  it('omits liked for an anonymous reader', async () => {
+    await create()
+    expect((await postService.list())[0]!.liked).toBeUndefined()
+  })
+
+  it('marks liked true for a signed-in reader who liked the post', async () => {
+    const post = await create()
+    const reader = await signUpReader()
+    await LikeModel.create({ user: reader._id, post: new Types.ObjectId(post.id) })
+    expect((await postService.list(reader._id.toString()))[0]!.liked).toBe(true)
+  })
+
+  it('marks liked false for a signed-in reader who has not liked the post', async () => {
+    await create()
+    const reader = await signUpReader()
+    expect((await postService.list(reader._id.toString()))[0]!.liked).toBe(false)
+  })
+
+  it("does not mark liked true from another reader's like", async () => {
+    const post = await create()
+    const otherReader = await signUpReader()
+    await LikeModel.create({ user: otherReader._id, post: new Types.ObjectId(post.id) })
+    const reader = await UserModel.create({ username: 'reader2', email: 'r2@example.com', password: 'x' })
+    expect((await postService.list(reader._id.toString()))[0]!.liked).toBe(false)
+  })
 })
 
 describe('postService.list — search and tag filters', () => {
@@ -224,6 +250,24 @@ describe('postService.getBySlug — THE gating rule (spec §6)', () => {
 
   it('throws NotFoundError for an unknown slug', async () => {
     await expect(postService.getBySlug('nope', undefined)).rejects.toThrow(NotFoundError)
+  })
+
+  it('omits liked for an anonymous reader', async () => {
+    const { slug } = await create()
+    expect((await postService.getBySlug(slug, undefined)).liked).toBeUndefined()
+  })
+
+  it('marks liked true when the viewer has liked the post', async () => {
+    const { id, slug } = await create()
+    const reader = await signUpReader()
+    await LikeModel.create({ user: reader._id, post: new Types.ObjectId(id) })
+    expect((await postService.getBySlug(slug, reader._id.toString())).liked).toBe(true)
+  })
+
+  it('marks liked false when the viewer has not liked the post', async () => {
+    const { slug } = await create()
+    const reader = await signUpReader()
+    expect((await postService.getBySlug(slug, reader._id.toString())).liked).toBe(false)
   })
 })
 
