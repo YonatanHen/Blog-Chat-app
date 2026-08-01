@@ -24,7 +24,7 @@ export type PublicUser = {
 export type PrivateUser = PublicUser & {
   email: string
   hasPassword: boolean
-  oauthProvider: 'google' | 'facebook' | null
+  oauthProvider: 'google' | null
 }
 
 /** MongoServerError code for a unique-index violation. */
@@ -124,7 +124,7 @@ export const userService = {
       ...publicView,
       email: user.email,
       hasPassword: Boolean(user.password),
-      oauthProvider: user.googleId ? 'google' : user.facebookId ? 'facebook' : null,
+      oauthProvider: user.googleId ? 'google' : null,
     }
   },
 
@@ -140,7 +140,7 @@ export const userService = {
     if (input.email !== undefined) {
       // Locked, not merely defaulted: changing it would let the stored email
       // drift from the Google-verified one oauthService.findOrCreate keys on.
-      if (user.googleId || user.facebookId) {
+      if (user.googleId) {
         throw new ValidationError('Invalid input.', {
           email: ["Email is managed by your Google account and can't be changed."],
         })

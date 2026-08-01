@@ -22,12 +22,10 @@ services:
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
-      # OAuth providers, optional and independent. No credentials means no
-      # button on the sign-in page rather than a button that 503s.
+      # OAuth, optional. No credentials means no button on the sign-in page
+      # rather than a button that 503s.
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-      FACEBOOK_APP_ID: ${FACEBOOK_APP_ID:-}
-      FACEBOOK_APP_SECRET: ${FACEBOOK_APP_SECRET:-}
       PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:5173}
     secrets:
       - session_secret

@@ -10,7 +10,7 @@ import { UserModel } from '../../models/user.js'
  * `linkableByEmail` below.
  */
 
-export type OAuthProvider = 'google' | 'facebook'
+export type OAuthProvider = 'google'
 
 export type OAuthProfile = {
   provider: OAuthProvider
@@ -19,9 +19,8 @@ export type OAuthProfile = {
   displayName?: string
 }
 
-const ID_FIELD: Record<OAuthProvider, 'googleId' | 'facebookId'> = {
+const ID_FIELD: Record<OAuthProvider, 'googleId'> = {
   google: 'googleId',
-  facebook: 'facebookId',
 }
 
 /**
@@ -65,7 +64,7 @@ export const oauthService = {
     }
 
     if (!email) {
-      // Facebook can withhold email when the user denies the scope. Without one
+      // Google can withhold email when the user denies the scope. Without one
       // we cannot dedupe or ever contact them, so this is a dead end, not a
       // silent half-account.
       throw new ConflictError(
